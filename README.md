@@ -1,6 +1,6 @@
-# 区统计系统（宝山区统计局业务）
+# 区统计系统
 
-参考 `agent_infini`（InfiniSynapse CLI）的「数据源管理 + 多轮分析」思路，用 Python **本地化实现**的统计分析系统，覆盖宝山区统计局主要专业口径。
+参考 `agent_infini`（InfiniSynapse CLI）的「数据源管理 + 多轮分析」思路，用 Python **本地化实现**的统计分析系统，覆盖区级统计主要专业口径。
 
 ## 重要说明
 - 本项目**不自动执行** `irm https://infinisynapse.cn/cli-install/install.ps1 | iex`。
@@ -17,7 +17,7 @@ python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -e .
 python -m src.cli init
-python -m src.cli ask "2024年宝山区GDP"
+python -m src.cli ask "2024年全区GDP"
 python -m src.cli report
 python -m src.cli web      # 浏览器打开 http://127.0.0.1:5000
 ```
@@ -43,7 +43,7 @@ python -m src.cli web       # 打开 http://127.0.0.1:5000
 src/db.py            本地 SQLite 指标宽表（替代 agent_infini 的 db 管理）
 src/loader.py        CSV/Excel 导入 + 示例数据
 src/stats/core.py    同比/占比/排名/汇总
-src/stats/indicators.py  宝山区各专业指标计算
+src/stats/indicators.py  各统计专业指标计算
 src/stats/query.py   自然语言式查询（本地规则）
 src/report.py        公报/报表生成
 src/web.py           Web 看板

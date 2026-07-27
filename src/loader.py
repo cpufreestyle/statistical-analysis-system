@@ -24,7 +24,7 @@ def load_file(path: str) -> int:
 
 
 def generate_sample_data(year: int = 2024) -> int:
-    """生成宝山区示例统计指标（贴近公开公报量级）。"""
+    """生成示例统计指标（贴近公开公报量级）。"""
     rows: list[IndicatorRow] = [
         # 综合
         IndicatorRow(year=year, category="综合", indicator="地区生产总值", dimension="全区",

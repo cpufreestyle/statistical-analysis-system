@@ -1,7 +1,7 @@
 [project]
 name = "qu-stat-system"
 version = "0.1.0"
-description = "宝山区统计局业务统计分析系统（参考 agent_infini 的本地化实现）"
+description = "区级统计分析系统（参考 agent_infini 的本地化实现）"
 requires-python = ">=3.9"
 dependencies = [
     "pandas>=1.5",

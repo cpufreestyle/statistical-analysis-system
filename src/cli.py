@@ -3,7 +3,7 @@
 用法：
   python -m src.cli init                     # 初始化数据库 + 示例数据
   python -m src.cli load <file.csv>          # 导入数据
-  python -m src.cli ask "2024年宝山区GDP"     # 本地自然语言查询
+  python -m src.cli ask "2024年全区GDP"     # 本地自然语言查询
   python -m src.cli ask "..." --cloud        # 走 InfiniSynapse 云端 AI 分析
   python -m src.cli cloud "分析宝山工业结构"   # 云端多轮分析(需配置开启)
   python -m src.cli report [--year 2024]     # 生成统计公报
@@ -39,7 +39,7 @@ def _do_ask(text: str, use_cloud: bool):
 
 
 def main():
-    p = argparse.ArgumentParser(prog="qu-stat", description="宝山区统计系统")
+    p = argparse.ArgumentParser(prog="qu-stat", description="区统计系统")
     sub = p.add_subparsers(dest="cmd")
 
     sub.add_parser("init", help="初始化数据库并生成示例数据")

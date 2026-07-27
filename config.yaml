@@ -1,12 +1,12 @@
 # 区统计系统 配置
-district: 宝山区
+district: 本区
 year: 2024
 
 # 数据源（参考 agent_infini 的 db 管理，这里用本地 SQLite）
 database:
   url: "sqlite:///data/qu_stats.db"
 
-# 街镇列表（宝山区）
+# 街镇列表（本区）
 towns:
   - 吴淞街道
   - 友谊路街道
