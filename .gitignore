@@ -1,0 +1,16 @@
+# ---- Python ----
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+.pytest_cache/
+
+# ---- 生成的数据 / 运行时产物（非源码，勿提交）----
+data/*.db
+data/indicators_*.csv
+web_server.log
+web_server.err
+
+# ---- 系统 ----
+.DS_Store
+Thumbs.db

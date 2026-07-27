@@ -1,0 +1,33 @@
+# 区统计系统 配置
+district: 宝山区
+year: 2024
+
+# 数据源（参考 agent_infini 的 db 管理，这里用本地 SQLite）
+database:
+  url: "sqlite:///data/qu_stats.db"
+
+# 街镇列表（宝山区）
+towns:
+  - 吴淞街道
+  - 友谊路街道
+  - 张庙街道
+  - 罗店镇
+  - 大场镇
+  - 杨行镇
+  - 月浦镇
+  - 罗泾镇
+  - 顾村镇
+  - 高境镇
+  - 庙行镇
+  - 淞南镇
+  - 宝山城市工业园区
+
+# 是否接入 InfiniSynapse 云端 AI 分析（需 API Key，默认关闭）
+# 启用后，CLI 的 ask --cloud / cloud 子命令会调用 agent_infini 二进制做多轮分析。
+# 注意：外部请求会经系统 HTTP(S)_PROXY（如 127.0.0.1:7897）联网。
+infinisynapse:
+  enabled: false
+  # server: "https://your-server"
+  # api_key: "sk-xxx"
+  # binary_path: "~/.infini/bin/agent_infini.exe"   # 可选，默认自动查找
+  # prefer_language: "zh_CN"

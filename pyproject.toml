@@ -1,0 +1,37 @@
+[project]
+name = "qu-stat-system"
+version = "0.1.0"
+description = "宝山区统计局业务统计分析系统（参考 agent_infini 的本地化实现）"
+requires-python = ">=3.9"
+dependencies = [
+    "pandas>=1.5",
+    "openpyxl>=3.1",
+    "sqlalchemy>=2.0",
+    "pyyaml>=6.0",
+    "flask>=3.0",
+]
+
+[project.scripts]
+qu-stat = "src.cli:main"
+
+# basedpyright / pyright 配置（必须放在 pyproject.toml 的 [tool.basedpyright] 下；
+# report 规则与常规键平铺，不嵌套 [tool.basedpyright.report] 子表）。
+[tool.basedpyright]
+include = ["src"]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.9"
+typeCheckingMode = "standard"
+# 以下多为 SQLAlchemy / pandas / 标准库（argparse、subprocess）类型信息不全导致的
+# “教条式”告警，与宝山统计系统业务逻辑无关，统一关闭。
+reportMissingImports = "warning"
+reportMissingTypeStubs = "none"
+reportExplicitAny = "none"
+reportUnknownMemberType = "none"
+reportUnknownVariableType = "none"
+reportUnknownArgumentType = "none"
+reportUnusedCallResult = "none"
+reportImplicitStringConcatenation = "none"
+reportAny = "none"
+reportDeprecated = "none"
+reportUnusedImport = "none"
