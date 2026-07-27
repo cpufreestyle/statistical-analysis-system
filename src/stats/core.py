@@ -24,17 +24,5 @@ def rank_items(items: Iterable[tuple[str, float]], reverse: bool = True) -> list
     return [(name, val, i + 1) for i, (name, val) in enumerate(ordered)]
 
 
-def summarize(values: list[float]) -> dict[str, object]:
-    if not values:
-        return {"count": 0, "sum": 0.0, "mean": 0.0, "max": 0.0, "min": 0.0}
-    return {
-        "count": len(values),
-        "sum": round(sum(values), 2),
-        "mean": round(sum(values) / len(values), 2),
-        "max": max(values),
-        "min": min(values),
-    }
-
-
 def fmt_pct(v: float | None) -> str:
     return "—" if v is None else f"{v:+.2f}%"

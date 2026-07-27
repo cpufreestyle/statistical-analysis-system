@@ -1,7 +1,6 @@
-"""数据层：用 SQLAlchemy 管理本地 SQLite 统计数据。
+"""数据层：用 SQLAlchemy Core 管理本地 SQLite 指标宽表。
 
-参考 agent_infini 的 `db` 子命令思路，但本地化实现，
-无需云端后端即可运行。
+参考 agent_infini 的 `db` 子命令思路，本地化实现，无需云端后端。
 """
 from __future__ import annotations
 
@@ -10,7 +9,6 @@ import yaml
 from sqlalchemy import (
     create_engine, Column, String, Float, Integer, MetaData, Table,
 )
-from sqlalchemy.orm import sessionmaker, declarative_base
 from typing import TypedDict
 
 
@@ -23,6 +21,7 @@ class IndicatorRow(TypedDict):
     value: float
     unit: str
     note: str
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 CONFIG_PATH = BASE_DIR / "config.yaml"
@@ -41,70 +40,59 @@ else:
     DB_URL = "sqlite:///" + str(BASE_DIR / "data" / "qu_stat.db")
 
 engine = create_engine(DB_URL, future=True)
-SessionLocal = sessionmaker(bind=engine, future=True)
-Base = declarative_base()
-
-
-class Indicator(Base):
-    """指标宽表：一条记录 = 某年某专业某指标某维度的值。"""
-    __tablename__ = "indicators"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    year = Column(Integer, nullable=False, index=True)
-    category = Column(String(32), nullable=False, index=True)   # 工业/贸易/...
-    indicator = Column(String(64), nullable=False, index=True)  # 指标名
-    dimension = Column(String(64), nullable=False, default="全区")  # 街镇/园区
-    value = Column(Float, nullable=False)
-    unit = Column(String(16), default="")
-    note = Column(String(128), default="")
+METADATA = MetaData()
+INDICATORS = Table(
+    "indicators", METADATA,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("year", Integer, nullable=False, index=True),
+    Column("category", String(32), nullable=False, index=True),   # 工业/贸易/...
+    Column("indicator", String(64), nullable=False, index=True),  # 指标名
+    Column("dimension", String(64), nullable=False, default="全区"),  # 街镇/园区
+    Column("value", Float, nullable=False),
+    Column("unit", String(16), default=""),
+    Column("note", String(128), default=""),
+)
 
 
 def init_db() -> None:
     BASE_DIR.joinpath("data").mkdir(exist_ok=True)
-    Base.metadata.create_all(engine)
+    METADATA.create_all(engine)
 
 
 def upsert_indicators(rows: list[IndicatorRow]) -> int:
     """批量写入指标；相同 (year,category,indicator,dimension) 覆盖更新。"""
     init_db()
-    meta = MetaData()
-    meta.reflect(bind=engine)
-    table: Table = meta.tables["indicators"]
     with engine.begin() as conn:
         for r in rows:
-            stmt = table.delete().where(
-                (table.c.year == r["year"])
-                & (table.c.category == r["category"])
-                & (table.c.indicator == r["indicator"])
-                & (table.c.dimension == r["dimension"])
+            conn.execute(
+                INDICATORS.delete().where(
+                    (INDICATORS.c.year == r["year"])
+                    & (INDICATORS.c.category == r["category"])
+                    & (INDICATORS.c.indicator == r["indicator"])
+                    & (INDICATORS.c.dimension == r["dimension"])
+                )
             )
-            conn.execute(stmt)
-            conn.execute(table.insert().values(**r))
+            conn.execute(INDICATORS.insert().values(**r))
     return len(rows)
 
 
 def query_indicators(year: int | None = None, category: str | None = None,
                       indicator: str | None = None,
                       dimension: str | None = None) -> list[IndicatorRow]:
-    """按条件查询指标。使用 Core 表直读，避免 ORM 描述符类型推断问题。"""
+    """按条件查询指标（Core 表直读，避免 ORM 描述符类型推断问题）。"""
     init_db()
-    meta = MetaData()
-    meta.reflect(bind=engine)
-    table: Table = meta.tables["indicators"]
-    stmt = table.select()
+    stmt = INDICATORS.select()
     if year is not None:
-        stmt = stmt.where(table.c.year == year)
+        stmt = stmt.where(INDICATORS.c.year == year)
     if category is not None:
-        stmt = stmt.where(table.c.category == category)
+        stmt = stmt.where(INDICATORS.c.category == category)
     if indicator is not None:
-        stmt = stmt.where(table.c.indicator == indicator)
+        stmt = stmt.where(INDICATORS.c.indicator == indicator)
     if dimension is not None:
-        stmt = stmt.where(table.c.dimension == dimension)
+        stmt = stmt.where(INDICATORS.c.dimension == dimension)
     with engine.connect() as conn:
-        result = conn.execute(stmt)
-        rows: list[IndicatorRow] = []
-        for row in result:
-            m = row._mapping
-            rows.append(IndicatorRow(
+        return [
+            IndicatorRow(
                 year=int(m["year"]),
                 category=str(m["category"]),
                 indicator=str(m["indicator"]),
@@ -112,5 +100,6 @@ def query_indicators(year: int | None = None, category: str | None = None,
                 value=float(m["value"]),
                 unit=str(m["unit"]),
                 note=str(m["note"]),
-            ))
-        return rows
+            )
+            for m in (row._mapping for row in conn.execute(stmt))
+        ]
