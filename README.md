@@ -22,6 +22,22 @@ python -m src.cli report
 python -m src.cli web      # 浏览器打开 http://127.0.0.1:5000
 ```
 
+## 从 Gitee 克隆
+```powershell
+git clone https://gitee.com/cpufreestyle/qu-stat-system.git
+cd qu-stat-system
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -e .
+python -m src.cli init      # 生成示例数据并建库
+python -m src.cli web       # 打开 http://127.0.0.1:5000
+```
+
+## 可选：接入云端 AI 解读
+`config.yaml` 的 `infinisynapse` 填入 `server` / `api_key` 并设 `enabled: true` 后，
+可用 `ask --cloud`、`cloud`、`report --cloud` 调用 `agent_infini` 做多轮分析
+（需联网，走系统 HTTP(S)_PROXY）。
+
 ## 目录结构
 ```
 src/db.py            本地 SQLite 指标宽表（替代 agent_infini 的 db 管理）
