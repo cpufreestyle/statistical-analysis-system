@@ -13,7 +13,7 @@
 
 ## 安装与运行（使用项目 .venv）
 ```powershell
-cd "d:/ai sheare/repo/区统计系统"
+cd "d:/ai sheare/repo/统计分析系统"
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -e .
@@ -25,8 +25,8 @@ python -m src.cli web      # 浏览器打开 http://127.0.0.1:5000
 
 ## 从 Gitee 克隆
 ```powershell
-git clone https://gitee.com/cpufreestyle/qu-stat-system.git
-cd qu-stat-system
+git clone https://gitee.com/cpufreestyle/statistical-analysis-system.git
+cd statistical-analysis-system
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -e .
