@@ -16,6 +16,7 @@ import argparse
 import json
 from src import loader
 from src.stats import query as nlq
+from src.stats import custom as cust
 from src import report
 
 
@@ -57,6 +58,11 @@ def main():
                            help="追加 InfiniSynapse 云端 AI 解读")
     sp_export = sub.add_parser("export", help="导出 CSV")
     sp_export.add_argument("--year", type=int, default=2024)
+    sp_custom = sub.add_parser("custom", help="自定义分析（list / run <名称>）")
+    sp_custom.add_argument("action", nargs="?", default="list",
+                           choices=["list", "run"])
+    sp_custom.add_argument("name", nargs="?", default=None)
+    sp_custom.add_argument("--year", type=int, default=2024)
     sub.add_parser("web", help="启动 Web 看板")
 
     args = p.parse_args()
@@ -77,6 +83,20 @@ def main():
         path = f"data/indicators_{args.year}.csv"
         report.export_csv(args.year, path)
         print(f"已导出到 {path}")
+    elif args.cmd == "custom":
+        if args.action == "list":
+            items = cust.load_custom()
+            if not items:
+                print("暂无自定义分析，可在 custom_analysis.yaml 中新增。")
+            for a in items:
+                print(f"- {a.get('name')}：{a.get('description', '')}")
+        elif args.action == "run" and args.name:
+            a = next((x for x in cust.load_custom() if x.get("name") == args.name), None)
+            if not a:
+                print(f"未找到自定义分析：{args.name}")
+            else:
+                print(json.dumps(cust.run_custom(a, args.year),
+                                 ensure_ascii=False, indent=2))
     elif args.cmd == "web":
         from src.web import app
         app.run(host="127.0.0.1", port=5000, debug=True)

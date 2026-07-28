@@ -38,14 +38,41 @@ python -m src.cli web       # 打开 http://127.0.0.1:5000
 可用 `ask --cloud`、`cloud`、`report --cloud` 调用 `agent_infini` 做多轮分析
 （需联网，走系统 HTTP(S)_PROXY）。
 
+## 自定义分析（无需改代码）
+在 `custom_analysis.yaml` 中声明分析项，用**已有指标**做任意公式计算。每项含：
+- `name` 分析名称、`unit` 单位、`description` 说明
+- `variables`：变量名 -> `[专业, 指标, 维度(可省略，默认"全区")]`
+- `expr`：表达式，可用变量名及 `min/max/abs/round/sum`
+- `compare`：是否计算同比(true/false)
+
+引擎在**受限命名空间**内安全求值（仅放行少量数学内置，杜绝任意代码执行）：
+```yaml
+- name: 工业占GDP比重
+  unit: "%"
+  variables:
+    industry: [工业, 规模以上工业总产值, 全区]
+    gdp: [综合, 地区生产总值, 全区]
+  expr: "industry / gdp * 100"
+  compare: true
+```
+
+使用方式：
+```powershell
+python -m src.cli custom list                 # 列出全部自定义分析
+python -m src.cli custom run "工业占GDP比重"     # 运行指定分析
+```
+Web 看板「自定义分析」区块支持下拉运行，并可在线「新增」分析（自动写入 `custom_analysis.yaml`）。
+
 ## 目录结构
 ```
 src/db.py            本地 SQLite 指标宽表（替代 agent_infini 的 db 管理）
 src/loader.py        CSV/Excel 导入 + 示例数据
 src/stats/core.py    同比/占比/排名/汇总
 src/stats/indicators.py  各统计专业指标计算
-src/stats/query.py   自然语言式查询（本地规则）
+src/stats/query.py   自然语言式查询（本地规则，含自定义分析路由）
+src/stats/custom.py   自定义分析引擎（读取 custom_analysis.yaml）
 src/report.py        公报/报表生成
-src/web.py           Web 看板
-src/cli.py           命令行入口
+src/web.py           Web 看板（含自定义分析区块）
+src/cli.py           命令行入口（含 custom 子命令）
+custom_analysis.yaml  自定义分析配置（用户可自由增删）
 ```

@@ -13,6 +13,7 @@ import re
 from typing import Callable
 
 from src.stats import indicators as ind
+from src.stats import custom as cust
 
 
 # 每个关键词 -> (输出键, 单参数统计函数)。gdp 需要两年对比，用 lambda 包一层。
@@ -40,6 +41,10 @@ def parse_year(text: str, default: int = 2024) -> int:
 
 def ask(text: str, default_year: int = 2024) -> dict[str, object]:
     year = parse_year(text, default_year)
+    # 自定义分析优先：命中名称即按用户定义公式求值
+    for a in cust.load_custom():
+        if a.get("name", "") and a.get("name", "") in text:
+            return {"年份": year, a.get("name", ""): cust.run_custom(a, year)}
     for kw, (key, fn) in CATEGORY_MAP.items():
         if kw in text:
             return {"年份": year, key: fn(year)}

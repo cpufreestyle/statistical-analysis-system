@@ -11,6 +11,7 @@ from src import report
 from src.db import query_indicators
 from src.stats import indicators as ind
 from src.stats import query as nlq
+from src.stats import custom as cust
 
 app = Flask(__name__)
 
@@ -122,6 +123,23 @@ th{background:#f1f5f9}
   </section>
 
   <section>
+    <h2>自定义分析</h2>
+    <div class=bar>
+      <select id=cust><option value="">选择分析…</option></select>
+      <button onclick=runCustom()>运行</button>
+      <button class=ghost onclick=showAdd()>新增</button>
+    </div>
+    <pre id=custOut>选择并运行一个自定义分析。</pre>
+    <div id=custAdd style="display:none;margin-top:.8rem;border-top:1px dashed #ccc;padding-top:.8rem">
+      <div class=bar><input id=cname placeholder="名称"><input id=cunit placeholder="单位"></div>
+      <input id=cdesc placeholder="说明" style="width:100%;margin:.4rem 0">
+      <textarea id=cvars placeholder='变量(JSON)，如 {"x":["工业","规模以上工业总产值","全区"],"y":["综合","地区生产总值","全区"]}' style="width:100%;height:56px"></textarea>
+      <input id=cexpr placeholder="表达式，如 x / y * 100" style="width:100%;margin:.4rem 0">
+      <div class=bar><button onclick=addCustom()>保存</button><span id=caddMsg style="color:var(--mut);font-size:.8rem"></span></div>
+    </div>
+  </section>
+
+  <section>
     <h2>统计公报</h2>
     <pre id=bulletin></pre>
     <button class=ghost onclick=aiInterpret()>AI 解读（云端）</button>
@@ -134,7 +152,37 @@ const Y = () => document.getElementById('year').value;
 const setStatus = t => document.getElementById('status').textContent = t;
 
 async function loadAll(){
-  loadOverview(); loadTable(); loadBulletin();
+  loadOverview(); loadTable(); loadBulletin(); loadCustom();
+}
+
+async function loadCustom(){
+  const r = await fetch('/api/custom'); const list = await r.json();
+  document.getElementById('cust').innerHTML = '<option value="">选择分析…</option>' +
+    list.map(c=>`<option value="${c.name}">${c.name}（${c.description||''}）</option>`).join('');
+}
+async function runCustom(){
+  const name = document.getElementById('cust').value; if(!name) return;
+  const el = document.getElementById('custOut'); el.textContent='运行中…';
+  const r = await fetch('/api/custom?name='+encodeURIComponent(name)+'&year='+Y());
+  el.textContent = await r.text();
+}
+function showAdd(){ const d=document.getElementById('custAdd'); d.style.display = d.style.display==='none'?'block':'none'; }
+async function addCustom(){
+  const payload = {
+    name: document.getElementById('cname').value,
+    unit: document.getElementById('cunit').value,
+    description: document.getElementById('cdesc').value,
+    variables: JSON.parse(document.getElementById('cvars').value||'{}'),
+    expr: document.getElementById('cexpr').value,
+    compare: false,
+  };
+  const el = document.getElementById('caddMsg'); el.textContent='保存中…';
+  try{
+    const r = await fetch('/api/custom', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+    const d = await r.json();
+    el.textContent = d.ok ? '已保存，列表已刷新' : ('失败：'+(d.error||''));
+    if(d.ok) loadCustom();
+  }catch(e){ el.textContent='请求失败：'+e; }
 }
 
 async function loadOverview(){
@@ -237,6 +285,28 @@ def api_report():
     year = int(request.args.get("year", 2024))
     use_cloud = request.args.get("cloud", "0") == "1"
     return report.generate_report(year, use_cloud=use_cloud)
+
+
+@app.route("/api/custom", methods=["GET", "POST"])
+def api_custom():
+    if request.method == "POST":
+        data = request.get_json(force=True) or {}
+        ok, err = cust.add_custom(data)
+        if not ok:
+            return jsonify({"ok": False, "error": err}), 400
+        return jsonify({"ok": True})
+    name = request.args.get("name")
+    year = int(request.args.get("year", 2024))
+    if not name:
+        return jsonify([
+            {"name": a.get("name", ""), "description": a.get("description", ""),
+             "unit": a.get("unit", "")}
+            for a in cust.load_custom()
+        ])
+    a = next((x for x in cust.load_custom() if x.get("name") == name), None)
+    if a is None:
+        return jsonify({"error": f"未找到自定义分析：{name}"}), 404
+    return jsonify(cust.run_custom(a, year))
 
 
 if __name__ == "__main__":
