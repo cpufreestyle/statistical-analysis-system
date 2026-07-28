@@ -469,4 +469,6 @@ def api_custom():
 
 
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5000, debug=True)
+    # debug=True 会注入 Werkzeug 调试工具栏（依赖 getBoundingClientRect），
+    # 在嵌入式 WebView 中会触发 null 引用报错，故用 debug=False。
+    app.run(host="127.0.0.1", port=5000, debug=False)
