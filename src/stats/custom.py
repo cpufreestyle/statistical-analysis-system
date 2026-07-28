@@ -4,7 +4,7 @@
   - name        分析名称
   - unit        结果单位
   - description 说明
-  - variables   变量名 -> [专业, 指标, 维度(可省略，默认"全区")]
+  - variables   变量名 -> [专业, 指标, 维度(可省略，默认"全国")]
   - expr        表达式，可用变量名及 min/max/abs/round/sum
   - compare     是否计算同比(true/false)
 
@@ -52,7 +52,7 @@ def _save(items: list[CustomAnalysis]) -> None:
 
 
 def _var_value(spec: list[str], year: int) -> float | None:
-    dim = spec[2] if len(spec) > 2 else "全区"
+    dim = spec[2] if len(spec) > 2 else "全国"
     rows = query_indicators(year=year, category=spec[0],
                             indicator=spec[1], dimension=dim)
     return rows[0]["value"] if rows else None

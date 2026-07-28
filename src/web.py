@@ -8,7 +8,9 @@ from __future__ import annotations
 from flask import Flask, request, jsonify
 
 from src import report
-from src.db import query_indicators
+from src.db import query_indicators, db_info, init_db
+from src import knowledge as kb
+from src import collect as collector
 from src.stats import indicators as ind
 from src.stats import query as nlq
 from src.stats import custom as cust
@@ -101,7 +103,7 @@ th{background:#f1f5f9}
   <section>
     <h2>自然语言查询</h2>
     <div class=bar>
-      <input id=q placeholder='如：2024年全区GDP；各街镇工业排名' style="width:70%">
+      <input id=q placeholder='如：2024年全国GDP；各省份工业排名' style="width:70%">
       <button onclick=ask()>分析</button>
       <button class=ghost onclick="ask(true)">云端解读</button>
     </div>
@@ -133,10 +135,45 @@ th{background:#f1f5f9}
     <div id=custAdd style="display:none;margin-top:.8rem;border-top:1px dashed #ccc;padding-top:.8rem">
       <div class=bar><input id=cname placeholder="名称"><input id=cunit placeholder="单位"></div>
       <input id=cdesc placeholder="说明" style="width:100%;margin:.4rem 0">
-      <textarea id=cvars placeholder='变量(JSON)，如 {"x":["工业","规模以上工业总产值","全区"],"y":["综合","地区生产总值","全区"]}' style="width:100%;height:56px"></textarea>
+      <textarea id=cvars placeholder='变量(JSON)，如 {"x":["工业","规模以上工业总产值","全国"],"y":["综合","地区生产总值","全国"]}' style="width:100%;height:56px"></textarea>
       <input id=cexpr placeholder="表达式，如 x / y * 100" style="width:100%;margin:.4rem 0">
       <div class=bar><button onclick=addCustom()>保存</button><span id=caddMsg style="color:var(--mut);font-size:.8rem"></span></div>
     </div>
+  </section>
+
+  <section>
+    <h2>知识库 &amp; 数据库</h2>
+    <div id=dbInfo class=sub style="margin-bottom:.6rem"></div>
+    <div class=bar>
+      <input id=ksearch placeholder="搜索知识（如：GDP 口径、工业统计）" style="width:60%">
+      <button onclick=searchKnowledge()>搜索</button>
+      <button class=ghost onclick=loadKnowledge()>全部</button>
+    </div>
+    <div id=klist style="font-size:.85rem;max-height:320px;overflow:auto"></div>
+    <div class=bar style="margin-top:.8rem">
+      <button class=ghost onclick=showKAdd()>新增知识</button>
+    </div>
+    <div id=kAdd style="display:none;margin-top:.8rem;border-top:1px dashed #ccc;padding-top:.8rem">
+      <div class=bar><input id=ktitle placeholder="标题"><input id=kcat2 placeholder="分类(默认通用)"><input id=ktags placeholder="标签(逗号分隔)"></div>
+      <textarea id=kcontent placeholder="正文 / 口径说明" style="width:100%;height:70px"></textarea>
+      <input id=ksource placeholder="来源（可选，如：统计制度方法）" style="width:100%;margin:.4rem 0">
+      <div class=bar><button onclick=addKnowledge()>保存</button><span id=kaddMsg style="color:var(--mut);font-size:.8rem"></span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>数据收集（全网开放数据）</h2>
+    <div class=bar>
+      <label>数据源</label>
+      <select id=csrc>
+        <option value="worldbank">世界银行（全国）</option>
+        <option value="global">世界银行（全球对比）</option>
+      </select>
+      <label>年份</label><input id=cyear type=number value=2024 style="width:5rem">
+      <input id=cinds placeholder="指标别名，如 gdp,population,cpi（可空=全部）" style="width:38%">
+      <button onclick=collectData()>从网络采集</button>
+    </div>
+    <div id=collectMsg class=sub style="margin-top:.5rem"></div>
   </section>
 
   <section>
@@ -153,6 +190,67 @@ const setStatus = t => document.getElementById('status').textContent = t;
 
 async function loadAll(){
   loadOverview(); loadTable(); loadBulletin(); loadCustom();
+  loadDb(); loadKnowledge();
+}
+
+async function loadDb(){
+  try{
+    const r = await fetch('/api/db'); const d = await r.json();
+    document.getElementById('dbInfo').textContent =
+      `数据库：${d.path} · 引擎 ${d.engine} · 指标 ${d.indicator_rows} 条 · 知识 ${d.knowledge_rows} 条 · ${(d.size_bytes/1024).toFixed(1)} KB`;
+  }catch(e){ document.getElementById('dbInfo').textContent = '数据库状态读取失败：'+e; }
+}
+async function loadKnowledge(){
+  const r = await fetch('/api/knowledge'); const list = await r.json();
+  renderKnowledge(list);
+}
+async function searchKnowledge(){
+  const q = document.getElementById('ksearch').value;
+  const r = await fetch('/api/knowledge?q='+encodeURIComponent(q));
+  renderKnowledge(await r.json());
+}
+function renderKnowledge(list){
+  const el = document.getElementById('klist');
+  if(!list.length){ el.innerHTML='（暂无知识，可点击「新增知识」，或 CLI 执行 `db seed`）'; return; }
+  el.innerHTML = list.map(k=>`<div style="border-bottom:1px solid #eee;padding:.5rem 0">
+    <div><b>${k.category} · ${k.title}</b>${k.source?('（'+k.source+'）'):''}
+      <button class=ghost style="padding:.15rem .5rem;font-size:.72rem" onclick="delKnowledge(${k.id})">删除</button></div>
+    <div style="color:var(--mut);font-size:.8rem;margin-top:.2rem">${k.content}</div>
+    ${k.tags?('<div style="color:#94a3b8;font-size:.72rem;margin-top:.2rem">标签：'+k.tags+'</div>'):''}
+  </div>`).join('');
+}
+function showKAdd(){ const d=document.getElementById('kAdd'); d.style.display=d.style.display==='none'?'block':'none'; }
+async function addKnowledge(){
+  const payload={ title:document.getElementById('ktitle').value,
+    category:document.getElementById('kcat2').value||'通用',
+    tags:document.getElementById('ktags').value,
+    content:document.getElementById('kcontent').value,
+    source:document.getElementById('ksource').value };
+  const el=document.getElementById('kaddMsg'); el.textContent='保存中…';
+  if(!payload.title||!payload.content){ el.textContent='标题与正文必填'; return; }
+  try{
+    const r=await fetch('/api/knowledge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const d=await r.json(); el.textContent=d.ok?'已保存，列表已刷新':'失败：'+(d.error||'');
+    if(d.ok) loadKnowledge();
+  }catch(e){ el.textContent='请求失败：'+e; }
+}
+async function delKnowledge(id){
+  if(!confirm('确认删除该知识？')) return;
+  const r=await fetch('/api/knowledge?id='+id,{method:'DELETE'});
+  const d=await r.json(); if(d.ok) loadKnowledge();
+}
+
+async function collectData(){
+  const el=document.getElementById('collectMsg'); el.textContent='采集中（联网，请稍候）…';
+  const payload={ source: document.getElementById('csrc').value,
+    year: document.getElementById('cyear').value || null,
+    indicators: document.getElementById('cinds').value || null };
+  try{
+    const r=await fetch('/api/collect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const d=await r.json();
+    if(d.ok){ el.textContent=`已写入 ${d.count} 条（来源见指标表 note）`; loadOverview(); loadTable(); }
+    else el.textContent='失败：'+(d.error||'');
+  }catch(e){ el.textContent='请求失败：'+e; }
 }
 
 async function loadCustom(){
@@ -254,6 +352,67 @@ def index() -> str:
 def api_overview():
     year = int(request.args.get("year", 2024))
     return jsonify(_overview(year))
+
+
+@app.route("/api/db")
+def api_db():
+    from src.db import init_db
+    init_db()
+    return jsonify(db_info())
+
+
+@app.route("/api/knowledge", methods=["GET", "POST", "DELETE"])
+def api_knowledge():
+    init_db()
+    if request.method == "POST":
+        d = request.get_json(force=True) or {}
+        title = str(d.get("title", "")).strip()
+        content = str(d.get("content", "")).strip()
+        if not title or not content:
+            return jsonify({"ok": False, "error": "title 与 content 必填"}), 400
+        kid = kb.add_knowledge(
+            title, str(d.get("category", "通用")) or "通用",
+            str(d.get("tags", "")), content, str(d.get("source", "")),
+        )
+        return jsonify({"ok": True, "id": kid})
+    if request.method == "DELETE":
+        kid = request.args.get("id", type=int)
+        if kid is None:
+            return jsonify({"ok": False, "error": "缺少 id"}), 400
+        return jsonify({"ok": kb.delete_knowledge(kid)})
+    q = (request.args.get("q") or "").strip()
+    cat = request.args.get("category")
+    rows = kb.search_knowledge(q) if q else kb.list_knowledge(cat)
+    return jsonify(rows)
+
+
+@app.route("/api/collect", methods=["POST"])
+def api_collect():
+    init_db()
+    d = request.get_json(force=True) or {}
+    source = str(d.get("source", "worldbank"))
+    year = d.get("year")
+    country = d.get("country")
+    indicators = d.get("indicators")
+    countries = d.get("countries")
+    inds = (
+        indicators.split(",") if isinstance(indicators, str) and indicators
+        else (indicators if isinstance(indicators, list) else None)
+    )
+    ctry = (
+        countries.split(",") if isinstance(countries, str) and countries
+        else (countries if isinstance(countries, list) else None)
+    )
+    try:
+        if source == "global":
+            n = collector.collect_global(year=year, indicators=inds,
+                                         countries=ctry)
+        else:
+            n = collector.collect_worldbank(year=year, country=country,
+                                            indicators=inds)
+        return jsonify({"ok": True, "count": n})
+    except collector.CollectError as e:
+        return jsonify({"ok": False, "error": str(e)}), 502
 
 
 @app.route("/api/indicators")

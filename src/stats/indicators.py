@@ -9,7 +9,7 @@ from src.db import query_indicators
 from src.stats.core import yoy, share, rank_items, fmt_pct
 
 
-def _get(year: int, category: str, indicator: str, dimension: str = "全区") -> float | None:
+def _get(year: int, category: str, indicator: str, dimension: str = "全国") -> float | None:
     rows = query_indicators(year=year, category=category,
                             indicator=indicator, dimension=dimension)
     return rows[0]["value"] if rows else None

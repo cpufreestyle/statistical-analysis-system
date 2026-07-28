@@ -5,9 +5,11 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
 import yaml
 from sqlalchemy import (
-    create_engine, Column, String, Float, Integer, MetaData, Table,
+    create_engine, Column, String, Float, Integer, MetaData, Table, Text,
+    func, select,
 )
 from typing import TypedDict
 
@@ -47,10 +49,22 @@ INDICATORS = Table(
     Column("year", Integer, nullable=False, index=True),
     Column("category", String(32), nullable=False, index=True),   # 工业/贸易/...
     Column("indicator", String(64), nullable=False, index=True),  # 指标名
-    Column("dimension", String(64), nullable=False, default="全区"),  # 街镇/园区
+    Column("dimension", String(64), nullable=False, default="全国"),  # 省份/国家/全国
     Column("value", Float, nullable=False),
     Column("unit", String(16), default=""),
     Column("note", String(128), default=""),
+)
+
+# 知识库表：存放指标口径、统计定义、政策与方法论说明等结构化文档。
+# 与 indicators 共用同一 SQLite 库，便于「数据 + 知识」本地一体化。
+KNOWLEDGE = Table(
+    "knowledge", METADATA,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("title", String(128), nullable=False),
+    Column("category", String(32), nullable=False, default="通用", index=True),
+    Column("tags", String(128), default=""),          # 逗号分隔的关键词，供检索
+    Column("content", Text, nullable=False),
+    Column("source", String(64), default=""),         # 出处（如：统计公报/制度方法）
 )
 
 
@@ -103,3 +117,30 @@ def query_indicators(year: int | None = None, category: str | None = None,
             )
             for m in (row._mapping for row in conn.execute(stmt))
         ]
+
+
+def count_indicators() -> int:
+    """指标宽表当前行数（用于 db info 展示）。"""
+    init_db()
+    with engine.connect() as conn:
+        return int(conn.execute(select(func.count()).select_from(INDICATORS)).scalar() or 0)
+
+
+def db_info() -> dict[str, object]:
+    """返回数据库运行状态概览（路径、引擎、大小、各表行数）。"""
+    init_db()
+    # 解析 sqlite 文件路径（相对 url 已在前处理为绝对）
+    path = DB_URL[len("sqlite:///"):] if DB_URL.startswith("sqlite:///") else ""
+    size = os.path.getsize(path) if path and os.path.exists(path) else 0
+    with engine.connect() as conn:
+        kcount = int(conn.execute(select(func.count()).select_from(KNOWLEDGE)).scalar() or 0)
+    return {
+        "url": DB_URL,
+        "path": path,
+        "exists": bool(path and os.path.exists(path)),
+        "size_bytes": size,
+        "engine": engine.dialect.name,
+        "tables": ["indicators", "knowledge"],
+        "indicator_rows": count_indicators(),
+        "knowledge_rows": kcount,
+    }

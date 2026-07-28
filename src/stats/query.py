@@ -14,6 +14,7 @@ from typing import Callable
 
 from src.stats import indicators as ind
 from src.stats import custom as cust
+from src import knowledge
 
 
 # 每个关键词 -> (输出键, 单参数统计函数)。gdp 需要两年对比，用 lambda 包一层。
@@ -39,8 +40,17 @@ def parse_year(text: str, default: int = 2024) -> int:
     return int(m.group(1)) if m else default
 
 
-def ask(text: str, default_year: int = 2024) -> dict[str, object]:
+def ask(text: str, default_year: int = 2024, with_knowledge: bool = True) -> dict[str, object]:
     year = parse_year(text, default_year)
+    result = _ask_core(text, year)
+    if with_knowledge:
+        ctx = knowledge.retrieve_context(text)
+        if ctx:
+            result["知识库参考"] = ctx
+    return result
+
+
+def _ask_core(text: str, year: int) -> dict[str, object]:
     # 自定义分析优先：命中名称即按用户定义公式求值
     for a in cust.load_custom():
         if a.get("name", "") and a.get("name", "") in text:

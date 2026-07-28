@@ -1,26 +1,70 @@
-# 区统计系统 配置
-district: 本区
+# 全国统计系统 配置
+region: 全国
+country: CN
 year: 2024
 
 # 数据源（参考 agent_infini 的 db 管理，这里用本地 SQLite）
 database:
   url: "sqlite:///data/qu_stats.db"
 
-# 街镇列表（本区）
-towns:
-  - 吴淞街道
-  - 友谊路街道
-  - 张庙街道
-  - 罗店镇
-  - 大场镇
-  - 杨行镇
-  - 月浦镇
-  - 罗泾镇
-  - 顾村镇
-  - 高境镇
-  - 庙行镇
-  - 淞南镇
-  - 宝山城市工业园区
+# 省级行政区列表（用于分省份口径；全网采集可填充分省数据）
+provinces:
+  - 北京市
+  - 天津市
+  - 河北省
+  - 山西省
+  - 内蒙古自治区
+  - 辽宁省
+  - 吉林省
+  - 黑龙江省
+  - 上海市
+  - 江苏省
+  - 浙江省
+  - 安徽省
+  - 福建省
+  - 江西省
+  - 山东省
+  - 河南省
+  - 湖北省
+  - 湖南省
+  - 广东省
+  - 广西壮族自治区
+  - 海南省
+  - 重庆市
+  - 四川省
+  - 贵州省
+  - 云南省
+  - 西藏自治区
+  - 陕西省
+  - 甘肃省
+  - 青海省
+  - 宁夏回族自治区
+  - 新疆维吾尔自治区
+  - 香港特别行政区
+  - 澳门特别行政区
+  - 台湾省
+
+# 全网数据采集（公开、无需鉴权的开放数据源；尊重速率限制与 robots）
+collection:
+  default_source: worldbank
+  country: CHN
+  year: 2024
+  rate_limit_sleep: 0.5          # 每次请求间隔(秒)，避免给数据源压力
+  sources:
+    worldbank:
+      api: "https://api.worldbank.org/v2"
+      # 默认抓取的世界银行指标（code -> 中文名）；可用 CLI --indicators 覆盖
+      indicators:
+        NY.GDP.MKTP.CD: 国内生产总值(GDP)
+        NY.GDP.MKTP.KD.ZG: GDP增长率
+        NY.GDP.PCAP.CD: 人均GDP
+        SP.POP.TOTL: 总人口
+        SP.DYN.LE00.IN: 预期寿命
+        SL.UEM.TOTL.ZS: 失业率
+        FP.CPI.TOTL.ZG: 通货膨胀率(CPI)
+        NE.EXP.GNFS.CD: 货物服务出口总额
+        NE.IMP.GNFS.CD: 货物服务进口总额
+        NV.IND.TOTL.CD: 工业增加值
 
 # 是否接入 InfiniSynapse 云端 AI 分析（需 API Key，默认关闭）
 # 启用后，CLI 的 ask --cloud / cloud 子命令会调用 agent_infini 二进制做多轮分析。

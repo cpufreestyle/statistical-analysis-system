@@ -14,8 +14,8 @@
   unit: "%"
   description: 规上工业总产值 / 地区生产总值
   variables:
-    industry: [工业, 规模以上工业总产值, 全区]
-    gdp: [综合, 地区生产总值, 全区]
+    industry: [工业, 规模以上工业总产值, 全国]
+    gdp: [综合, 地区生产总值, 全国]
   expr: "industry / gdp * 100"
   compare: true
 
@@ -23,7 +23,7 @@
   unit: ""
   description: 固定资产投资总额 / 地区生产总值
   variables:
-    inv: [投资, 固定资产投资总额, 全区]
-    gdp: [综合, 地区生产总值, 全区]
+    inv: [投资, 固定资产投资总额, 全国]
+    gdp: [综合, 地区生产总值, 全国]
   expr: "inv / gdp"
   compare: false

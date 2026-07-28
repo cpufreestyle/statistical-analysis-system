@@ -6,6 +6,7 @@ from typing import cast
 
 from src.stats import indicators as ind
 from src.db import query_indicators
+from src import knowledge
 
 
 def generate_bulletin(year: int) -> str:
@@ -16,7 +17,7 @@ def generate_bulletin(year: int) -> str:
     pop = ind.population_stats(year)
 
     lines = [
-        f"{year}年{'全区'}国民经济和社会发展统计公报（摘要）",
+        f"{year}年{'全国'}国民经济和社会发展统计公报（摘要）",
         "=" * 40,
         f"一、综合：地区生产总值 {gdp['数值(亿元)']} 亿元，同比 {gdp['同比']}。",
         f"二、工业：规上工业总产值 {indus['规上工业总产值(亿元)']} 亿元，"
@@ -28,6 +29,20 @@ def generate_bulletin(year: int) -> str:
         f"五、人口：常住人口 {pop['常住人口(万人)']} 万人，"
         f"居民人均可支配收入 {pop['居民人均可支配收入(元)']} 元。",
     ]
+    # 附：本地知识库中与本年度口径相关的条目（离线可用，无需联网）
+    related = knowledge.search_knowledge(
+        "GDP 工业 贸易 投资 人口 消费品零售 固定资产", limit=3
+    )
+    if related:
+        lines.append("")
+        lines.append("附：相关统计口径（来自本地知识库）")
+        lines.append("-" * 40)
+        for k in related:
+            head = f"· {k['title']}"
+            if k["source"]:
+                head += f"（{k['source']}）"
+            lines.append(head)
+            lines.append(f"  {k['content']}")
     return "\n".join(lines)
 
 
@@ -66,9 +81,16 @@ def generate_report(year: int, use_cloud: bool = False) -> str:
         az = get_analyzer()
         if az is None:
             return bulletin + "\n\n[注] 云端分析未启用，仅输出本地统计公报。"
+        # 召回本地知识库作为上下文，让 AI 解读紧扣本区统计口径
+        kb_ctx = knowledge.retrieve_context(bulletin, limit=5)
+        knowledge_block = (
+            "\n\n【本地知识库参考口径】\n" + kb_ctx + "\n"
+            if kb_ctx else ""
+        )
         prompt = (
-            "你是资深统计分析师。请基于以下全区统计公报，提炼 3-5 条经济亮点，"
-            "并指出 1-2 个需关注的结构性问题与建议：\n\n" + bulletin
+            "你是资深统计分析师。请基于以下全国统计公报与统计口径说明，"
+            "提炼 3-5 条经济亮点，并指出 1-2 个需关注的结构性问题与建议：\n\n"
+            + bulletin + knowledge_block
         )
         out = az.analyze(prompt)
         interpretation = _extract_cloud_text(out.get("result"))

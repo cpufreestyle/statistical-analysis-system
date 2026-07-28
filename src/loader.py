@@ -24,41 +24,44 @@ def load_file(path: str) -> int:
 
 
 def generate_sample_data(year: int = 2024) -> int:
-    """生成示例统计指标（贴近公开公报量级）。"""
+    """生成全国口径的示例统计指标（量级贴近公开公报，仅作离线演示）。
+
+    维度统一为「全国」；如需分省份/分国家数据，请用 `collect` 从网络采集。
+    """
     rows: list[IndicatorRow] = [
         # 综合
-        IndicatorRow(year=year, category="综合", indicator="地区生产总值", dimension="全区",
-                     value=2110.57, unit="亿元", note="示例值，贴近2024公报量级"),
-        IndicatorRow(year=year - 1, category="综合", indicator="地区生产总值", dimension="全区",
-                     value=2010.0, unit="亿元", note="上年基数"),
+        IndicatorRow(year=year, category="综合", indicator="地区生产总值", dimension="全国",
+                     value=1349080.0, unit="亿元", note="示例值，贴近2024全国公报量级"),
+        IndicatorRow(year=year - 1, category="综合", indicator="地区生产总值", dimension="全国",
+                     value=1294272.0, unit="亿元", note="上年基数（示例）"),
         # 工业
-        IndicatorRow(year=year, category="工业", indicator="规模以上工业总产值", dimension="全区",
-                     value=2600.0, unit="亿元", note="示例"),
-        IndicatorRow(year=year, category="工业", indicator="规模以上工业增加值", dimension="全区",
-                     value=620.0, unit="亿元", note="示例"),
+        IndicatorRow(year=year, category="工业", indicator="规模以上工业总产值", dimension="全国",
+                     value=1400000.0, unit="亿元", note="示例"),
+        IndicatorRow(year=year, category="工业", indicator="规模以上工业增加值", dimension="全国",
+                     value=400000.0, unit="亿元", note="示例"),
         # 贸易
-        IndicatorRow(year=year, category="贸易", indicator="社会消费品零售总额", dimension="全区",
-                     value=944.14, unit="亿元", note="示例"),
-        IndicatorRow(year=year, category="贸易", indicator="限额以上商品销售额", dimension="全区",
-                     value=9906.85, unit="亿元", note="示例"),
+        IndicatorRow(year=year, category="贸易", indicator="社会消费品零售总额", dimension="全国",
+                     value=487000.0, unit="亿元", note="示例"),
+        IndicatorRow(year=year, category="贸易", indicator="限额以上商品销售额", dimension="全国",
+                     value=500000.0, unit="亿元", note="示例"),
         # 投资
-        IndicatorRow(year=year, category="投资", indicator="固定资产投资总额", dimension="全区",
-                     value=578.33, unit="亿元", note="示例"),
-        IndicatorRow(year=year, category="投资", indicator="第二产业投资", dimension="全区",
-                     value=122.83, unit="亿元", note="示例"),
-        IndicatorRow(year=year, category="投资", indicator="第三产业投资", dimension="全区",
-                     value=455.46, unit="亿元", note="示例"),
+        IndicatorRow(year=year, category="投资", indicator="固定资产投资总额", dimension="全国",
+                     value=514000.0, unit="亿元", note="示例"),
+        IndicatorRow(year=year, category="投资", indicator="第二产业投资", dimension="全国",
+                     value=170000.0, unit="亿元", note="示例"),
+        IndicatorRow(year=year, category="投资", indicator="第三产业投资", dimension="全国",
+                     value=330000.0, unit="亿元", note="示例"),
         # 人口
-        IndicatorRow(year=year, category="人口", indicator="常住人口", dimension="全区",
-                     value=223.5, unit="万人", note="示例"),
-        IndicatorRow(year=year, category="人口", indicator="居民人均可支配收入", dimension="全区",
-                     value=82000, unit="元", note="示例"),
+        IndicatorRow(year=year, category="人口", indicator="常住人口", dimension="全国",
+                     value=14.08, unit="亿人", note="示例"),
+        IndicatorRow(year=year, category="人口", indicator="居民人均可支配收入", dimension="全国",
+                     value=41300, unit="元", note="示例"),
     ]
-    # 分街镇工业产值示例
-    towns = ["大场镇", "杨行镇", "顾村镇", "月浦镇", "罗店镇"]
-    for i, t in enumerate(towns):
+    # 分省份工业产值示例（少量，演示分维度；采集可扩展到全部省份）
+    provinces = ["广东省", "江苏省", "山东省", "浙江省", "河南省"]
+    for i, p in enumerate(provinces):
         rows.append(IndicatorRow(
-            year=year, category="工业", indicator="规上工业总产值", dimension=t,
-            value=round(2600.0 / len(towns) * (1 + i * 0.1), 2),
+            year=year, category="工业", indicator="规模以上工业总产值", dimension=p,
+            value=round(1400000.0 / len(provinces) * (1 + i * 0.15), 2),
             unit="亿元", note="示例"))
     return upsert_indicators(rows)
