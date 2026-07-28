@@ -1,7 +1,7 @@
 [project]
 name = "qu-stat-system"
 version = "0.1.0"
-description = "区级统计分析系统（参考 agent_infini 的本地化实现）"
+description = "统计分析系统（参考 agent_infini 的本地化实现，支持全国口径与全网数据采集）"
 requires-python = ">=3.9"
 dependencies = [
     "pandas>=1.5",
@@ -23,7 +23,7 @@ venv = ".venv"
 pythonVersion = "3.9"
 typeCheckingMode = "standard"
 # 以下多为 SQLAlchemy / pandas / 标准库（argparse、subprocess）类型信息不全导致的
-# “教条式”告警，与宝山统计系统业务逻辑无关，统一关闭。
+# “教条式”告警，与统计分析系统业务逻辑无关，统一关闭。
 reportMissingImports = "warning"
 reportMissingTypeStubs = "none"
 reportExplicitAny = "none"

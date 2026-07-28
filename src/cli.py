@@ -43,7 +43,7 @@ def _do_ask(text: str, use_cloud: bool):
 
 
 def main():
-    p = argparse.ArgumentParser(prog="qu-stat", description="区统计系统")
+    p = argparse.ArgumentParser(prog="qu-stat", description="统计分析系统")
     sub = p.add_subparsers(dest="cmd")
 
     sub.add_parser("init", help="初始化数据库并生成示例数据")

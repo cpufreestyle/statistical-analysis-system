@@ -57,7 +57,7 @@ def _overview(year: int) -> dict[str, object]:
 PAGE = """
 <!doctype html><html lang=zh><head><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
-<title>区统计系统</title>
+<title>统计分析系统</title>
 <style>
 :root{--bg:#f6f8fa;--card:#fff;--bd:#e1e4e8;--blue:#2563eb;--ink:#1f2d3d;--mut:#6b7280}
 *{box-sizing:border-box}
@@ -87,7 +87,7 @@ th{background:#f1f5f9}
 .row .num{width:5rem;text-align:right;font-size:.85rem}
 </style></head>
 <body>
-<header><h1>区统计系统</h1><p>离线数据分析 · 参考 agent_infini 的「数据源 + 多轮分析」本地化实现</p></header>
+<header><h1>统计分析系统</h1><p>离线数据分析 · 参考 agent_infini 的「数据源 + 多轮分析」本地化实现</p></header>
 <div class=wrap>
 
   <div class=bar>
