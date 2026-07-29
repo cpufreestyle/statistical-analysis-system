@@ -66,7 +66,9 @@ def main():
                            choices=["list", "run"])
     sp_custom.add_argument("name", nargs="?", default=None)
     sp_custom.add_argument("--year", type=int, default=2024)
-    sub.add_parser("web", help="启动 Web 看板")
+    sp_web = sub.add_parser("web", help="启动 Web 看板")
+    sp_web.add_argument("--host", default="0.0.0.0", help="绑定地址（默认 0.0.0.0 便于云端/容器外部访问）")
+    sp_web.add_argument("--port", type=int, default=5000, help="监听端口（默认 5000）")
 
     # 数据库管理
     sp_db = sub.add_parser("db", help="数据库状态 / 初始化知识库")
@@ -170,7 +172,9 @@ def main():
                                  ensure_ascii=False, indent=2))
     elif args.cmd == "web":
         from src.web import app
-        app.run(host="127.0.0.1", port=5000, debug=True)
+        # debug=False 避免 Werkzeug 调试工具栏（依赖 getBoundingClientRect）在
+        # 嵌入式 WebView / 云端预览环境中报 null 引用；host 默认 0.0.0.0 便于外部访问。
+        app.run(host=args.host, port=args.port, debug=False)
     elif args.cmd == "collect":
         init_db()
         inds = args.indicators.split(",") if args.indicators else None

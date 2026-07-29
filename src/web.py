@@ -476,6 +476,28 @@ def api_custom():
     return jsonify(cust.run_custom(a, year))
 
 
+def _ensure_data() -> None:
+    """首次启动时保证数据库与知识库有内容（云端/新环境为空库也能直接预览）。"""
+    from src.db import init_db, count_indicators
+    from src.loader import generate_sample_data
+    from src import knowledge as kb
+
+    init_db()
+    if count_indicators() == 0:
+        try:
+            generate_sample_data(2024)
+        except Exception as exc:  # 播种失败不应阻断看板启动
+            app.logger.warning("sample data seeding skipped: %s", exc)
+    if kb.count_knowledge() == 0:
+        try:
+            kb.seed_default_knowledge()
+        except Exception as exc:
+            app.logger.warning("knowledge seeding skipped: %s", exc)
+
+
+_ensure_data()
+
+
 if __name__ == "__main__":
     # debug=True 会注入 Werkzeug 调试工具栏（依赖 getBoundingClientRect），
     # 在嵌入式 WebView 中会触发 null 引用报错，故用 debug=False。
