@@ -144,3 +144,18 @@ custom_analysis.yaml  自定义分析配置（用户可自由增删）
    配套 CLI。
 3. **明确的使用场景**：面向全国/分省份宏观经济统计，提供数据看板 + AI 解读 + 口径知识库，适用于区域经济运行监测。
 4. **数据源可扩展**：本地 SQLite 指标宽表 + 知识库；支持从世界银行 Open Data 等公开开放数据源联网采集，来源可溯源。
+
+### 作品提交信息包（复制到比赛提交表单）
+
+> 比赛提交需在 InfiniSynapse 网站你的账号下操作，以下信息可直接复制粘贴。
+
+- **应用名称**：统计分析系统（Statistical Analysis System）
+- **应用简介**：基于 InfiniSynapse Server API 构建的全国口径统计分析应用。提供 Flask Web 看板与 CLI，覆盖 GDP、工业、消费、外贸、投资、人口等主要宏观经济专业；内置本地 SQLite 指标宽表 + 统计口径知识库（RAG 轻量版），支持从世界银行 Open Data 等公开开放数据源全网采集宏观指标。云端 AI 解读直连 InfiniSynapse `/api/ai/message`（newTask）+ `/api/ai/events`（SSE 流），Bearer Token 鉴权，调用记录可在服务端审计。
+- **应用链接（公网体验）**：https://8130e98991484d1e970f0fa24628a53f.codebuddy.cloudstudio.run
+- **代码仓库**：https://gitee.com/cpufreestyle/statistical-analysis-system
+- **InfiniSynapse API 集成说明**：
+  - 集成位置：`src/analyzer.py`（`InfiniSynapseAnalyzer` 类）
+  - 调用方式：① `POST /api/ai/message`，body 含 `type: "newTask"`、会话与消息；② 轮询 `GET /api/ai/events?connId=<id>` 消费 SSE 事件流直至 `done`
+  - 鉴权：`Authorization: Bearer <API Key>`（在 `config.yaml` 的 `infinisynapse.api_key` 配置）
+  - 可审计性：所有分析请求经 Server API 发起，服务端留有调用日志，满足比赛「调用日志可查验」要求
+  - 触发入口：CLI `ask --cloud` / `cloud` / `report --cloud`，Web 看板「自然语言查询 / 统计公报」的「云端解读」按钮
