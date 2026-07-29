@@ -135,7 +135,7 @@ custom_analysis.yaml  自定义分析配置（用户可自由增删）
 - **参赛作品**：统计分析系统（基于 InfiniSynapse Server API 的全国统计分析应用）
 - **作品长廊 / 投票**：[点此投票支持](https://infinisynapse.cn/contest/vibe-coding/gallery?entry=0dee60ec-048a-4baa-81e4-7ab5dd12cc9e)
 - **代码仓库**：https://gitee.com/cpufreestyle/statistical-analysis-system
-- **在线体验**：https://8130e98991484d1e970f0fa24628a53f.codebuddy.cloudstudio.run （Cloud Studio 公网部署，已自动播种示例数据）
+- **在线体验**：https://96381ea38c0a4fafb802cf22ed463b45.codebuddy.cloudstudio.run （Cloud Studio 公网部署，已自动播种示例数据，顶部常驻投票条）
 
 ### 作品亮点（对应比赛评分维度）
 1. **真实集成 InfiniSynapse Server API**：`src/analyzer.py` 直连 `/api/ai/message`（newTask）+ `/api/ai/events`（SSE），
@@ -151,7 +151,7 @@ custom_analysis.yaml  自定义分析配置（用户可自由增删）
 
 - **应用名称**：统计分析系统（Statistical Analysis System）
 - **应用简介**：基于 InfiniSynapse Server API 构建的全国口径统计分析应用。提供 Flask Web 看板与 CLI，覆盖 GDP、工业、消费、外贸、投资、人口等主要宏观经济专业；内置本地 SQLite 指标宽表 + 统计口径知识库（RAG 轻量版），支持从世界银行 Open Data 等公开开放数据源全网采集宏观指标。云端 AI 解读直连 InfiniSynapse `/api/ai/message`（newTask）+ `/api/ai/events`（SSE 流），Bearer Token 鉴权，调用记录可在服务端审计。
-- **应用链接（公网体验）**：https://8130e98991484d1e970f0fa24628a53f.codebuddy.cloudstudio.run
+- **应用链接（公网体验）**：https://96381ea38c0a4fafb802cf22ed463b45.codebuddy.cloudstudio.run
 - **代码仓库**：https://gitee.com/cpufreestyle/statistical-analysis-system
 - **InfiniSynapse API 集成说明**：
   - 集成位置：`src/analyzer.py`（`InfiniSynapseAnalyzer` 类）
