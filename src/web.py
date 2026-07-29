@@ -87,8 +87,16 @@ th{background:#f1f5f9}
 .row .num{width:5rem;text-align:right;font-size:.85rem}
 </style></head>
 <body>
-<header><h1>统计分析系统</h1><p>离线数据分析 · 参考 agent_infini 的「数据源 + 多轮分析」本地化实现</p></header>
+<header><h1>统计分析系统</h1><p>全国口径统计分析 · InfiniSynapse Server API 驱动的云端 AI 解读 · 本地 SQLite + 知识库</p></header>
 <div class=wrap>
+
+  <section style="background:linear-gradient(90deg,#1e3a8a,#2563eb);color:#fff;border:0">
+    <h2 style="color:#fff;margin:.1rem 0 .5rem">🏆 我正在参加 Vibe Coding 泛数据分析应用开发大赛</h2>
+    <p style="margin:0 0 .6rem;opacity:.95">基于 InfiniSynapse Server API 构建的全国统计分析系统，欢迎体验并投票支持！</p>
+    <a href="https://infinisynapse.cn/contest/vibe-coding/gallery?entry=0dee60ec-048a-4baa-81e4-7ab5dd12cc9e"
+       target="_blank" rel="noopener"
+       style="display:inline-block;background:#fff;color:#1e3a8a;padding:.5rem 1.1rem;border-radius:8px;font-weight:700;text-decoration:none">👍 为我的作品投票</a>
+  </section>
 
   <div class=bar>
     <label>年份</label><input id=year type=number value=2024 style="width:6rem">

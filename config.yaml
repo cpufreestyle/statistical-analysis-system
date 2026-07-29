@@ -67,11 +67,12 @@ collection:
         NV.IND.TOTL.CD: 工业增加值
 
 # 是否接入 InfiniSynapse 云端 AI 分析（需 API Key，默认关闭）
-# 启用后，CLI 的 ask --cloud / cloud 子命令会调用 agent_infini 二进制做多轮分析。
+# 启用后，CLI 的 ask --cloud / cloud 与 Web 看板的「云端解读」会直连
+# InfiniSynapse Server API（/api/ai/message 发起 newTask + /api/ai/events 收 SSE），
+# 不依赖 agent_infini 二进制，调用记录可在服务端审计。
 # 注意：外部请求会经系统 HTTP(S)_PROXY（如 127.0.0.1:7897）联网。
 infinisynapse:
   enabled: false
-  # server: "https://your-server"
-  # api_key: "sk-xxx"
-  # binary_path: "~/.infini/bin/agent_infini.exe"   # 可选，默认自动查找
-  # prefer_language: "zh_CN"
+  server: "https://app.infinisynapse.cn"
+  # api_key: "sk-xxx"            # 在 https://app.infinisynapse.cn/ai/apikey 创建
+  prefer_language: "zh_CN"

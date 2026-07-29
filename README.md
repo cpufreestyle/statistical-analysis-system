@@ -1,6 +1,8 @@
 # 统计分析系统
 
-参考 `agent_infini`（InfiniSynapse CLI）的「数据源管理 + 多轮分析」思路，用 Python **本地化实现**的统计分析系统。覆盖全国口径主要专业，并支持**从公开开放数据源（如世界银行 Open Data）全网采集**宏观指标。
+基于 **InfiniSynapse Server API** 构建的全国统计分析系统：用 Python 本地化实现数据源管理 + 多轮 AI 分析，覆盖全国口径主要专业，并支持**从公开开放数据源（如世界银行 Open Data）全网采集**宏观指标。
+
+> 🏆 正在参加 [Vibe Coding 泛数据分析应用开发大赛](https://infinisynapse.cn/contest/vibe-coding/gallery?entry=0dee60ec-048a-4baa-81e4-7ab5dd12cc9e)，欢迎投票支持！
 
 ## 重要说明
 - 本项目**不自动执行** `irm https://infinisynapse.cn/cli-install/install.ps1 | iex`。
@@ -34,15 +36,20 @@ python -m src.cli init      # 生成示例数据并建库
 python -m src.cli web       # 打开 http://127.0.0.1:5000
 ```
 
-## 可选：接入云端 AI 解读
-`config.yaml` 的 `infinisynapse` 填入 `server` / `api_key` 并设 `enabled: true` 后，
-可用 `ask --cloud`、`cloud`、`report --cloud` 调用 `agent_infini` 做多轮分析
-（需联网，走系统 HTTP(S)_PROXY）。云端解读会**自动召回本地知识库**作为上下文，
-让 AI 结论紧扣全国统计口径（RAG 轻量版，无需外部向量库）。
+## 接入 InfiniSynapse 云端 AI 解读（比赛核心能力）
+本项目**直连 InfiniSynapse Server API**（`POST /api/ai/message` 发起 `newTask` + `GET /api/ai/events` 消费 SSE 流），
+不依赖 `agent_infini` 二进制，调用记录可在服务端审计，满足比赛「集成 InfiniSynapse API、调用日志可查验」要求。
+
+`config.yaml` 的 `infinisynapse` 填入 `server` / `api_key` 并设 `enabled: true` 后：
+- CLI：`ask --cloud`、`cloud`、`report --cloud` 走真实 Server API 做多轮分析
+- Web 看板：「自然语言查询」与「统计公报」均提供「云端解读」按钮
+
+云端解读会**自动召回本地知识库**作为上下文，让 AI 结论紧扣全国统计口径（RAG 轻量版，无需外部向量库）。
+所有请求经系统 `HTTP(S)_PROXY` 联网。
 
 ## 数据库 & 知识库
 
-系统与 `agent_infini` 的「数据源管理」一致，采用本地 SQLite 统一存储：
+系统与 InfiniSynapse「数据源管理」思路一致，采用本地 SQLite 统一存储：
 
 - **数据库**：指标宽表 `indicators` 与知识库表 `knowledge` 共用同一 SQLite 文件
   （`config.yaml` 的 `database.url`，默认 `data/qu_stats.db`）。
@@ -120,3 +127,20 @@ src/web.py           Web 看板（含知识库、数据库与数据收集区块�
 src/cli.py           命令行入口（含 db / knowledge / custom / collect 子命令）
 custom_analysis.yaml  自定义分析配置（用户可自由增删）
 ```
+
+## 🏆 参赛：Vibe Coding 泛数据分析应用开发大赛
+
+本项目参赛于 **InfiniSynapse × CSDN「Vibe Coding」泛数据分析应用开发大赛**。
+
+- **参赛作品**：统计分析系统（基于 InfiniSynapse Server API 的全国统计分析应用）
+- **作品长廊 / 投票**：[点此投票支持](https://infinisynapse.cn/contest/vibe-coding/gallery?entry=0dee60ec-048a-4baa-81e4-7ab5dd12cc9e)
+- **代码仓库**：https://gitee.com/cpufreestyle/statistical-analysis-system
+- **在线体验**：部署后在此填入公网 URL（Vercel / Cloud Studio / 任意可公网访问的 Flask 服务）
+
+### 作品亮点（对应比赛评分维度）
+1. **真实集成 InfiniSynapse Server API**：`src/analyzer.py` 直连 `/api/ai/message`（newTask）+ `/api/ai/events`（SSE），
+   Bearer Token 鉴权，调用记录可在 InfiniSynapse 服务端审计（满足「调用日志可查验」）。
+2. **可运行的应用**：Flask Web 看板（指标卡片、街镇排名、自然语言查询、知识库、全网数据采集、自定义分析、统计公报），
+   配套 CLI。
+3. **明确的使用场景**：面向全国/分省份宏观经济统计，提供数据看板 + AI 解读 + 口径知识库，适用于区域经济运行监测。
+4. **数据源可扩展**：本地 SQLite 指标宽表 + 知识库；支持从世界银行 Open Data 等公开开放数据源联网采集，来源可溯源。
