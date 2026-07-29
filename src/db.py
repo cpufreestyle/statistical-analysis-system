@@ -28,18 +28,24 @@ class IndicatorRow(TypedDict):
 BASE_DIR = Path(__file__).resolve().parent.parent
 CONFIG_PATH = BASE_DIR / "config.yaml"
 
-with CONFIG_PATH.open(encoding="utf-8") as f:
-    CONFIG = yaml.safe_load(f)
-
-_DB_URL_RAW = CONFIG["database"]["url"]
-if isinstance(_DB_URL_RAW, str):
-    # 把相对路径解析到项目 data 目录
-    if _DB_URL_RAW.startswith("sqlite:///") and not _DB_URL_RAW.startswith("sqlite:////"):
-        DB_URL = "sqlite:///" + str(BASE_DIR / _DB_URL_RAW[len("sqlite:///"):])
-    else:
-        DB_URL = _DB_URL_RAW
+_VERCEL_DB_DIR = os.environ.get("QU_STAT_DB_DIR")
+if _VERCEL_DB_DIR:
+    # Vercel / Serverless：仅 /tmp 可写，经环境变量 QU_STAT_DB_DIR 指定路径
+    _vercel_data = Path(_VERCEL_DB_DIR)
+    _vercel_data.mkdir(parents=True, exist_ok=True)
+    DB_URL = "sqlite:///" + str(_vercel_data / "qu_stats.db")
 else:
-    DB_URL = "sqlite:///" + str(BASE_DIR / "data" / "qu_stat.db")
+    with CONFIG_PATH.open(encoding="utf-8") as f:
+        CONFIG = yaml.safe_load(f)
+    _DB_URL_RAW = CONFIG["database"]["url"]
+    if isinstance(_DB_URL_RAW, str):
+        # 把相对路径解析到项目 data 目录
+        if _DB_URL_RAW.startswith("sqlite:///") and not _DB_URL_RAW.startswith("sqlite:////"):
+            DB_URL = "sqlite:///" + str(BASE_DIR / _DB_URL_RAW[len("sqlite:///"):])
+        else:
+            DB_URL = _DB_URL_RAW
+    else:
+        DB_URL = "sqlite:///" + str(BASE_DIR / "data" / "qu_stat.db")
 
 engine = create_engine(DB_URL, future=True)
 METADATA = MetaData()
