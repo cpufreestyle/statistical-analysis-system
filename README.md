@@ -135,7 +135,7 @@ custom_analysis.yaml  自定义分析配置（用户可自由增删）
 - **参赛作品**：统计分析系统（基于 InfiniSynapse Server API 的全国统计分析应用）
 - **作品长廊 / 投票**：[点此投票支持](https://infinisynapse.cn/contest/vibe-coding/gallery?entry=0dee60ec-048a-4baa-81e4-7ab5dd12cc9e)
 - **代码仓库**：https://gitee.com/cpufreestyle/statistical-analysis-system
-- **在线体验**：部署后在此填入公网 URL（Vercel / Cloud Studio / 任意可公网访问的 Flask 服务）
+- **在线体验**：https://8130e98991484d1e970f0fa24628a53f.codebuddy.cloudstudio.run （Cloud Studio 公网部署，已自动播种示例数据）
 
 ### 作品亮点（对应比赛评分维度）
 1. **真实集成 InfiniSynapse Server API**：`src/analyzer.py` 直连 `/api/ai/message`（newTask）+ `/api/ai/events`（SSE），
