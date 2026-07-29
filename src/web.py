@@ -61,7 +61,11 @@ PAGE = """
 <style>
 :root{--bg:#f6f8fa;--card:#fff;--bd:#e1e4e8;--blue:#2563eb;--ink:#1f2d3d;--mut:#6b7280}
 *{box-sizing:border-box}
-body{font-family:system-ui,"Microsoft YaHei",sans-serif;margin:0;background:var(--bg);color:var(--ink)}
+body{font-family:system-ui,"Microsoft YaHei",sans-serif;margin:0;background:var(--bg);color:var(--ink);padding-top:46px}
+.votebar{position:fixed;top:0;left:0;right:0;z-index:999;background:linear-gradient(90deg,#f59e0b,#f97316);color:#fff;display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:.55rem 1rem;font-size:.9rem;box-shadow:0 2px 10px rgba(0,0,0,.2)}
+.votebar .txt{font-weight:600}
+.votebar a{background:#fff;color:#c2410c;padding:.35rem .95rem;border-radius:999px;font-weight:700;text-decoration:none;white-space:nowrap}
+.votebar a:hover{opacity:.9}
 header{background:linear-gradient(90deg,#1e3a8a,#2563eb);color:#fff;padding:1.2rem 2rem}
 header h1{margin:0;font-size:1.4rem}header p{margin:.2rem 0 0;opacity:.85;font-size:.85rem}
 .wrap{max-width:1080px;margin:1.5rem auto;padding:0 1rem}
@@ -87,6 +91,10 @@ th{background:#f1f5f9}
 .row .num{width:5rem;text-align:right;font-size:.85rem}
 </style></head>
 <body>
+<div class=votebar>
+  <span class=txt>🏆 我正在参加 Vibe Coding 泛数据分析应用开发大赛，求投票支持！</span>
+  <a href="https://infinisynapse.cn/contest/vibe-coding/gallery?entry=0dee60ec-048a-4baa-81e4-7ab5dd12cc9e" target="_blank" rel="noopener">👍 立即投票</a>
+</div>
 <header><h1>统计分析系统</h1><p>全国口径统计分析 · InfiniSynapse Server API 驱动的云端 AI 解读 · 本地 SQLite + 知识库</p></header>
 <div class=wrap>
 
