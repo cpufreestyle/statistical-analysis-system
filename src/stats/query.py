@@ -50,14 +50,44 @@ def ask(text: str, default_year: int = 2024, with_knowledge: bool = True) -> dic
     return result
 
 
+def _match_indicators(text: str, year: int) -> list[dict[str, object]]:
+    """在指标库中查找名称被问句直接提及的指标，返回该年数值。"""
+    from src.db import query_indicators
+
+    rows = query_indicators(year=year)
+    seen: set[tuple[str, str]] = set()
+    out: list[dict[str, object]] = []
+    for r in rows:
+        name = r["indicator"]
+        if not name or name not in text:
+            continue
+        key = (name, r["dimension"])
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append({
+            "指标": name,
+            "维度": r["dimension"],
+            "数值": r["value"],
+            "单位": r["unit"],
+            "说明": r["note"],
+        })
+    return out
+
+
 def _ask_core(text: str, year: int) -> dict[str, object]:
+    t = text.lower()
     # 自定义分析优先：命中名称即按用户定义公式求值
     for a in cust.load_custom():
-        if a.get("name", "") and a.get("name", "") in text:
+        if a.get("name", "") and a.get("name", "").lower() in t:
             return {"年份": year, a.get("name", ""): cust.run_custom(a, year)}
     for kw, (key, fn) in CATEGORY_MAP.items():
-        if kw in text:
+        if kw.lower() in t:
             return {"年份": year, key: fn(year)}
+    # 具体指标名命中：问到「社会消费品零售总额」这类也能答到点
+    hits = _match_indicators(text, year)
+    if hits:
+        return {"年份": year, "匹配指标": hits}
     # 默认返回综合概览
     return {
         "年份": year,

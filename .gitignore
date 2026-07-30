@@ -18,3 +18,4 @@ Thumbs.db
 # ---- 临时推送/调试产物 ----
 push_out.txt
 push*.txt
+.vercel

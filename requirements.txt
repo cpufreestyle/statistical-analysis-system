@@ -1,6 +1,7 @@
 flask>=3.0
 pyyaml>=6.0
 sqlalchemy>=2.0
-pandas>=1.5
-openpyxl>=3.1
 requests>=2.28
+# 注意：pandas / openpyxl 仅本地 CLI 导入 CSV/Excel 用，Web 运行时不需要。
+# 已从依赖中移除，避免 Vercel 安装巨型依赖导致冷启动极慢。
+# 如需本地 CLI 导入，请改用 pyproject.toml 的可选依赖：pip install ".[files]"

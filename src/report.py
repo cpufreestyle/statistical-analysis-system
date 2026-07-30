@@ -17,7 +17,7 @@ def generate_bulletin(year: int) -> str:
     pop = ind.population_stats(year)
 
     lines = [
-        f"{year}年{'全国'}国民经济和社会发展统计公报（摘要）",
+        f"{year}年{'亚太'}地区国民经济和社会发展统计公报（摘要）",
         "=" * 40,
         f"一、综合：地区生产总值 {gdp['数值(亿元)']} 亿元，同比 {gdp['同比']}。",
         f"二、工业：规上工业总产值 {indus['规上工业总产值(亿元)']} 亿元，"
@@ -88,7 +88,7 @@ def generate_report(year: int, use_cloud: bool = False) -> str:
             if kb_ctx else ""
         )
         prompt = (
-            "你是资深统计分析师。请基于以下全国统计公报与统计口径说明，"
+            "你是资深统计分析师。请基于以下亚太地区统计公报与统计口径说明，"
             "提炼 3-5 条经济亮点，并指出 1-2 个需关注的结构性问题与建议：\n\n"
             + bulletin + knowledge_block
         )

@@ -4,7 +4,7 @@
   - name        分析名称
   - unit        结果单位
   - description 说明
-  - variables   变量名 -> [专业, 指标, 维度(可省略，默认"全国")]
+  - variables   变量名 -> [专业, 指标, 维度(可省略，默认"亚太")]
   - expr        表达式，可用变量名及 min/max/abs/round/sum
   - compare     是否计算同比(true/false)
 
@@ -21,6 +21,25 @@ import yaml
 from src.db import query_indicators
 
 CUSTOM_PATH = Path(__file__).resolve().parent.parent.parent / "custom_analysis.yaml"
+_CUSTOM_KV_KEY = "qu_stat_ap:custom"
+
+
+def _load_custom_from_kv() -> list[CustomAnalysis] | None:
+    """从 Vercel KV 读取自定义分析配置。KV 不可用或为空时返回 None。"""
+    from src.kv_store import kv_available, kv_get_json
+    if not kv_available():
+        return None
+    data = kv_get_json(_CUSTOM_KV_KEY)
+    if data and isinstance(data, list):
+        return cast("list[CustomAnalysis]", data)
+    return None
+
+
+def _save_custom_to_kv(items: list[CustomAnalysis]) -> None:
+    """将自定义分析配置保存到 Vercel KV。"""
+    from src.kv_store import kv_available, kv_set_json
+    if kv_available():
+        kv_set_json(_CUSTOM_KV_KEY, items)
 
 # 仅放行的内置函数，杜绝 __import__ / open 等危险调用。
 _SAFE_BUILTINS: dict[str, object] = {
@@ -39,6 +58,10 @@ class CustomAnalysis(TypedDict, total=False):
 
 
 def load_custom() -> list[CustomAnalysis]:
+    # Vercel 环境优先从 KV 恢复
+    kv_data = _load_custom_from_kv()
+    if kv_data is not None:
+        return kv_data
     if not CUSTOM_PATH.exists():
         return []
     with CUSTOM_PATH.open(encoding="utf-8") as f:
@@ -49,10 +72,11 @@ def load_custom() -> list[CustomAnalysis]:
 def _save(items: list[CustomAnalysis]) -> None:
     with CUSTOM_PATH.open("w", encoding="utf-8") as f:
         yaml.safe_dump(items, f, allow_unicode=True, sort_keys=False)
+    _save_custom_to_kv(items)
 
 
 def _var_value(spec: list[str], year: int) -> float | None:
-    dim = spec[2] if len(spec) > 2 else "全国"
+    dim = spec[2] if len(spec) > 2 else "亚太"
     rows = query_indicators(year=year, category=spec[0],
                             indicator=spec[1], dimension=dim)
     return rows[0]["value"] if rows else None

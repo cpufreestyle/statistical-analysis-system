@@ -5,7 +5,7 @@
   违反站点服务条款的内容；尊重速率限制与 robots。
 - 通过系统 HTTP(S)_PROXY 联网（与云端 AI 一致），结果带 source 标注便于溯源。
 - 可插拔数据源：每个源实现 fetch -> list[IndicatorRow]；registry 按名称调度。
-- 默认数据源为世界银行（覆盖全国与全球主要经济体），可扩展接入更多开放数据源。
+- 默认数据源为世界银行（覆盖亚太地区与全球主要经济体），可扩展接入更多开放数据源。
 """
 from __future__ import annotations
 
@@ -82,13 +82,19 @@ WB_ALIASES: dict[str, str] = {
     "import": "NE.IMP.GNFS.CD", "industry": "NV.IND.TOTL.CD",
 }
 
-# ISO 国家码 -> 中文维度名（用于全球对比时的 dimension）
+# ISO 国家码 / 世界银行地区码 -> 中文维度名（用于对比时的 dimension）
 COUNTRY_CN: dict[str, str] = {
-    "CHN": "全国", "USA": "美国", "JPN": "日本", "DEU": "德国",
+    "EAP": "亚太", "EAS": "亚太(不含高收入)", "WLD": "全球",
+    "CHN": "中国", "USA": "美国", "JPN": "日本", "DEU": "德国",
     "IND": "印度", "GBR": "英国", "FRA": "法国", "BRA": "巴西",
     "RUS": "俄罗斯", "KOR": "韩国", "CAN": "加拿大", "AUS": "澳大利亚",
     "IDN": "印度尼西亚", "MEX": "墨西哥",
 }
+
+# 世界银行地区聚合代码（用 /region/ 端点而非 /country/）
+WB_REGION_CODES = {"EAP", "EAS", "WLD", "HIC", "LIC", "LMC", "UMC",
+                   "OED", "EUU", "NAC", "LCN", "SAS", "SSF", "MEA",
+                   "ECS", "ARB", "LDC", "LMY", "MIC", "PRE", "LAC"}
 
 
 def _collection_cfg() -> dict[str, Any]:
@@ -115,7 +121,8 @@ def _resolve_codes(specs: list[str] | None) -> list[str]:
 
 
 def _fetch_wb(indicator: str, iso: str, date: str) -> list[dict[str, Any]]:
-    url = f"{WB_BASE}/country/{iso}/indicator/{indicator}"
+    kind = "region" if iso in WB_REGION_CODES else "country"
+    url = f"{WB_BASE}/{kind}/{iso}/indicator/{indicator}"
     data = _http_get_json(url, {"format": "json", "date": date, "per_page": "100"})
     if isinstance(data, list) and len(data) >= 2 and isinstance(data[1], list):
         return [cast("dict[str, Any]", r) for r in data[1]]

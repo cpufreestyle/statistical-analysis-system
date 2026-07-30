@@ -34,6 +34,7 @@ if _VERCEL_DB_DIR:
     _vercel_data = Path(_VERCEL_DB_DIR)
     _vercel_data.mkdir(parents=True, exist_ok=True)
     DB_URL = "sqlite:///" + str(_vercel_data / "qu_stats.db")
+    CONFIG: dict[str, object] = {}  # Vercel 环境无 config.yaml，用空字典兜底
 else:
     with CONFIG_PATH.open(encoding="utf-8") as f:
         CONFIG = yaml.safe_load(f)
@@ -55,7 +56,7 @@ INDICATORS = Table(
     Column("year", Integer, nullable=False, index=True),
     Column("category", String(32), nullable=False, index=True),   # 工业/贸易/...
     Column("indicator", String(64), nullable=False, index=True),  # 指标名
-    Column("dimension", String(64), nullable=False, default="全国"),  # 省份/国家/全国
+    Column("dimension", String(64), nullable=False, default="亚太"),  # 经济体/国家/亚太
     Column("value", Float, nullable=False),
     Column("unit", String(16), default=""),
     Column("note", String(128), default=""),
@@ -75,8 +76,23 @@ KNOWLEDGE = Table(
 
 
 def init_db() -> None:
-    BASE_DIR.joinpath("data").mkdir(exist_ok=True)
+    if not _VERCEL_DB_DIR:
+        # 本地环境：确保 data 目录存在；Vercel /tmp 已在模块加载时创建
+        BASE_DIR.joinpath("data").mkdir(exist_ok=True)
     METADATA.create_all(engine)
+
+
+def _sync_indicators_to_kv() -> None:
+    """将 indicators 全量导出到 Vercel KV。"""
+    from src.kv_store import kv_available, kv_set_json
+    if not kv_available():
+        return
+    with engine.connect() as conn:
+        rows = [
+            dict(r._mapping)
+            for r in conn.execute(INDICATORS.select())
+        ]
+    kv_set_json("qu_stat_ap:indicators", rows)
 
 
 def upsert_indicators(rows: list[IndicatorRow]) -> int:
@@ -93,6 +109,7 @@ def upsert_indicators(rows: list[IndicatorRow]) -> int:
                 )
             )
             conn.execute(INDICATORS.insert().values(**r))
+    _sync_indicators_to_kv()
     return len(rows)
 
 

@@ -61,11 +61,7 @@ PAGE = """
 <style>
 :root{--bg:#f6f8fa;--card:#fff;--bd:#e1e4e8;--blue:#2563eb;--ink:#1f2d3d;--mut:#6b7280}
 *{box-sizing:border-box}
-body{font-family:system-ui,"Microsoft YaHei",sans-serif;margin:0;background:var(--bg);color:var(--ink);padding-top:46px}
-.votebar{position:fixed;top:0;left:0;right:0;z-index:999;background:linear-gradient(90deg,#f59e0b,#f97316);color:#fff;display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:.55rem 1rem;font-size:.9rem;box-shadow:0 2px 10px rgba(0,0,0,.2)}
-.votebar .txt{font-weight:600}
-.votebar a{background:#fff;color:#c2410c;padding:.35rem .95rem;border-radius:999px;font-weight:700;text-decoration:none;white-space:nowrap}
-.votebar a:hover{opacity:.9}
+body{font-family:system-ui,"Microsoft YaHei",sans-serif;margin:0;background:var(--bg);color:var(--ink);padding-top:0}
 header{background:linear-gradient(90deg,#1e3a8a,#2563eb);color:#fff;padding:1.2rem 2rem}
 header h1{margin:0;font-size:1.4rem}header p{margin:.2rem 0 0;opacity:.85;font-size:.85rem}
 .wrap{max-width:1080px;margin:1.5rem auto;padding:0 1rem}
@@ -80,6 +76,10 @@ button.ghost{background:#fff;color:var(--blue);border:1px solid var(--blue)}
 section{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:1.1rem 1.3rem;margin-top:1.2rem}
 section h2{margin:.1rem 0 .8rem;font-size:1.05rem}
 pre{white-space:pre-wrap;word-break:break-word;background:#0f172a;color:#e2e8f0;padding:.9rem;border-radius:8px;overflow:auto;max-height:360px;font-size:.85rem}
+.ans{white-space:normal;word-break:break-word;background:#0f172a;color:#e2e8f0;padding:.9rem;border-radius:8px;overflow:auto;max-height:360px;font-size:.85rem}
+.ans table{color:#e2e8f0;font-size:.82rem}
+.ans th{background:#1e293b}
+.ans td,.ans th{border-color:#334155}
 table{border-collapse:collapse;width:100%;font-size:.85rem}
 th,td{border:1px solid #eee;padding:.45rem .6rem;text-align:left}
 th{background:#f1f5f9}
@@ -91,20 +91,8 @@ th{background:#f1f5f9}
 .row .num{width:5rem;text-align:right;font-size:.85rem}
 </style></head>
 <body>
-<div class=votebar>
-  <span class=txt>🏆 我正在参加 Vibe Coding 泛数据分析应用开发大赛，求投票支持！</span>
-  <a href="https://infinisynapse.cn/contest/vibe-coding/gallery?entry=0dee60ec-048a-4baa-81e4-7ab5dd12cc9e" target="_blank" rel="noopener">👍 立即投票</a>
-</div>
-<header><h1>统计分析系统</h1><p>全国口径统计分析 · InfiniSynapse Server API 驱动的云端 AI 解读 · 本地 SQLite + 知识库</p></header>
+<header><h1>亚太统计分析系统</h1><p>亚太口径统计分析 · InfiniSynapse Server API 驱动的云端 AI 解读 · 本地 SQLite + 知识库</p></header>
 <div class=wrap>
-
-  <section style="background:linear-gradient(90deg,#1e3a8a,#2563eb);color:#fff;border:0">
-    <h2 style="color:#fff;margin:.1rem 0 .5rem">🏆 我正在参加 Vibe Coding 泛数据分析应用开发大赛</h2>
-    <p style="margin:0 0 .6rem;opacity:.95">基于 InfiniSynapse Server API 构建的全国统计分析系统，欢迎体验并投票支持！</p>
-    <a href="https://infinisynapse.cn/contest/vibe-coding/gallery?entry=0dee60ec-048a-4baa-81e4-7ab5dd12cc9e"
-       target="_blank" rel="noopener"
-       style="display:inline-block;background:#fff;color:#1e3a8a;padding:.5rem 1.1rem;border-radius:8px;font-weight:700;text-decoration:none">👍 为我的作品投票</a>
-  </section>
 
   <div class=bar>
     <label>年份</label><input id=year type=number value=2024 style="width:6rem">
@@ -112,30 +100,46 @@ th{background:#f1f5f9}
     <span id=status style="color:var(--mut);font-size:.8rem"></span>
   </div>
 
+  <section style="border:1px solid #bfdbfe;background:linear-gradient(90deg,#eff6ff,#f8fafc)">
+    <h2 style="color:#1e3a8a;margin:.1rem 0 .5rem">🛠 创建我的查询与分析</h2>
+    <p style="font-size:.85rem;color:var(--mut);margin:0 0 .7rem">两种自建方式：用自然语言直接提问查询，或用公式把多个指标组合成你自己的分析并保存复用。</p>
+    <div class=bar>
+      <button onclick="document.getElementById('q').scrollIntoView({behavior:'smooth'});document.getElementById('q').focus()">💬 自然语言查询</button>
+      <button class=ghost onclick="showAdd();document.getElementById('custAdd').scrollIntoView({behavior:'smooth'})">📐 新建公式分析</button>
+      <button class=ghost onclick="document.getElementById('cat').scrollIntoView({behavior:'smooth'})">📊 从指标总表勾选建分析</button>
+    </div>
+  </section>
+
   <div id=cards class=grid></div>
 
-  <section><h2>各街镇规上工业总产值（亿元）</h2><div id=townChart class=bars></div></section>
+  <section><div id=townChart class=bars></div></section>
 
   <section>
     <h2>自然语言查询</h2>
     <div class=bar>
-      <input id=q placeholder='如：2024年全国GDP；各省份工业排名' style="width:70%">
+      <input id=q placeholder='如：2024年亚太GDP；各经济体工业排名' style="width:70%">
       <button onclick=ask()>分析</button>
       <button class=ghost onclick="ask(true)">云端解读</button>
     </div>
-    <pre id=out>在上方输入问题后点击「分析」。</pre>
+    <div id=out class=ans>在上方输入问题后点击「分析」。</div>
   </section>
 
   <section>
     <h2>指标总表</h2>
+    <p style="font-size:.8rem;color:var(--mut);margin:0 0 .6rem">
+      勾选指标后点「用所选建分析」可一键带入自定义分析；也可在上方自然语言框直接问具体指标名。
+    </p>
     <div class=bar>
       <label>专业</label>
       <select id=cat><option value="">全部</option></select>
+      <input id=tsearch placeholder="关键词搜指标 / 说明 / 维度" style="width:34%">
       <button onclick=loadTable()>查询</button>
+      <button class=ghost onclick=buildFromSelected()>用所选建分析</button>
+      <span id=tcount style="color:var(--mut);font-size:.8rem"></span>
     </div>
     <div style="overflow:auto;max-height:420px">
       <table id=tbl><thead><tr>
-        <th>年份</th><th>专业</th><th>指标</th><th>维度</th><th>数值</th><th>单位</th><th>说明</th>
+        <th></th><th>年份</th><th>专业</th><th>指标</th><th>维度</th><th>数值</th><th>单位</th><th>说明</th>
       </tr></thead><tbody></tbody></table>
     </div>
   </section>
@@ -147,12 +151,24 @@ th{background:#f1f5f9}
       <button onclick=runCustom()>运行</button>
       <button class=ghost onclick=showAdd()>新增</button>
     </div>
-    <pre id=custOut>选择并运行一个自定义分析。</pre>
+    <div id=custOut class=ans>选择并运行一个自定义分析。</div>
     <div id=custAdd style="display:none;margin-top:.8rem;border-top:1px dashed #ccc;padding-top:.8rem">
-      <div class=bar><input id=cname placeholder="名称"><input id=cunit placeholder="单位"></div>
-      <input id=cdesc placeholder="说明" style="width:100%;margin:.4rem 0">
-      <textarea id=cvars placeholder='变量(JSON)，如 {"x":["工业","规模以上工业总产值","全国"],"y":["综合","地区生产总值","全国"]}' style="width:100%;height:56px"></textarea>
+      <div class=bar><input id=cname placeholder="名称（如：工业占GDP比重）"><input id=cunit placeholder="单位（如 %、亿元）"></div>
+      <input id=cdesc placeholder="一句话说明（可选）" style="width:100%;margin:.4rem 0">
+      <div style="font-size:.8rem;color:var(--mut);margin:.2rem 0">
+        添加变量（从下拉选专业 / 指标 / 维度，表达式里用变量名计算）：
+      </div>
+      <div id=varRows></div>
+      <div class=bar><button class=ghost onclick=addVarRow()>＋ 添加变量</button></div>
       <input id=cexpr placeholder="表达式，如 x / y * 100" style="width:100%;margin:.4rem 0">
+      <div class=bar style="gap:.4rem">
+        <span style="font-size:.8rem;color:var(--mut)">常用公式：</span>
+        <button class=ghost style="padding:.25rem .6rem;font-size:.8rem" onclick="fillExpr('share')">占比 x/y×100</button>
+        <button class=ghost style="padding:.25rem .6rem;font-size:.8rem" onclick="fillExpr('diff')">差值 x−y</button>
+        <button class=ghost style="padding:.25rem .6rem;font-size:.8rem" onclick="fillExpr('ratio')">倍数 x/y</button>
+        <button class=ghost style="padding:.25rem .6rem;font-size:.8rem" onclick="fillExpr('sum')">合计 x+y</button>
+      </div>
+      <div class=bar><label style="font-size:.85rem"><input type=checkbox id=ccmp> 计算同比</label></div>
       <div class=bar><button onclick=addCustom()>保存</button><span id=caddMsg style="color:var(--mut);font-size:.8rem"></span></div>
     </div>
   </section>
@@ -182,7 +198,7 @@ th{background:#f1f5f9}
     <div class=bar>
       <label>数据源</label>
       <select id=csrc>
-        <option value="worldbank">世界银行（全国）</option>
+        <option value="worldbank">世界银行（亚太）</option>
         <option value="global">世界银行（全球对比）</option>
       </select>
       <label>年份</label><input id=cyear type=number value=2024 style="width:5rem">
@@ -206,7 +222,7 @@ const setStatus = t => document.getElementById('status').textContent = t;
 
 async function loadAll(){
   loadOverview(); loadTable(); loadBulletin(); loadCustom();
-  loadDb(); loadKnowledge();
+  loadDb(); loadKnowledge(); loadIndicatorKeys();
 }
 
 async function loadDb(){
@@ -278,24 +294,68 @@ async function runCustom(){
   const name = document.getElementById('cust').value; if(!name) return;
   const el = document.getElementById('custOut'); el.textContent='运行中…';
   const r = await fetch('/api/custom?name='+encodeURIComponent(name)+'&year='+Y());
-  el.textContent = await r.text();
+  const d = await r.json();
+  if(d.error){ el.textContent='运行失败：'+d.error; return; }
+  let html = `<div style="font-size:1.7rem;font-weight:700">${d.value}${d.unit?(' '+d.unit):''}</div>`;
+  if(d.yoy!==undefined) html += `<div style="color:#16a34a;margin-top:.2rem">同比 ${d.yoy}%</div>`;
+  if(d.expr) html += `<div style="color:var(--mut);font-size:.8rem;margin-top:.3rem">公式：${d.expr}</div>`;
+  el.innerHTML = html;
 }
-function showAdd(){ const d=document.getElementById('custAdd'); d.style.display = d.style.display==='none'?'block':'none'; }
+let IND_KEYS = [];
+async function loadIndicatorKeys(){
+  try{ const r = await fetch('/api/indicator_keys'); IND_KEYS = await r.json(); }
+  catch(e){ IND_KEYS = []; }
+}
+function catList(){ return [...new Set(IND_KEYS.map(k=>k.category))]; }
+function indListOf(cat){ return [...new Set(IND_KEYS.filter(k=>k.category===cat).map(k=>k.indicator))]; }
+function fillVarRow(row){
+  const cat=row.querySelector('.vcat'); const vind=row.querySelector('.vind');
+  cat.innerHTML = catList().map(c=>`<option>${c}</option>`).join('');
+  cat.onchange = ()=>{ vind.innerHTML = indListOf(cat.value).map(i=>`<option>${i}</option>`).join(''); };
+  cat.onchange();
+}
+function addVarRow(){
+  const row=document.createElement('div');
+  row.className='row'; row.style.gap='.4rem'; row.style.margin='.3rem 0';
+  row.innerHTML='<input class=vname placeholder="变量名(如 x)" style="width:6rem">'+
+    '<select class=vcat></select><select class=vind></select>'+
+    '<input class=vdim placeholder="维度" value="亚太" style="width:7rem">'+
+    '<button class=ghost style="padding:.15rem .5rem" onclick="this.closest(\'.row\').remove()">✕</button>';
+  document.getElementById('varRows').appendChild(row);
+  fillVarRow(row);
+}
+function showAdd(){ const d=document.getElementById('custAdd'); d.style.display = d.style.display==='none'?'block':'none'; if(d.style.display==='block' && document.querySelectorAll('#varRows .row').length===0) addVarRow(); }
 async function addCustom(){
-  const payload = {
-    name: document.getElementById('cname').value,
+  const variables={};
+  let bad=false, msg='';
+  document.querySelectorAll('#varRows .row').forEach(row=>{
+    const vn=row.querySelector('.vname').value.trim();
+    const vc=row.querySelector('.vcat').value;
+    const vi=row.querySelector('.vind').value;
+    const vd=row.querySelector('.vdim').value.trim();
+    if(bad) return;
+    if(!vn){ bad=true; msg='变量名不能为空'; return; }
+    if(!/^[A-Za-z_]\w*$/.test(vn)){ bad=true; msg='变量名需为字母/下划线开头的英文名'; return; }
+    const spec=[vc,vi]; if(vd && vd!=='亚太') spec.push(vd);
+    variables[vn]=spec;
+  });
+  if(bad){ document.getElementById('caddMsg').textContent=msg; return; }
+  if(!Object.keys(variables).length){ document.getElementById('caddMsg').textContent='请至少添加一个变量'; return; }
+  const payload={
+    name: document.getElementById('cname').value.trim(),
     unit: document.getElementById('cunit').value,
     description: document.getElementById('cdesc').value,
-    variables: JSON.parse(document.getElementById('cvars').value||'{}'),
-    expr: document.getElementById('cexpr').value,
-    compare: false,
+    variables: variables,
+    expr: document.getElementById('cexpr').value.trim(),
+    compare: document.getElementById('ccmp').checked,
   };
-  const el = document.getElementById('caddMsg'); el.textContent='保存中…';
+  if(!payload.name || !payload.expr){ document.getElementById('caddMsg').textContent='名称与表达式必填'; return; }
+  const el=document.getElementById('caddMsg'); el.textContent='保存中…';
   try{
-    const r = await fetch('/api/custom', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
-    const d = await r.json();
-    el.textContent = d.ok ? '已保存，列表已刷新' : ('失败：'+(d.error||''));
-    if(d.ok) loadCustom();
+    const r=await fetch('/api/custom',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const d=await r.json();
+    el.textContent=d.ok?'已保存，列表已刷新':'失败：'+(d.error||'');
+    if(d.ok){ loadCustom(); document.getElementById('varRows').innerHTML=''; }
   }catch(e){ el.textContent='请求失败：'+e; }
 }
 
@@ -324,14 +384,34 @@ function renderTownChart(towns){
 
 async function loadTable(){
   const cat = document.getElementById('cat').value;
-  const u = '/api/indicators?year='+Y()+(cat?('&category='+encodeURIComponent(cat)):'');
+  const q = document.getElementById('tsearch').value.trim();
+  const u = '/api/indicators?year='+Y()+(cat?('&category='+encodeURIComponent(cat)):'')+(q?('&q='+encodeURIComponent(q)):'');
   const r = await fetch(u); const rows = await r.json();
   const tb = document.querySelector('#tbl tbody');
-  if(!rows.length){tb.innerHTML='<tr><td colspan=7>无数据</td></tr>';return;}
+  document.getElementById('tcount').textContent = rows.length? (rows.length+' 条'):'';
+  if(!rows.length){tb.innerHTML='<tr><td colspan=8>无数据</td></tr>';return;}
   tb.innerHTML = rows.map(r=>`<tr>
+    <td><input type=checkbox class=selrow data-c="${r.category}" data-i="${r.indicator}" data-d="${r.dimension}"></td>
     <td>${r.year}</td><td>${r.category}</td><td>${r.indicator}</td>
     <td>${r.dimension}</td><td>${r.value}</td><td>${r.unit}</td><td>${r.note||''}</td>
   </tr>`).join('');
+}
+function buildFromSelected(){
+  const sel = [...document.querySelectorAll('#tbl .selrow:checked')];
+  if(!sel.length){ alert('请先在指标总表勾选 1~4 个指标'); return; }
+  showAdd();
+  const vr = document.getElementById('varRows'); vr.innerHTML='';
+  const names='xyza';
+  sel.slice(0,4).forEach((cb,idx)=>{
+    addVarRow();
+    const row = vr.lastElementChild;
+    row.querySelector('.vname').value = names[idx];
+    const cat = row.querySelector('.vcat');
+    cat.value = cb.dataset.c; cat.dispatchEvent(new Event('change'));
+    row.querySelector('.vind').value = cb.dataset.i;
+    row.querySelector('.vdim').value = cb.dataset.d;
+  });
+  document.getElementById('caddMsg').textContent = '已带入 '+sel.length+' 个变量，填好名称与公式即可保存';
 }
 
 async function ask(cloud=false){
@@ -340,8 +420,37 @@ async function ask(cloud=false){
   const u = '/api/ask?text='+encodeURIComponent(t)+(cloud?('&cloud=1'):'');
   try{
     const r = await fetch(u); const d = await r.json();
-    el.textContent = JSON.stringify(d, null, 2);
+    let html = renderAsk(d);
+    if(d['知识库参考']) html += `<div style="margin-top:.6rem;color:var(--mut);font-size:.82rem;border-top:1px solid #334155;padding-top:.5rem"><b>知识库参考：</b>${d['知识库参考']}</div>`;
+    el.innerHTML = html || '(无结果)';
   }catch(e){ el.textContent='请求失败：'+e; }
+}
+function renderAsk(d){
+  if(!d || typeof d!=='object') return String(d);
+  let html='';
+  for(const [k,v] of Object.entries(d)){
+    if(k==='知识库参考') continue;
+    if(Array.isArray(v)){
+      html += `<div style="margin:.5rem 0"><b>${k}</b>`;
+      if(v.length && typeof v[0]==='object'){
+        html += '<table style="margin-top:.3rem"><thead><tr>'+Object.keys(v[0]).map(c=>`<th>${c}</th>`).join('')+'</tr></thead><tbody>'
+          + v.map(r=>`<tr>${Object.values(r).map(x=>`<td>${x??''}</td>`).join('')}</tr>`).join('')+'</tbody></table>';
+      } else { html += '<div>'+v.join('、')+'</div>'; }
+      html += '</div>';
+    } else if(v && typeof v==='object'){
+      html += `<div style="margin:.5rem 0"><b>${k}</b><div style="margin-left:.7rem;margin-top:.2rem">`
+        + Object.entries(v).map(([kk,vv])=>`${kk}：${vv}`).join('； ')+'</div></div>';
+    } else {
+      html += `<div style="margin:.4rem 0"><b>${k}</b>：${v}</div>`;
+    }
+  }
+  return html;
+}
+function fillExpr(kind){
+  const vars = [...document.querySelectorAll('#varRows .vname')].map(i=>i.value.trim()).filter(Boolean);
+  const a = vars[0]||'x', b = vars[1]||'y';
+  const map = { share:`${a} / ${b} * 100`, diff:`${a} - ${b}`, ratio:`${a} / ${b}`, sum:`${a} + ${b}` };
+  document.getElementById('cexpr').value = map[kind]||'';
 }
 
 async function loadBulletin(){
@@ -375,6 +484,39 @@ def api_db():
     from src.db import init_db
     init_db()
     return jsonify(db_info())
+
+
+@app.route("/api/kv-status")
+def api_kv_status():
+    """调试端点：检查 Redis 持久化连接状态。"""
+    import os as _os
+    from src.kv_store import kv_available, kv_set_json, kv_get_json, kv_delete
+
+    # 列出所有 KV 相关环境变量（脱敏展示）
+    keys = ["KV_REST_API_URL", "KV_REST_API_TOKEN", "KV_URL", "KV_REST_API_READ_ONLY_TOKEN",
+            "UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN",
+            "QU_STAT_REDIS_URL", "QU_STAT_REDIS_TOKEN",
+            "REDIS_URL", "REDIS_HOST"]
+    env_status: dict[str, object] = {}
+    for k in keys:
+        v = _os.environ.get(k)
+        if v:
+            env_status[k] = v[:10] + "…" if len(v) > 10 else "***"
+        else:
+            env_status[k] = None
+
+    status: dict[str, object] = {
+        "available": kv_available(),
+        "env_vars": env_status,
+    }
+    if kv_available():
+        test_key = "qu_stat_ap:__ping__"
+        ok = kv_set_json(test_key, {"ts": "ok"})
+        result = kv_get_json(test_key)
+        kv_delete(test_key)
+        status["write_ok"] = ok
+        status["read_ok"] = result is not None
+    return jsonify(status)
 
 
 @app.route("/api/knowledge", methods=["GET", "POST", "DELETE"])
@@ -435,7 +577,14 @@ def api_collect():
 def api_indicators():
     year = request.args.get("year", type=int)
     category = request.args.get("category")
+    q = (request.args.get("q") or "").strip().lower()
     rows = query_indicators(year=year, category=category or None)
+    if q:
+        rows = [
+            r for r in rows
+            if q in r["indicator"].lower() or q in (r["note"] or "").lower()
+            or q in r["dimension"].lower() or q in r["category"].lower()
+        ]
     return jsonify(rows)
 
 
@@ -462,6 +611,22 @@ def api_report():
     return report.generate_report(year, use_cloud=use_cloud)
 
 
+@app.route("/api/indicator_keys")
+def api_indicator_keys():
+    """返回全部可绑定指标键 (category, indicator, dimension)，供新增分析时下拉选择。"""
+    init_db()
+    rows = query_indicators()
+    keys: list[dict[str, str]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for r in rows:
+        k = (r.get("category", ""), r.get("indicator", ""), r.get("dimension", ""))
+        if k in seen:
+            continue
+        seen.add(k)
+        keys.append({"category": k[0], "indicator": k[1], "dimension": k[2]})
+    return jsonify(keys)
+
+
 @app.route("/api/custom", methods=["GET", "POST"])
 def api_custom():
     if request.method == "POST":
@@ -485,13 +650,28 @@ def api_custom():
 
 
 def _ensure_data() -> None:
-    """首次启动时保证数据库与知识库有内容（云端/新环境为空库也能直接预览）。"""
+    """首次启动保证有内容。优先从 KV 恢复持久化数据，避免重复播种示例（加速冷启动）。"""
     from src.db import init_db, count_indicators
-    from src.loader import generate_sample_data
     from src import knowledge as kb
 
     init_db()
+
+    # 优先从 KV 恢复（Redis 持久化）：有数据则直接用，省去示例数据写入
+    from src.kv_store import kv_available
+    if kv_available():
+        from src.kv_sync import restore_from_kv
+        try:
+            if restore_from_kv():
+                # 恢复成功，但知识库可能为空则补种子
+                if kb.count_knowledge() == 0:
+                    kb.seed_default_knowledge()
+                return
+        except Exception as exc:  # KV 恢复失败不应阻断看板启动
+            app.logger.warning("kv restore skipped: %s", exc)
+
+    # KV 不可用或为空：播种示例数据 + 知识库（仅首次空库）
     if count_indicators() == 0:
+        from src.loader import generate_sample_data
         try:
             generate_sample_data(2024)
         except Exception as exc:  # 播种失败不应阻断看板启动
@@ -503,10 +683,9 @@ def _ensure_data() -> None:
             app.logger.warning("knowledge seeding skipped: %s", exc)
 
 
-_ensure_data()
-
-
+# 本地直接运行时执行数据初始化；Vercel 入口 api/index.py 会自行调用
 if __name__ == "__main__":
+    _ensure_data()
     # debug=True 会注入 Werkzeug 调试工具栏（依赖 getBoundingClientRect），
     # 在嵌入式 WebView 中会触发 null 引用报错，故用 debug=False。
     app.run(host="127.0.0.1", port=5000, debug=False)

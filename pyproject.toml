@@ -1,16 +1,19 @@
 [project]
 name = "qu-stat-system"
 version = "0.1.0"
-description = "统计分析系统（参考 agent_infini 的本地化实现，支持全国口径与全网数据采集）"
+description = "亚太统计分析系统（参考 agent_infini 的本地化实现，支持亚太口径与全网数据采集）"
 requires-python = ">=3.9"
 dependencies = [
-    "pandas>=1.5",
-    "openpyxl>=3.1",
     "sqlalchemy>=2.0",
     "pyyaml>=6.0",
     "flask>=3.0",
     "requests>=2.28",
 ]
+
+# pandas / openpyxl 仅用于本地 CLI 的 CSV/Excel 文件导入（loader.load_file），
+# Vercel Web 运行时不会调用，故作为可选依赖，避免拖慢 Serverless 构建与冷启动。
+[project.optional-dependencies]
+files = ["pandas>=1.5", "openpyxl>=3.1"]
 
 [project.scripts]
 qu-stat = "src.cli:main"

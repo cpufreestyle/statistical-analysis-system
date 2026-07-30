@@ -1,6 +1,6 @@
 # 统计分析系统 配置
-region: 全国
-country: CN
+region: 亚太
+country: EAP          # 世界银行东亚太平洋地区(East Asia & Pacific)地区代码
 year: 2024
 
 # 数据源（参考 agent_infini 的 db 管理，这里用本地 SQLite）
@@ -47,7 +47,7 @@ provinces:
 # 全网数据采集（公开、无需鉴权的开放数据源；尊重速率限制与 robots）
 collection:
   default_source: worldbank
-  country: CHN
+  country: EAP
   year: 2024
   rate_limit_sleep: 0.5          # 每次请求间隔(秒)，避免给数据源压力
   sources:

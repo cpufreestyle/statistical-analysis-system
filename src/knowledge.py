@@ -16,6 +16,20 @@ from sqlalchemy import func, select
 
 from src.db import KNOWLEDGE, engine, init_db
 
+# ---------------------------------------------------------------------------
+# KV 同步辅助
+# ---------------------------------------------------------------------------
+_KNOWLEDGE_KV_KEY = "qu_stat_ap:knowledge"
+
+
+def _sync_knowledge_to_kv() -> None:
+    """将 knowledge 表全量导出到 Vercel KV。"""
+    from src.kv_store import kv_available, kv_set_json
+    if not kv_available():
+        return
+    rows = list_knowledge()
+    kv_set_json(_KNOWLEDGE_KV_KEY, [dict(r) for r in rows])
+
 
 class KnowledgeRow(TypedDict):
     """knowledge 表的一行。"""
@@ -58,7 +72,9 @@ def add_knowledge(title: str, category: str, tags: str, content: str,
             )
         )
         pk = result.inserted_primary_key
-        return int(pk[0]) if pk is not None else 0
+        kid = int(pk[0]) if pk is not None else 0
+    _sync_knowledge_to_kv()
+    return kid
 
 
 def get_knowledge(kid: int) -> KnowledgeRow | None:
@@ -124,7 +140,9 @@ def delete_knowledge(kid: int) -> bool:
     init_db()
     with engine.begin() as conn:
         result = conn.execute(KNOWLEDGE.delete().where(KNOWLEDGE.c.id == kid))
-        return int(result.rowcount) > 0
+        ok = int(result.rowcount) > 0
+    _sync_knowledge_to_kv()
+    return ok
 
 
 def count_knowledge() -> int:
@@ -140,7 +158,7 @@ SEED_KNOWLEDGE: list[KnowledgeRow] = [
         tags="GDP,地区生产总值,核算",
         content=(
             "地区生产总值(GDP)指按市场价格计算的一个国家（或地区）所有常住单位"
-            "在一定时期内生产活动的最终成果，是国民经济核算的核心指标。全国“综合”"
+            "在一定时期内生产活动的最终成果，是国民经济核算的核心指标。亚太“综合”"
             "专业的“地区生产总值”为现价核算值，同比为按不变价计算的增速。可通过 "
             "collect 子命令从世界银行开放数据获取真实年度数据，单位亿元。"
         ),

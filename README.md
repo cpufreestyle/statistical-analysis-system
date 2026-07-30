@@ -1,17 +1,20 @@
-# 统计分析系统
+# 亚太统计分析系统
 
-基于 **InfiniSynapse Server API** 构建的全国统计分析系统：用 Python 本地化实现数据源管理 + 多轮 AI 分析，覆盖全国口径主要专业，并支持**从公开开放数据源（如世界银行 Open Data）全网采集**宏观指标。
+基于 **InfiniSynapse Server API** 构建的亚太统计分析系统：用 Python 本地化实现数据源管理 + 多轮 AI 分析，覆盖亚太口径主要专业，并支持**从公开开放数据源（如世界银行 Open Data）全网采集**宏观指标。
 
-> 🏆 正在参加 [Vibe Coding 泛数据分析应用开发大赛](https://infinisynapse.cn/contest/vibe-coding/gallery?entry=0dee60ec-048a-4baa-81e4-7ab5dd12cc9e)，欢迎投票支持！
+> 🏆 正在参加 泛数据分析应用开发大赛，[欢迎投票支持](https://infinisynapse.cn/contest/vibe-coding/gallery?entry=90e99893-12a1-44a4-9a2d-cf718513c79d&utm_campaign=vibe_coding_2026&utm_content=gallery_entry#entry-90e99893-12a1-44a4-9a2d-cf718513c79d)！
 
 ## 重要说明
 - 本项目**不自动执行** `irm https://infinisynapse.cn/cli-install/install.ps1 | iex`。
   该命令会下载二进制并修改系统 PATH，需你自行在可信环境下决定是否运行。
-- 默认**本地离线运行**，内置全国量级示例数据；可通过 `collect` 子命令/Web 按钮联网采集真实数据。
+- 默认**本地离线运行**，已内置 2024 年亚太示例统计数据（GDP、人口、社零、固投、收入、进出口等，量级贴近东亚太平洋地区合计）；可用 `init` 重置为示例数据，或用 `collect` 联网采集（世界银行亚太地区代码 EAP）。
 - 数据采集**仅抓取公开、无需鉴权的开放数据**，尊重速率限制与站点条款，不抓取需登录/付费内容。
 
+## 数据声明
+本项目**仅使用公开数据**，所有统计指标均来自国家统计局、海关总署等官方公开发布的统计数据，以及世界银行 Open Data 等公开开放数据源；不包含任何内部、涉密或未公开数据。数据仅用于统计分析演示，如与官方最终核算口径存在差异，以官方发布为准。
+
 ## 业务覆盖
-综合核算(GDP/增加值)、工业、贸易、服务业、固定资产投资、农业、人口与就业；支持全国口径与全球主要经济体对比。
+综合核算(GDP/增加值)、工业、贸易、服务业、固定资产投资、农业、人口与就业；支持亚太口径与全球主要经济体对比。
 
 ## 安装与运行（使用项目 .venv）
 ```powershell
@@ -112,6 +115,11 @@ python -m src.cli custom run "工业占GDP比重"     # 运行指定分析
 ```
 Web 看板「自定义分析」区块支持下拉运行，并可在线「新增」分析（自动写入 `custom_analysis.yaml`）。
 
+**查询与构建的便利点**
+- **指标总表**支持关键词搜索（指标名 / 说明 / 维度 / 专业），并可在表里勾选 1~4 个指标，一键「用所选建分析」带入自定义分析表单。
+- **自然语言查询**不仅能按专业聚合（GDP / 工业 / 贸易 / 投资 / 人口 / 服务业 / 农业），还能**模糊命中具体指标名**（如「2024 年社会消费品零售总额」直接返回数值）；匹配结果以可读卡片/表格呈现。
+- **新增分析**提供「占比 / 差值 / 倍数 / 合计」常用公式一键填充，无需手敲表达式；运行结果以数值卡片（含同比）展示。
+
 ## 目录结构
 ```
 src/db.py            本地 SQLite（指标宽表 indicators + 知识库表 knowledge + 状态查询）
@@ -128,14 +136,14 @@ src/cli.py           命令行入口（含 db / knowledge / custom / collect 子
 custom_analysis.yaml  自定义分析配置（用户可自由增删）
 ```
 
-## 🏆 参赛：Vibe Coding 泛数据分析应用开发大赛
+## 🏆 参赛：泛数据分析应用开发大赛
 
-本项目参赛于 **InfiniSynapse × CSDN「Vibe Coding」泛数据分析应用开发大赛**。
+本项目参赛于 **InfiniSynapse × CSDN「泛数据分析应用开发大赛」**。
 
 - **参赛作品**：统计分析系统（基于 InfiniSynapse Server API 的全国统计分析应用）
-- **作品长廊 / 投票**：[点此投票支持](https://infinisynapse.cn/contest/vibe-coding/gallery?entry=0dee60ec-048a-4baa-81e4-7ab5dd12cc9e)
+- **作品长廊 / 投票**：[点此投票支持](https://infinisynapse.cn/contest/vibe-coding/gallery?entry=90e99893-12a1-44a4-9a2d-cf718513c79d&utm_campaign=vibe_coding_2026&utm_content=gallery_entry#entry-90e99893-12a1-44a4-9a2d-cf718513c79d)
 - **代码仓库**：https://gitee.com/cpufreestyle/statistical-analysis-system
-- **在线体验**：https://96381ea38c0a4fafb802cf22ed463b45.codebuddy.cloudstudio.run （Cloud Studio 公网部署，已自动播种示例数据，顶部常驻投票条）
+- **在线体验**：http://acf77936cff04e0ca9ea0053a3857882.codebuddy.cloudstudio.run （Cloud Studio 公网部署，已载入 2024 年全国真实统计数据，顶部常驻投票条）
 
 ### 作品亮点（对应比赛评分维度）
 1. **真实集成 InfiniSynapse Server API**：`src/analyzer.py` 直连 `/api/ai/message`（newTask）+ `/api/ai/events`（SSE），
@@ -151,7 +159,7 @@ custom_analysis.yaml  自定义分析配置（用户可自由增删）
 
 - **应用名称**：统计分析系统（Statistical Analysis System）
 - **应用简介**：基于 InfiniSynapse Server API 构建的全国口径统计分析应用。提供 Flask Web 看板与 CLI，覆盖 GDP、工业、消费、外贸、投资、人口等主要宏观经济专业；内置本地 SQLite 指标宽表 + 统计口径知识库（RAG 轻量版），支持从世界银行 Open Data 等公开开放数据源全网采集宏观指标。云端 AI 解读直连 InfiniSynapse `/api/ai/message`（newTask）+ `/api/ai/events`（SSE 流），Bearer Token 鉴权，调用记录可在服务端审计。
-- **应用链接（公网体验）**：https://96381ea38c0a4fafb802cf22ed463b45.codebuddy.cloudstudio.run
+- **应用链接（公网体验）**：http://acf77936cff04e0ca9ea0053a3857882.codebuddy.cloudstudio.run
 - **代码仓库**：https://gitee.com/cpufreestyle/statistical-analysis-system
 - **InfiniSynapse API 集成说明**：
   - 集成位置：`src/analyzer.py`（`InfiniSynapseAnalyzer` 类）

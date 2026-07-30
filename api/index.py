@@ -16,17 +16,21 @@ _proj = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _proj not in sys.path:
     sys.path.insert(0, _proj)
 
-from src.web import app  # noqa: E402
+try:
+    from src.web import app, _ensure_data  # noqa: E402
 
-# 冷启动时创建表并注入示例数据 + 种子知识
-from src.db import init_db  # noqa: E402
-init_db()
-
-from src import knowledge as kb  # noqa: E402
-kb.seed_default_knowledge()
-
-from src.loader import generate_sample_data  # noqa: E402
-generate_sample_data(2024)
+    # 冷启动时创建表：优先从 KV 恢复持久化数据，否则播种亚太示例数据
+    _ensure_data()
+except Exception as _e:
+    # 初始化失败时记录详情但不阻断启动，以便看到错误信息
+    import traceback
+    _tb = traceback.format_exc()
+    from flask import Flask as _Flask
+    app = _Flask(__name__)
+    @app.route("/")
+    @app.route("/<path:path>")
+    def _startup_error(path: str = "") -> str:
+        return f"<pre>Startup Error:\n{_tb}\n\n{_e}</pre>", 500
 
 # Vercel 需要的 WSGI 入口
 application = app
