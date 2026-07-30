@@ -233,8 +233,10 @@ async function loadDb(){
   }catch(e){ document.getElementById('dbInfo').textContent = '数据库状态读取失败：'+e; }
 }
 async function loadKnowledge(){
-  const r = await fetch('/api/knowledge'); const list = await r.json();
-  renderKnowledge(list);
+  try{
+    const r = await fetch('/api/knowledge'); const list = await r.json();
+    renderKnowledge(list);
+  }catch(e){ document.getElementById('klist').textContent='知识库加载失败：'+e; }
 }
 async function searchKnowledge(){
   const q = document.getElementById('ksearch').value;
@@ -286,9 +288,11 @@ async function collectData(){
 }
 
 async function loadCustom(){
-  const r = await fetch('/api/custom'); const list = await r.json();
-  document.getElementById('cust').innerHTML = '<option value="">选择分析…</option>' +
-    list.map(c=>`<option value="${c.name}">${c.name}（${c.description||''}）</option>`).join('');
+  try{
+    const r = await fetch('/api/custom'); const list = await r.json();
+    document.getElementById('cust').innerHTML = '<option value="">选择分析…</option>' +
+      list.map(c=>`<option value="${c.name}">${c.name}（${c.description||''}）</option>`).join('');
+  }catch(e){ document.getElementById('cust').innerHTML='<option>分析加载失败</option>'; }
 }
 async function runCustom(){
   const name = document.getElementById('cust').value; if(!name) return;
@@ -361,14 +365,16 @@ async function addCustom(){
 
 async function loadOverview(){
   setStatus('加载中…');
-  const r = await fetch('/api/overview?year='+Y());
-  const d = await r.json();
-  document.getElementById('cards').innerHTML = d.cards.map(c=>
-    `<div class=card><div class=label>${c.label}</div><div class=val>${c.value}</div><div class=sub>${c.sub}</div></div>`).join('');
-  renderTownChart(d.towns||[]);
-  const sel = document.getElementById('cat');
-  sel.innerHTML = '<option value="">全部</option>' + d.categories.map(c=>`<option>${c}</option>`).join('');
-  setStatus('已更新 · '+d.year+' 年');
+  try{
+    const r = await fetch('/api/overview?year='+Y());
+    const d = await r.json();
+    document.getElementById('cards').innerHTML = d.cards.map(c=>
+      `<div class=card><div class=label>${c.label}</div><div class=val>${c.value}</div><div class=sub>${c.sub}</div></div>`).join('');
+    renderTownChart(d.towns||[]);
+    const sel = document.getElementById('cat');
+    sel.innerHTML = '<option value="">全部</option>' + d.categories.map(c=>`<option>${c}</option>`).join('');
+    setStatus('已更新 · '+d.year+' 年');
+  }catch(e){ setStatus('看板加载失败：'+e); }
 }
 
 function renderTownChart(towns){
@@ -383,18 +389,20 @@ function renderTownChart(towns){
 }
 
 async function loadTable(){
-  const cat = document.getElementById('cat').value;
-  const q = document.getElementById('tsearch').value.trim();
-  const u = '/api/indicators?year='+Y()+(cat?('&category='+encodeURIComponent(cat)):'')+(q?('&q='+encodeURIComponent(q)):'');
-  const r = await fetch(u); const rows = await r.json();
-  const tb = document.querySelector('#tbl tbody');
-  document.getElementById('tcount').textContent = rows.length? (rows.length+' 条'):'';
-  if(!rows.length){tb.innerHTML='<tr><td colspan=8>无数据</td></tr>';return;}
-  tb.innerHTML = rows.map(r=>`<tr>
-    <td><input type=checkbox class=selrow data-c="${r.category}" data-i="${r.indicator}" data-d="${r.dimension}"></td>
-    <td>${r.year}</td><td>${r.category}</td><td>${r.indicator}</td>
-    <td>${r.dimension}</td><td>${r.value}</td><td>${r.unit}</td><td>${r.note||''}</td>
-  </tr>`).join('');
+  try{
+    const cat = document.getElementById('cat').value;
+    const q = document.getElementById('tsearch').value.trim();
+    const u = '/api/indicators?year='+Y()+(cat?('&category='+encodeURIComponent(cat)):'')+(q?('&q='+encodeURIComponent(q)):'');
+    const r = await fetch(u); const rows = await r.json();
+    const tb = document.querySelector('#tbl tbody');
+    document.getElementById('tcount').textContent = rows.length? (rows.length+' 条'):'';
+    if(!rows.length){tb.innerHTML='<tr><td colspan=8>无数据</td></tr>';return;}
+    tb.innerHTML = rows.map(r=>`<tr>
+      <td><input type=checkbox class=selrow data-c="${r.category}" data-i="${r.indicator}" data-d="${r.dimension}"></td>
+      <td>${r.year}</td><td>${r.category}</td><td>${r.indicator}</td>
+      <td>${r.dimension}</td><td>${r.value}</td><td>${r.unit}</td><td>${r.note||''}</td>
+    </tr>`).join('');
+  }catch(e){ document.getElementById('tcount').textContent='指标加载失败：'+e; }
 }
 function buildFromSelected(){
   const sel = [...document.querySelectorAll('#tbl .selrow:checked')];
@@ -454,8 +462,10 @@ function fillExpr(kind){
 }
 
 async function loadBulletin(){
-  const r = await fetch('/api/report?year='+Y());
-  document.getElementById('bulletin').textContent = await r.text();
+  try{
+    const r = await fetch('/api/report?year='+Y());
+    document.getElementById('bulletin').textContent = await r.text();
+  }catch(e){ document.getElementById('bulletin').textContent='公报加载失败：'+e; }
 }
 async function aiInterpret(){
   const el = document.getElementById('ai'); el.textContent='解读中…';
