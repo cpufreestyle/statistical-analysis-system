@@ -24,3 +24,6 @@ push*.txt
 .vercel_deploy*.txt
 .vercel_result*.txt
 generated-images/
+
+# ---- IDE / CodeBuddy 应用数据（非源码，勿提交）----
+_app_data/

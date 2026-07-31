@@ -98,7 +98,7 @@ th{background:#f1f5f9}
 <div class=wrap>
 
   <div class=bar>
-    <label>年份</label><input id=year type=number value=2024 style="width:6rem">
+    <label>年份</label><input id=year type=number value=2024 list=yearlist style="width:6rem"><datalist id=yearlist><option value=2024><option value=2025><option value=2026></datalist>
     <button onclick=loadAll()>刷新看板</button>
     <span id=status style="color:var(--mut);font-size:.8rem"></span>
   </div>
