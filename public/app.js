@@ -17,9 +17,9 @@ const API = '';
       if (panel) { panel.classList.add('active'); btn.dataset.tab === 'indicators' && loadIndicators(); }
     });
   });
-  // Checkbox
-  document.querySelectorAll('.cb').forEach(cb => {
-    cb.addEventListener('click', (e) => { e.stopPropagation(); cb.classList.toggle('checked'); });
+  // Radio (单选)
+  document.querySelectorAll('.selrow').forEach(cb => {
+    cb.addEventListener('click', (e) => { e.stopPropagation(); });
   });
   // 页面加载
   loadOverview();
@@ -116,7 +116,7 @@ async function loadIndicators() {
     document.getElementById('indCount').textContent = rows.length ? rows.length + ' 条' : '';
     if (!rows.length) { tb.innerHTML = '<tr><td colspan=8 style="color:var(--gray-400)">无数据</td></tr>'; return; }
     tb.innerHTML = rows.map(function(r) { return '<tr>'
-      + '<td><div class="cb" data-c="' + a(r.category) + '" data-i="' + a(r.indicator) + '" data-d="' + a(r.dimension) + '" onclick="toggleCb(this,event)"></div></td>'
+      + '<td><input type=radio name=selrow class=selrow data-c="' + a(r.category) + '" data-i="' + a(r.indicator) + '" data-d="' + a(r.dimension) + '" onclick="toggleCb(this,event)"></td>'
       + '<td class="ind-name" title="' + a(r.note || '') + '">' + h(r.indicator) + '</td>'
       + '<td><span class="tag tag-blue">' + h(r.category) + '</span></td>'
       + '<td>' + h(r.dimension) + '</td>'
@@ -124,35 +124,26 @@ async function loadIndicators() {
       + '<td>' + h(r.unit || '') + '</td>'
       + '<td style="color:var(--gray-400);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + a(r.note || '') + '">' + h(r.note || '') + '</td>'
       + '</tr>'; }).join('');
-    // 重新绑定 checkbox
-    document.querySelectorAll('#indTable .cb').forEach(function(cb) { cb.addEventListener('click', function(e) { e.stopPropagation(); cb.classList.toggle('checked'); }); });
+
   } catch (e) { tb.innerHTML = '<tr><td colspan=8 style="color:var(--red-500)">加载失败</td></tr>'; }
 }
 
-function toggleCb(el, ev) { ev.stopPropagation(); el.classList.toggle('checked'); }
-function toggleAll(el) {
-  el.classList.toggle('checked');
-  var v = el.classList.contains('checked');
-  document.querySelectorAll('#indTable .cb').forEach(function(cb) { cb.classList.toggle('checked', v); });
-}
+function toggleCb(el, ev) { ev.stopPropagation(); var all=document.querySelectorAll('#indTable .selrow'); all.forEach(function(r){r.checked=false}); el.checked=true; }
+function toggleAll(el) { document.querySelectorAll('#indTable .selrow').forEach(function(r){r.checked=false}); }
 
 function createFromSelected() {
-  var sel = document.querySelectorAll('#indTable .cb.checked');
-  if (!sel.length) { showToast('请先勾选至少一个指标', 'error'); return; }
+  var sel = document.querySelector('#indTable .selrow:checked');
+  if (!sel) { showToast('请先选中一个指标', 'error'); return; }
   switchTab('custom');
   openAddCustom();
   var vr = document.getElementById('varRows'); vr.innerHTML = '';
-  var names = 'xyza';
-  sel.forEach(function(cb, idx) {
-    if (idx >= 4) return;
-    addVarRow();
-    var row = vr.lastElementChild;
-    row.querySelector('.vname').value = names[idx];
-    row.querySelector('.vcat').value = cb.dataset.c || '';
-    row.querySelector('.vind').value = cb.dataset.i || '';
-    row.querySelector('.vdim').value = cb.dataset.d || '';
-  });
-  document.getElementById('caddMsg').textContent = '已带入 ' + Math.min(sel.length, 4) + ' 个变量，填好名称与公式即可保存';
+  addVarRow();
+  var row = vr.lastElementChild;
+  row.querySelector('.vname').value = 'x';
+  row.querySelector('.vcat').value = sel.dataset.c || '';
+  row.querySelector('.vind').value = sel.dataset.i || '';
+  row.querySelector('.vdim').value = sel.dataset.d || '';
+  document.getElementById('caddMsg').textContent = '已带入所选指标，填好名称与公式即可保存';
 }
 
 /* ═══════ 自定义分析 ═══════ */
