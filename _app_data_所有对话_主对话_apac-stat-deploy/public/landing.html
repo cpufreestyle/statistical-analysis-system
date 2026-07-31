@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>亚太统计分析系统 - APAC Stats</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+/* =============================================
+   亚太统计分析系统 · Landing Page
+   ============================================= */
+
+:root {
+  --blue-50:  #F0F7FF;
+  --blue-100: #E0EFFF;
+  --blue-200: #C7DDFF;
+  --blue-300: #A0C4FF;
+  --blue-400: #6EA8FE;
+  --blue-500: #4080F0;
+  --blue-600: #2B6BDB;
+  --blue-700: #1B56C4;
+  --blue-800: #1540A0;
+  --blue-900: #0D2B6E;
+
+  --gray-50:  #F8FAFC;
+  --gray-100: #F1F5F9;
+  --gray-150: #E8ECF1;
+  --gray-200: #E2E8F0;
+  --gray-300: #CBD5E1;
+  --gray-400: #94A3B8;
+  --gray-500: #64748B;
+  --gray-600: #475569;
+  --gray-700: #334155;
+  --gray-800: #1E293B;
+  --gray-900: #0F172A;
+
+  --font: "Noto Sans SC", "Source Han Sans SC", -apple-system, "PingFang SC", sans-serif;
+  --num: "Roboto", -apple-system, sans-serif;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font);
+  color: var(--gray-700);
+  background: #fff;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ============ Navigation ============ */
+.nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--gray-100);
+  padding: 0 48px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.nav-logo {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, var(--blue-500), var(--blue-700));
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-family: var(--num);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: -0.5px;
+}
+
+.nav-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--gray-900);
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  list-style: none;
+}
+
+.nav-links a {
+  font-size: 14px;
+  color: var(--gray-500);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.nav-links a:hover { color: var(--gray-900); }
+
+.nav-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  background: var(--blue-600);
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.nav-cta:hover {
+  background: var(--blue-700);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(43, 107, 219, 0.3);
+}
+
+/* ============ Hero Section ============ */
+.hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 120px 48px 80px;
+  background: linear-gradient(180deg, var(--blue-50) 0%, #fff 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -200px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 800px;
+  height: 800px;
+  background: radial-gradient(circle, rgba(43, 107, 219, 0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background: var(--blue-100);
+  color: var(--blue-700);
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 100px;
+  margin-bottom: 32px;
+}
+
+.hero-badge::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  background: var(--blue-500);
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.hero h1 {
+  font-size: 56px;
+  font-weight: 700;
+  color: var(--gray-900);
+  line-height: 1.2;
+  margin-bottom: 20px;
+  letter-spacing: -1px;
+  max-width: 800px;
+}
+
+.hero h1 span {
+  background: linear-gradient(135deg, var(--blue-500), var(--blue-700));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero-subtitle {
+  font-size: 18px;
+  color: var(--gray-500);
+  max-width: 600px;
+  margin-bottom: 48px;
+  line-height: 1.7;
+}
+
+.hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 64px;
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 28px;
+  background: var(--blue-600);
+  color: white;
+  font-size: 15px;
+  font-weight: 500;
+  border-radius: 12px;
+  text-decoration: none;
+  transition: all 0.25s;
+}
+
+.btn-primary:hover {
+  background: var(--blue-700);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(43, 107, 219, 0.35);
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 28px;
+  background: white;
+  color: var(--gray-700);
+  font-size: 15px;
+  font-weight: 500;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  text-decoration: none;
+  transition: all 0.25s;
+}
+
+.btn-secondary:hover {
+  border-color: var(--gray-300);
+  background: var(--gray-50);
+}
+
+/* Hero Stats */
+.hero-stats {
+  display: flex;
+  gap: 48px;
+  padding-top: 48px;
+  border-top: 1px solid var(--gray-200);
+}
+
+.hero-stat {
+  text-align: center;
+}
+
+.hero-stat-value {
+  font-family: var(--num);
+  font-size: 42px;
+  font-weight: 700;
+  color: var(--gray-900);
+  letter-spacing: -1px;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.hero-stat-label {
+  font-size: 14px;
+  color: var(--gray-500);
+}
+
+/* ============ Section Common ============ */
+.section {
+  padding: 120px 48px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.section-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--blue-600);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 12px;
+}
+
+.section-title {
+  font-size: 40px;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin-bottom: 20px;
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+}
+
+.section-desc {
+  font-size: 17px;
+  color: var(--gray-500);
+  max-width: 680px;
+  line-height: 1.7;
+}
+
+/* ============ Features Grid ============ */
+.features {
+  background: var(--gray-50);
+  padding: 120px 48px;
+}
+
+.features-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-top: 64px;
+}
+
+.feature-card {
+  background: white;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  padding: 32px;
+  transition: all 0.3s;
+}
+
+.feature-card:hover {
+  border-color: var(--blue-200);
+  box-shadow: 0 12px 40px rgba(43, 107, 219, 0.08);
+  transform: translateY(-4px);
+}
+
+.feature-icon {
+  width: 48px;
+  height: 48px;
+  background: var(--blue-50);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  margin-bottom: 20px;
+}
+
+.feature-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin-bottom: 10px;
+}
+
+.feature-desc {
+  font-size: 14px;
+  color: var(--gray-500);
+  line-height: 1.6;
+}
+
+/* ============ Process Section ============ */
+.process-steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 32px;
+  margin-top: 64px;
+}
+
+.process-step {
+  position: relative;
+  text-align: center;
+}
+
+.process-step::after {
+  content: '→';
+  position: absolute;
+  right: -20px;
+  top: 40px;
+  font-size: 20px;
+  color: var(--gray-300);
+}
+
+.process-step:last-child::after { display: none; }
+
+.process-num {
+  font-family: var(--num);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--blue-600);
+  letter-spacing: 1px;
+  margin-bottom: 16px;
+}
+
+.process-icon {
+  width: 72px;
+  height: 72px;
+  background: linear-gradient(135deg, var(--blue-100), var(--blue-50));
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  margin: 0 auto 20px;
+}
+
+.process-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin-bottom: 8px;
+}
+
+.process-desc {
+  font-size: 13px;
+  color: var(--gray-500);
+  line-height: 1.5;
+}
+
+/* ============ Architecture Section ============ */
+.arch-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  margin-top: 64px;
+}
+
+.arch-card {
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  padding: 28px 24px;
+  text-align: center;
+  transition: all 0.3s;
+}
+
+.arch-card:hover {
+  background: white;
+  border-color: var(--blue-200);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+}
+
+.arch-stage {
+  font-family: var(--num);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--blue-600);
+  letter-spacing: 1.5px;
+  margin-bottom: 14px;
+}
+
+.arch-icon {
+  font-size: 32px;
+  margin-bottom: 16px;
+}
+
+.arch-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin-bottom: 8px;
+}
+
+.arch-desc {
+  font-size: 13px;
+  color: var(--gray-500);
+  line-height: 1.5;
+}
+
+/* ============ Tech Stack ============ */
+.tech-stack {
+  background: var(--gray-900);
+  padding: 100px 48px;
+  color: white;
+}
+
+.tech-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.tech-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 32px;
+  margin-top: 56px;
+}
+
+.tech-card {
+  padding: 28px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+}
+
+.tech-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--blue-400);
+  margin-bottom: 12px;
+  letter-spacing: 0.5px;
+}
+
+.tech-card-desc {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.6;
+}
+
+/* ============ CTA Section ============ */
+.cta {
+  text-align: center;
+  padding: 120px 48px;
+  background: linear-gradient(180deg, #fff 0%, var(--blue-50) 100%);
+}
+
+.cta-title {
+  font-size: 44px;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin-bottom: 20px;
+  letter-spacing: -0.5px;
+}
+
+.cta-desc {
+  font-size: 17px;
+  color: var(--gray-500);
+  margin-bottom: 40px;
+}
+
+/* ============ Footer ============ */
+.footer {
+  background: var(--gray-900);
+  padding: 48px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 14px;
+}
+
+.footer a {
+  color: var(--blue-400);
+  text-decoration: none;
+}
+
+.footer a:hover { text-decoration: underline; }
+
+/* ============ Responsive ============ */
+@media (max-width: 1024px) {
+  .features-grid,
+  .process-steps,
+  .arch-grid,
+  .tech-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .process-step::after { display: none; }
+}
+
+@media (max-width: 640px) {
+  .nav { padding: 0 20px; }
+  .nav-links { display: none; }
+  .hero { padding: 100px 20px 60px; }
+  .hero h1 { font-size: 36px; }
+  .hero-stats { flex-wrap: wrap; gap: 32px; }
+  .section,
+  .features,
+  .tech-stack,
+  .cta { padding: 80px 20px; }
+  .section-title { font-size: 28px; }
+  .features-grid,
+  .process-steps,
+  .arch-grid,
+  .tech-grid {
+    grid-template-columns: 1fr;
+  }
+  .cta-title { font-size: 28px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Navigation -->
+<nav class="nav">
+  <div class="nav-brand">
+    <div class="nav-logo">AP</div>
+    <div class="nav-title">亚太统计分析系统</div>
+  </div>
+  <ul class="nav-links">
+    <li><a href="#features">功能特性</a></li>
+    <li><a href="#process">工作流程</a></li>
+    <li><a href="#architecture">系统架构</a></li>
+    <li><a href="#tech">技术栈</a></li>
+  </ul>
+  <a href="/app" class="nav-cta">进入系统 →</a>
+</nav>
+
+<!-- Hero Section -->
+<section class="hero">
+  <div class="hero-badge">
+    InfiniSynapse Server API 驱动
+  </div>
+  <h1>用 <span>AI</span> 重新定义<br>亚太经济数据分析</h1>
+  <p class="hero-subtitle">
+    基于世界银行、IMF、UN Comtrade 等权威数据源，<br>
+    融合多智能体协同诊断引擎，实现从数据采集到智能解读的全链路自动化。
+  </p>
+  <div class="hero-actions">
+    <a href="/app" class="btn-primary">开始分析 →</a>
+    <a href="#features" class="btn-secondary">了解更多 ↓</a>
+  </div>
+  <div class="hero-stats">
+    <div class="hero-stat">
+      <div class="hero-stat-value">5</div>
+      <div class="hero-stat-label">权威数据源</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-stat-value">4</div>
+      <div class="hero-stat-label">分析工作台</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-stat-value">AI</div>
+      <div class="hero-stat-label">云端智能解读</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-stat-value">∞</div>
+      <div class="hero-stat-label">自然语言查询</div>
+    </div>
+  </div>
+</section>
+
+<!-- Features Section -->
+<section class="features" id="features">
+  <div class="features-inner">
+    <div class="section-label">Features</div>
+    <h2 class="section-title">四大分析引擎，覆盖完整工作流</h2>
+    <p class="section-desc">
+      从自然语言提问到深度统计分析，从指标检索到自定义建模——一个工作台，解决所有亚太区域分析需求。
+    </p>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">🔮</div>
+        <div class="feature-title">智能查询</div>
+        <div class="feature-desc">
+          用自然语言提问，AI 自动理解意图、检索数据、生成分析报告。无需学习复杂语法，像和人对话一样获取洞察。
+        </div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📊</div>
+        <div class="feature-title">指标总表</div>
+        <div class="feature-desc">
+          结构化的指标检索界面。按类别、国家、年份筛选，一键添加到分析队列，支持批量导出和对比分析。
+        </div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📋</div>
+        <div class="feature-title">自定义分析</div>
+        <div class="feature-desc">
+          灵活的公式编辑器，支持回归分析、趋势预测、相关性检验等统计方法。保存分析模板，复用你的分析逻辑。
+        </div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🤖</div>
+        <div class="feature-title">AI 云端解读</div>
+        <div class="feature-desc">
+          基于 InfiniSynapse Server API，对分析结果进行深度语义解读。不只给数字，更给出可执行的洞察建议。
+        </div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📚</div>
+        <div class="feature-title">知识库管理</div>
+        <div class="feature-desc">
+          集成世界银行、IMF、UN Comtrade、ADB 等权威数据源。统一管理数据来源，支持自定义数据接入。
+        </div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⬇️</div>
+        <div class="feature-title">数据采集</div>
+        <div class="feature-desc">
+          自动化数据采集流水线，支持定时任务和增量更新。数据同步到本地 SQLite，保证离线可用和历史追溯。
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Process Section -->
+<section class="section" id="process">
+  <div class="section-label">Workflow</div>
+  <h2 class="section-title">四步完成深度分析</h2>
+  <p class="section-desc">
+    从提问到洞察，每一步都有 AI 参与。不只是一个查询工具——是一套完整的数据分析工作流。
+  </p>
+  <div class="process-steps">
+    <div class="process-step">
+      <div class="process-num">STEP 01</div>
+      <div class="process-icon">💬</div>
+      <div class="process-title">自然语言提问</div>
+      <div class="process-desc">
+        用中文描述你的分析需求，AI 自动解析意图并匹配数据
+      </div>
+    </div>
+    <div class="process-step">
+      <div class="process-num">STEP 02</div>
+      <div class="process-icon">🔍</div>
+      <div class="process-title">智能数据检索</div>
+      <div class="process-desc">
+        从多个数据源实时检索，自动匹配指标、处理单位和口径差异
+      </div>
+    </div>
+    <div class="process-step">
+      <div class="process-num">STEP 03</div>
+      <div class="process-icon">📈</div>
+      <div class="process-title">统计分析计算</div>
+      <div class="process-desc">
+        在本地 SQLite 中执行统计分析，生成图表和数据表
+      </div>
+    </div>
+    <div class="process-step">
+      <div class="process-num">STEP 04</div>
+      <div class="process-icon">🧠</div>
+      <div class="process-title">AI 深度解读</div>
+      <div class="process-desc">
+        云端 AI 对结果进行语义解读，输出洞察建议和风险提示
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Architecture Section -->
+<section class="section" id="architecture" style="background: var(--gray-50); padding-left: 48px; padding-right: 48px;">
+  <div style="max-width: 1200px; margin: 0 auto;">
+    <div class="section-label">Architecture</div>
+    <h2 class="section-title">系统架构设计</h2>
+    <p class="section-desc">
+      前后端分离，数据本地化存储，AI 能力云端调度。兼顾性能、安全与可扩展性。
+    </p>
+    <div class="arch-grid">
+      <div class="arch-card">
+        <div class="arch-stage">LAYER 1</div>
+        <div class="arch-icon">🖥️</div>
+        <div class="arch-title">前端交互层</div>
+        <div class="arch-desc">
+          原生 HTML/CSS/JS<br>
+          瑞士排版风格<br>
+          响应式设计
+        </div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-stage">LAYER 2</div>
+        <div class="arch-icon">⚡</div>
+        <div class="arch-title">API 网关层</div>
+        <div class="arch-desc">
+          Vercel Serverless<br>
+          自动扩缩容<br>
+          边缘计算加速
+        </div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-stage">LAYER 3</div>
+        <div class="arch-icon">🗄️</div>
+        <div class="arch-title">数据存储层</div>
+        <div class="arch-desc">
+          本地 SQLite<br>
+          知识库向量索引<br>
+          历史数据追溯
+        </div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-stage">LAYER 4</div>
+        <div class="arch-icon">🤖</div>
+        <div class="arch-title">AI 能力层</div>
+        <div class="arch-desc">
+          InfiniSynapse API<br>
+          多模型调度<br>
+          流式响应
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Tech Stack Section -->
+<section class="tech-stack" id="tech">
+  <div class="tech-inner">
+    <div class="section-label" style="color: var(--blue-400);">Technology</div>
+    <h2 class="section-title" style="color: white;">技术栈详情</h2>
+    <div class="tech-grid">
+      <div class="tech-card">
+        <div class="tech-card-title">前端</div>
+        <div class="tech-card-desc">
+          原生 HTML5 + CSS3 + JavaScript<br>
+          零依赖，轻量高效<br>
+          思源黑体 + Roboto 字体
+        </div>
+      </div>
+      <div class="tech-card">
+        <div class="tech-card-title">后端</div>
+        <div class="tech-card-desc">
+          Python Serverless Functions<br>
+          Vercel Edge Runtime<br>
+          RESTful API 设计
+        </div>
+      </div>
+      <div class="tech-card">
+        <div class="tech-card-title">AI 模型</div>
+        <div class="tech-card-desc">
+          InfiniSynapse Server API<br>
+          多模型智能路由<br>
+          SSE 流式响应
+        </div>
+      </div>
+      <div class="tech-card">
+        <div class="tech-card-title">数据科学</div>
+        <div class="tech-card-desc">
+          SQLite 本地存储<br>
+          统计分析引擎<br>
+          数据可视化
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA Section -->
+<section class="cta">
+  <h2 class="cta-title">准备好开始分析了吗？</h2>
+  <p class="cta-desc">
+    立即体验亚太统计分析系统，让 AI 帮你发现数据背后的洞察。
+  </p>
+  <a href="/app" class="btn-primary" style="font-size: 16px; padding: 16px 32px;">
+    进入分析系统 →
+  </a>
+</section>
+
+<!-- Footer -->
+<footer class="footer">
+  <p>
+    亚太统计分析系统 · APAC Stats<br>
+    数据来源：世界银行 · IMF · UN Comtrade · ADB<br><br>
+    <a href="/app">进入系统</a> · 
+    <a href="#features">功能特性</a> · 
+    <a href="#architecture">系统架构</a>
+  </p>
+</footer>
+
+<script>
+// Smooth scroll for anchor links
+document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+  anchor.addEventListener('click', function (e) {
+    e.preventDefault();
+    const target = document.querySelector(this.getAttribute('href'));
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
+});
+
+// Navbar background on scroll
+window.addEventListener('scroll', () => {
+  const nav = document.querySelector('.nav');
+  if (window.scrollY > 50) {
+    nav.style.boxShadow = '0 2px 12px rgba(0,0,0,0.08)';
+  } else {
+    nav.style.boxShadow = 'none';
+  }
+});
+</script>
+</body>
+</html>
