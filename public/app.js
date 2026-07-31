@@ -122,7 +122,7 @@ async function loadIndicators() {
       + '<td>' + h(r.dimension) + '</td>'
       + '<td class="num">' + (r.value !== null && r.value !== undefined ? r.value.toLocaleString() : '—') + '</td>'
       + '<td>' + h(r.unit || '') + '</td>'
-      + '<td style="color:var(--gray-400);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + a(r.note || '') + '">' + h(r.note || '') + '</td>'
+      + '<td class="note-cell" style="color:var(--gray-400)" title="' + a(r.note || '') + '">' + h(r.note || '') + '</td>'
       + '</tr>'; }).join('');
 
   } catch (e) { tb.innerHTML = '<tr><td colspan=8 style="color:var(--red-500)">加载失败</td></tr>'; }

@@ -893,7 +893,7 @@ body { font-family: var(--font); color: var(--gray-700); background: var(--gray-
   color: var(--gray-500);
   text-transform: uppercase;
   letter-spacing: 0.3px;
-  padding: 8px 10px;
+  padding: 10px 12px;
   text-align: center;
   border-bottom: 2px solid var(--gray-200);
   white-space: nowrap;
@@ -901,15 +901,41 @@ body { font-family: var(--font); color: var(--gray-700); background: var(--gray-
 }
 
 .data-table td {
-  padding: 8px 10px;
+  padding: 10px 12px;
   border-bottom: 1px solid var(--gray-100);
   color: var(--gray-700);
+  text-align: center;
 }
 
 .data-table tr:hover td { background: var(--blue-50); }
 
-.data-table .ind-name { font-weight: 500; color: var(--gray-900); }
-.data-table .num { font-family: var(--num); font-size: 12px; text-align: right; letter-spacing: 0.3px; }
+.data-table .ind-name {
+  font-weight: 500;
+  color: var(--gray-900);
+  text-align: left;
+}
+
+.data-table .num {
+  font-family: var(--num);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: right;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 表头与数据列对齐 */
+.data-table th.th-left { text-align: left; }
+.data-table th.th-num { text-align: right; }
+.data-table th.th-note { text-align: left; }
+.data-table td.note-cell {
+  text-align: left;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .tag {
   display: inline-flex;
@@ -1001,8 +1027,27 @@ body { font-family: var(--font); color: var(--gray-700); background: var(--gray-
 }
 .ans-box b { color: var(--gray-900); }
 .rk { margin: 8px 0; }
-.rk table { color: var(--gray-700); font-size: 12px; margin-top: 6px; }
-.rk th { background: var(--gray-100); font-weight: 600; }
+.rk table {
+  color: var(--gray-700);
+  font-size: 12px;
+  margin-top: 6px;
+  width: 100%;
+  border-collapse: collapse;
+}
+.rk th {
+  background: var(--gray-100);
+  font-weight: 600;
+  padding: 8px 12px;
+  text-align: center;
+  border-bottom: 2px solid var(--gray-200);
+  white-space: nowrap;
+}
+.rk td {
+  padding: 8px 12px;
+  text-align: center;
+  border-bottom: 1px solid var(--gray-100);
+  vertical-align: middle;
+}
 .rk td, .rk th { border-color: var(--gray-200); }
 .rki { margin-left: 12px; margin-top: 4px; color: var(--gray-600); font-size: 12px; }
 .kb-ref {
