@@ -57,6 +57,13 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* ============ Unified Container ============ */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 48px;
+}
+
 /* ============ Navigation ============ */
 .nav {
   position: fixed;
@@ -69,6 +76,15 @@ body {
   border-bottom: 1px solid var(--gray-100);
   padding: 0 48px;
   height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nav-inner {
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -599,6 +615,7 @@ body {
 
 <!-- Navigation -->
 <nav class="nav">
+  <div class="nav-inner">
   <div class="nav-brand">
     <div class="nav-logo">统</div>
     <div class="nav-title">全国统计分析系统</div>
@@ -610,6 +627,7 @@ body {
     <li><a href="#tech">技术栈</a></li>
   </ul>
   <a href="/app" class="nav-cta">进入系统 →</a>
+  </div>
 </nav>
 
 <!-- Hero Section -->
