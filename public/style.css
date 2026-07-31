@@ -257,6 +257,7 @@ body { font-family: var(--font); color: var(--gray-700); background: var(--gray-
 /* ============ 标题区 ============ */
 .page-header {
   margin-bottom: 20px;
+  text-align: center;
 }
 
 .page-title {
@@ -891,7 +892,7 @@ body { font-family: var(--font); color: var(--gray-700); background: var(--gray-
   text-transform: uppercase;
   letter-spacing: 0.3px;
   padding: 8px 10px;
-  text-align: left;
+  text-align: center;
   border-bottom: 2px solid var(--gray-200);
   white-space: nowrap;
   background: var(--gray-25);
