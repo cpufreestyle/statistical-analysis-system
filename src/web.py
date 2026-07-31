@@ -400,29 +400,26 @@ async function loadTable(){
     const tb = document.querySelector('#tbl tbody');
     document.getElementById('tcount').textContent = rows.length? (rows.length+' 条'):'';
     if(!rows.length){tb.innerHTML='<tr><td colspan=8>无数据</td></tr>';return;}
-    tb.innerHTML = rows.map(r=>`<tr>
-      <td><input type=checkbox class=selrow data-c="${r.category}" data-i="${r.indicator}" data-d="${r.dimension}"></td>
+    tb.innerHTML = rows.map((r,i)=>`<tr>
+      <td><input type=radio name=selrow class=selrow value="${i}" data-c="${r.category}" data-i="${r.indicator}" data-d="${r.dimension}"></td>
       <td>${r.year}</td><td>${r.category}</td><td>${r.indicator}</td>
       <td>${r.dimension}</td><td>${r.value}</td><td>${r.unit}</td><td>${r.note||''}</td>
     </tr>`).join('');
   }catch(e){ document.getElementById('tcount').textContent='指标加载失败：'+e; }
 }
 function buildFromSelected(){
-  const sel = [...document.querySelectorAll('#tbl .selrow:checked')];
-  if(!sel.length){ alert('请先在指标总表勾选 1~4 个指标'); return; }
+  const sel = document.querySelector('#tbl .selrow:checked');
+  if(!sel){ alert('请先在指标总表选中一个指标'); return; }
   showAdd();
   const vr = document.getElementById('varRows'); vr.innerHTML='';
-  const names='xyza';
-  sel.slice(0,4).forEach((cb,idx)=>{
-    addVarRow();
-    const row = vr.lastElementChild;
-    row.querySelector('.vname').value = names[idx];
-    const cat = row.querySelector('.vcat');
-    cat.value = cb.dataset.c; cat.dispatchEvent(new Event('change'));
-    row.querySelector('.vind').value = cb.dataset.i;
-    row.querySelector('.vdim').value = cb.dataset.d;
-  });
-  document.getElementById('caddMsg').textContent = '已带入 '+sel.length+' 个变量，填好名称与公式即可保存';
+  addVarRow();
+  const row = vr.lastElementChild;
+  row.querySelector('.vname').value = 'x';
+  const cat = row.querySelector('.vcat');
+  cat.value = sel.dataset.c; cat.dispatchEvent(new Event('change'));
+  row.querySelector('.vind').value = sel.dataset.i;
+  row.querySelector('.vdim').value = sel.dataset.d;
+  document.getElementById('caddMsg').textContent = '已带入所选指标，填好名称与公式即可保存';
 }
 
 async function ask(cloud=false){
