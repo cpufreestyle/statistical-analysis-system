@@ -5,6 +5,8 @@
 """
 from __future__ import annotations
 
+import os as _os
+
 from flask import Flask, request, jsonify
 
 from src import report
@@ -14,6 +16,7 @@ from src import collect as collector
 from src.stats import indicators as ind
 from src.stats import query as nlq
 from src.stats import custom as cust
+from src import pages
 
 app = Flask(__name__)
 
@@ -479,8 +482,23 @@ loadAll();
 
 
 @app.route("/")
-def index() -> str:
-    return PAGE
+def index():
+    return pages.PAGE_INDEX
+
+
+@app.route("/app")
+def app_page():
+    return pages.PAGE_APP
+
+
+@app.route("/style.css")
+def serve_css():
+    return pages.STYLE_CSS, 200, {"Content-Type": "text/css; charset=utf-8"}
+
+
+@app.route("/app.js")
+def serve_js():
+    return pages.APP_JS, 200, {"Content-Type": "application/javascript; charset=utf-8"}
 
 
 @app.route("/api/overview")
@@ -494,6 +512,27 @@ def api_db():
     from src.db import init_db
     init_db()
     return jsonify(db_info())
+
+
+@app.route("/api/reseed", methods=["POST"])
+def api_reseed():
+    """一次性全量重播种：清空 indicators 表后重新生成 2024-2026 全国口径数据（51 条）。
+    先删除 KV 旧 key，写入后 KV 自动同步，下次冷启动不再回退到旧数据。"""
+    from src.db import init_db, INDICATORS, engine
+    from src.loader import generate_national_sample_data
+    from src.kv_store import kv_available, kv_delete as _kv_del
+    init_db()
+    # 先删 KV 旧数据
+    if kv_available():
+        try:
+            _kv_del("qu_stat_ap:indicators")
+        except Exception:
+            pass
+    with engine.begin() as conn:
+        conn.execute(INDICATORS.delete())
+    n = generate_national_sample_data()
+    from src.db import count_indicators
+    return jsonify({"ok": True, "count": n, "total_in_db": count_indicators()})
 
 
 @app.route("/api/kv-status")
@@ -667,12 +706,36 @@ def _ensure_data() -> None:
     init_db()
 
     # 优先从 KV 恢复（Redis 持久化）：有数据则直接用，省去示例数据写入
-    from src.kv_store import kv_available
+    from src.kv_store import kv_available, kv_delete as _kv_del
     if kv_available():
         from src.kv_sync import restore_from_kv
         try:
             if restore_from_kv():
-                # 恢复成功，但知识库可能为空则补种子
+                total = count_indicators()
+                # 旧版 KV 中只有 2024 年亚太口径 16 条示例数据 → 全量重灌全国口径
+                if total < 30:
+                    from src.db import INDICATORS, engine
+                    from src.loader import generate_national_sample_data
+                    with engine.begin() as conn:
+                        conn.execute(INDICATORS.delete())
+                    generate_national_sample_data()
+                    # 删除旧 KV key，避免下次冷启动又恢复旧数据
+                    try:
+                        _kv_del("qu_stat_ap:indicators")
+                    except Exception:
+                        pass
+                else:
+                    # 恢复成功：补齐缺失年份的全国示例数据
+                    from src.loader import generate_national_sample_data
+                    from src.db import query_indicators
+                    try:
+                        existing = {r["year"] for r in query_indicators()}
+                        missing = [y for y in (2024, 2025, 2026) if y not in existing]
+                        if missing:
+                            generate_national_sample_data(missing)
+                    except Exception as exc:
+                        app.logger.warning("year seeding skipped: %s", exc)
+                # 知识库为空则补种子
                 if kb.count_knowledge() == 0:
                     kb.seed_default_knowledge()
                 return
@@ -681,9 +744,9 @@ def _ensure_data() -> None:
 
     # KV 不可用或为空：播种示例数据 + 知识库（仅首次空库）
     if count_indicators() == 0:
-        from src.loader import generate_sample_data
+        from src.loader import generate_national_sample_data
         try:
-            generate_sample_data(2024)
+            generate_national_sample_data()
         except Exception as exc:  # 播种失败不应阻断看板启动
             app.logger.warning("sample data seeding skipped: %s", exc)
     if kb.count_knowledge() == 0:

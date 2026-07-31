@@ -19,3 +19,8 @@ Thumbs.db
 push_out.txt
 push*.txt
 .vercel
+
+# ---- Vercel 部署日志 / 生成图片（非源码，勿提交）----
+.vercel_deploy*.txt
+.vercel_result*.txt
+generated-images/
