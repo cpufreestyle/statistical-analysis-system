@@ -353,6 +353,32 @@ body { font-family: var(--font); color: var(--gray-700); background: var(--gray-
 
 .query-input::placeholder { color: var(--gray-400); }
 
+/* select 下拉框：隐藏原生箭头，用居中的自定义箭头 */
+select.query-input {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--gray-500) 50%),
+    linear-gradient(135deg, var(--gray-500) 50%, transparent 50%);
+  background-position:
+    calc(100% - 17px) calc(50% - 2px),
+    calc(100% - 12px) calc(50% - 2px);
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 28px;
+  cursor: pointer;
+}
+
+select.query-input:hover {
+  border-color: var(--blue-300);
+}
+
+select.query-input:focus {
+  border-color: var(--blue-400);
+  background: white;
+}
+
 .query-hint {
   font-size: 12px;
   color: var(--gray-400);
