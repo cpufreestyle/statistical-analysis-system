@@ -281,6 +281,7 @@ body {
 /* Hero Stats */
 .hero-stats {
   display: flex;
+  justify-content: center;
   gap: 48px;
   padding-top: 48px;
   border-top: 1px solid var(--gray-200);
@@ -363,6 +364,7 @@ body {
   border: 1px solid var(--gray-200);
   border-radius: var(--radius-lg);
   padding: 32px;
+  text-align: center;
   transition: all 0.3s;
 }
 
@@ -381,7 +383,7 @@ body {
   align-items: center;
   justify-content: center;
   font-size: 22px;
-  margin-bottom: 20px;
+  margin: 0 auto 20px;
 }
 
 .feature-title {
@@ -530,6 +532,7 @@ body {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--radius-md);
+  text-align: center;
 }
 
 .tech-card-title {
@@ -767,53 +770,51 @@ body {
 </section>
 
 <!-- Architecture Section -->
-<section class="section" id="architecture" style="background: var(--gray-50); padding-left: 48px; padding-right: 48px;">
-  <div style="max-width: 1200px; margin: 0 auto;">
-    <div class="section-label">Architecture</div>
-    <h2 class="section-title">系统架构设计</h2>
-    <p class="section-desc">
-      前后端分离，数据本地化存储，AI 能力云端调度。兼顾性能、安全与可扩展性。
-    </p>
-    <div class="arch-grid">
-      <div class="arch-card">
-        <div class="arch-stage">LAYER 1</div>
-        <div class="arch-icon">🖥️</div>
-        <div class="arch-title">前端交互层</div>
-        <div class="arch-desc">
-          原生 HTML/CSS/JS<br>
-          瑞士排版风格<br>
-          响应式设计
-        </div>
+<section class="section" id="architecture">
+  <div class="section-label">Architecture</div>
+  <h2 class="section-title">系统架构设计</h2>
+  <p class="section-desc">
+    前后端分离，数据本地化存储，AI 能力云端调度。兼顾性能、安全与可扩展性。
+  </p>
+  <div class="arch-grid">
+    <div class="arch-card">
+      <div class="arch-stage">LAYER 1</div>
+      <div class="arch-icon">🖥️</div>
+      <div class="arch-title">前端交互层</div>
+      <div class="arch-desc">
+        原生 HTML/CSS/JS<br>
+        瑞士排版风格<br>
+        响应式设计
       </div>
-      <div class="arch-card">
-        <div class="arch-stage">LAYER 2</div>
-        <div class="arch-icon">⚡</div>
-        <div class="arch-title">API 网关层</div>
-        <div class="arch-desc">
-          Flask 后端服务<br>
-          自动扩缩容<br>
-          边缘计算加速
-        </div>
+    </div>
+    <div class="arch-card">
+      <div class="arch-stage">LAYER 2</div>
+      <div class="arch-icon">⚡</div>
+      <div class="arch-title">API 网关层</div>
+      <div class="arch-desc">
+        Flask 后端服务<br>
+        自动扩缩容<br>
+        边缘计算加速
       </div>
-      <div class="arch-card">
-        <div class="arch-stage">LAYER 3</div>
-        <div class="arch-icon">🗄️</div>
-        <div class="arch-title">数据存储层</div>
-        <div class="arch-desc">
-          本地 SQLite<br>
-          知识库索引<br>
-          历史数据追溯
-        </div>
+    </div>
+    <div class="arch-card">
+      <div class="arch-stage">LAYER 3</div>
+      <div class="arch-icon">🗄️</div>
+      <div class="arch-title">数据存储层</div>
+      <div class="arch-desc">
+        本地 SQLite<br>
+        知识库索引<br>
+        历史数据追溯
       </div>
-      <div class="arch-card">
-        <div class="arch-stage">LAYER 4</div>
-        <div class="arch-icon">🤖</div>
-        <div class="arch-title">AI 能力层</div>
-        <div class="arch-desc">
-          InfiniSynapse API<br>
-          多模型调度<br>
-          流式响应
-        </div>
+    </div>
+    <div class="arch-card">
+      <div class="arch-stage">LAYER 4</div>
+      <div class="arch-icon">🤖</div>
+      <div class="arch-title">AI 能力层</div>
+      <div class="arch-desc">
+        InfiniSynapse API<br>
+        多模型调度<br>
+        流式响应
       </div>
     </div>
   </div>

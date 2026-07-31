@@ -504,6 +504,7 @@ body { font-family: var(--font); color: var(--gray-700); background: var(--gray-
   border-radius: var(--radius-lg);
   padding: 16px 18px;
   box-shadow: var(--shadow-xs);
+  text-align: center;
   transition: box-shadow 0.15s;
 }
 
@@ -512,7 +513,7 @@ body { font-family: var(--font); color: var(--gray-700); background: var(--gray-
 .metric-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   margin-bottom: 8px;
 }
 
@@ -600,6 +601,7 @@ body { font-family: var(--font); color: var(--gray-700); background: var(--gray-
   border-radius: var(--radius-lg);
   padding: 16px 18px;
   box-shadow: var(--shadow-xs);
+  text-align: center;
   cursor: pointer;
   transition: all 0.15s;
 }
