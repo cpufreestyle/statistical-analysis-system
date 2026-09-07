@@ -7,6 +7,15 @@ from __future__ import annotations
 
 import os as _os
 
+# 本地看板跑在 127.0.0.1，必须排除出系统 HTTP 代理（如 127.0.0.1:7897），
+# 否则代理会拦截本地请求导致预览/接口连接被拒。
+_os.environ.setdefault("no_proxy", "127.0.0.1,localhost")
+_os.environ.setdefault("NO_PROXY", "127.0.0.1,localhost")
+if "127.0.0.1" not in _os.environ.get("no_proxy", ""):
+    _os.environ["no_proxy"] = (_os.environ.get("no_proxy", "") + ",127.0.0.1,localhost").strip(",")
+if "127.0.0.1" not in _os.environ.get("NO_PROXY", ""):
+    _os.environ["NO_PROXY"] = (_os.environ.get("NO_PROXY", "") + ",127.0.0.1,localhost").strip(",")
+
 from flask import Flask, request, jsonify
 
 from src import report
@@ -19,6 +28,17 @@ from src.stats import custom as cust
 from src import pages
 
 app = Flask(__name__)
+
+
+@app.after_request
+def _no_cache(resp):
+    """页面与静态资源一律不缓存。
+
+    曾出过问题：改完前端后浏览器仍用启发式缓存的旧 /i18n.js
+    （那版脚本抛 ReferenceError，导致 toggleLang 未定义、语言切换按钮失效）。
+    """
+    resp.headers["Cache-Control"] = "no-store, must-revalidate"
+    return resp
 
 
 def _fmt(v: object) -> str:
@@ -57,427 +77,6 @@ def _overview(year: int) -> dict[str, object]:
     }
 
 
-PAGE = """
-<!doctype html><html lang=zh><head><meta charset=utf-8>
-<meta name=viewport content="width=device-width,initial-scale=1">
-<title>统计分析系统</title>
-<style>
-:root{--bg:#f6f8fa;--card:#fff;--bd:#e1e4e8;--blue:#2563eb;--ink:#1f2d3d;--mut:#6b7280}
-*{box-sizing:border-box}
-body{font-family:system-ui,"Microsoft YaHei",sans-serif;margin:0;background:var(--bg);color:var(--ink);padding-top:0}
-header{background:linear-gradient(90deg,#1e3a8a,#2563eb);color:#fff;padding:1.2rem 2rem}
-header h1{margin:0;font-size:1.4rem}header p{margin:.2rem 0 0;opacity:.85;font-size:.85rem}
-.wrap{max-width:1080px;margin:1.5rem auto;padding:0 1rem}
-.bar{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem}
-input,select{padding:.5rem .6rem;border:1px solid #ccc;border-radius:6px;font-size:.95rem}
-button{padding:.5rem 1rem;border:0;background:var(--blue);color:#fff;border-radius:6px;cursor:pointer}
-button.ghost{background:#fff;color:var(--blue);border:1px solid var(--blue)}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:.9rem}
-.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:1rem 1.1rem}
-.card .label{font-size:.8rem;color:var(--mut)}.card .val{font-size:1.5rem;font-weight:700;margin:.3rem 0}
-.card .sub{font-size:.75rem;color:var(--mut)}
-section{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:1.1rem 1.3rem;margin-top:1.2rem}
-section h2{margin:.1rem 0 .8rem;font-size:1.05rem}
-pre{white-space:pre-wrap;word-break:break-word;background:#0f172a;color:#e2e8f0;padding:.9rem;border-radius:8px;overflow:auto;max-height:360px;font-size:.85rem}
-.ans{white-space:normal;word-break:break-word;background:#0f172a;color:#e2e8f0;padding:.9rem;border-radius:8px;overflow:auto;max-height:360px;font-size:.85rem}
-.ans table{color:#e2e8f0;font-size:.82rem}
-.ans th{background:#1e293b}
-.ans td,.ans th{border-color:#334155}
-table{border-collapse:collapse;width:100%;font-size:.85rem}
-th,td{border:1px solid #eee;padding:.45rem .6rem;text-align:left}
-th{background:#f1f5f9}
-.bars{display:flex;flex-direction:column;gap:.5rem}
-.row{display:flex;align-items:center;gap:.6rem}
-.row .name{width:5rem;font-size:.85rem;color:var(--mut)}
-.track{flex:1;background:#eef2f7;border-radius:6px;overflow:hidden}
-.fill{height:1.4rem;background:linear-gradient(90deg,#3b82f6,#2563eb);border-radius:6px}
-.row .num{width:5rem;text-align:right;font-size:.85rem}
-</style></head>
-<body>
-<header><h1>亚太统计分析系统</h1><p>亚太口径统计分析 · InfiniSynapse Server API 驱动的云端 AI 解读 · 本地 SQLite + 知识库</p></header>
-<div class=wrap>
-
-  <div class=bar>
-    <label>年份</label><input id=year type=number value=2024 list=yearlist style="width:6rem"><datalist id=yearlist><option value=2024><option value=2025><option value=2026></datalist>
-    <button onclick=loadAll()>刷新看板</button>
-    <span id=status style="color:var(--mut);font-size:.8rem"></span>
-  </div>
-
-  <section style="border:1px solid #bfdbfe;background:linear-gradient(90deg,#eff6ff,#f8fafc)">
-    <h2 style="color:#1e3a8a;margin:.1rem 0 .5rem">🛠 创建我的查询与分析</h2>
-    <p style="font-size:.85rem;color:var(--mut);margin:0 0 .7rem">两种自建方式：用自然语言直接提问查询，或用公式把多个指标组合成你自己的分析并保存复用。</p>
-    <div class=bar>
-      <button onclick="document.getElementById('q').scrollIntoView({behavior:'smooth'});document.getElementById('q').focus()">💬 自然语言查询</button>
-      <button class=ghost onclick="showAdd();document.getElementById('custAdd').scrollIntoView({behavior:'smooth'})">📐 新建公式分析</button>
-      <button class=ghost onclick="document.getElementById('cat').scrollIntoView({behavior:'smooth'})">📊 从指标总表勾选建分析</button>
-    </div>
-  </section>
-
-  <div id=cards class=grid></div>
-
-  <section><div id=townChart class=bars></div></section>
-
-  <section>
-    <h2>自然语言查询</h2>
-    <div class=bar>
-      <input id=q placeholder='如：2024年亚太GDP；各经济体工业排名' style="width:70%">
-      <button onclick=ask()>分析</button>
-      <button class=ghost onclick="ask(true)">云端解读</button>
-    </div>
-    <div id=out class=ans>在上方输入问题后点击「分析」。</div>
-  </section>
-
-  <section>
-    <h2>指标总表</h2>
-    <p style="font-size:.8rem;color:var(--mut);margin:0 0 .6rem">
-      勾选指标后点「用所选建分析」可一键带入自定义分析；也可在上方自然语言框直接问具体指标名。
-    </p>
-    <div class=bar>
-      <label>专业</label>
-      <select id=cat><option value="">全部</option></select>
-      <input id=tsearch placeholder="关键词搜指标 / 说明 / 维度" style="width:34%">
-      <button onclick=loadTable()>查询</button>
-      <button class=ghost onclick=buildFromSelected()>用所选建分析</button>
-      <span id=tcount style="color:var(--mut);font-size:.8rem"></span>
-    </div>
-    <div style="overflow:auto;max-height:420px">
-      <table id=tbl><thead><tr>
-        <th></th><th>年份</th><th>专业</th><th>指标</th><th>维度</th><th>数值</th><th>单位</th><th>说明</th>
-      </tr></thead><tbody></tbody></table>
-    </div>
-  </section>
-
-  <section>
-    <h2>自定义分析</h2>
-    <div class=bar>
-      <select id=cust><option value="">选择分析…</option></select>
-      <button onclick=runCustom()>运行</button>
-      <button class=ghost onclick=showAdd()>新增</button>
-    </div>
-    <div id=custOut class=ans>选择并运行一个自定义分析。</div>
-    <div id=custAdd style="display:none;margin-top:.8rem;border-top:1px dashed #ccc;padding-top:.8rem">
-      <div class=bar><input id=cname placeholder="名称（如：工业占GDP比重）"><input id=cunit placeholder="单位（如 %、亿元）"></div>
-      <input id=cdesc placeholder="一句话说明（可选）" style="width:100%;margin:.4rem 0">
-      <div style="font-size:.8rem;color:var(--mut);margin:.2rem 0">
-        添加变量（从下拉选专业 / 指标 / 维度，表达式里用变量名计算）：
-      </div>
-      <div id=varRows></div>
-      <div class=bar><button class=ghost onclick=addVarRow()>＋ 添加变量</button></div>
-      <input id=cexpr placeholder="表达式，如 x / y * 100" style="width:100%;margin:.4rem 0">
-      <div class=bar style="gap:.4rem">
-        <span style="font-size:.8rem;color:var(--mut)">常用公式：</span>
-        <button class=ghost style="padding:.25rem .6rem;font-size:.8rem" onclick="fillExpr('share')">占比 x/y×100</button>
-        <button class=ghost style="padding:.25rem .6rem;font-size:.8rem" onclick="fillExpr('diff')">差值 x−y</button>
-        <button class=ghost style="padding:.25rem .6rem;font-size:.8rem" onclick="fillExpr('ratio')">倍数 x/y</button>
-        <button class=ghost style="padding:.25rem .6rem;font-size:.8rem" onclick="fillExpr('sum')">合计 x+y</button>
-      </div>
-      <div class=bar><label style="font-size:.85rem"><input type=checkbox id=ccmp> 计算同比</label></div>
-      <div class=bar><button onclick=addCustom()>保存</button><span id=caddMsg style="color:var(--mut);font-size:.8rem"></span></div>
-    </div>
-  </section>
-
-  <section>
-    <h2>知识库 &amp; 数据库</h2>
-    <div id=dbInfo class=sub style="margin-bottom:.6rem"></div>
-    <div class=bar>
-      <input id=ksearch placeholder="搜索知识（如：GDP 口径、工业统计）" style="width:60%">
-      <button onclick=searchKnowledge()>搜索</button>
-      <button class=ghost onclick=loadKnowledge()>全部</button>
-    </div>
-    <div id=klist style="font-size:.85rem;max-height:320px;overflow:auto"></div>
-    <div class=bar style="margin-top:.8rem">
-      <button class=ghost onclick=showKAdd()>新增知识</button>
-    </div>
-    <div id=kAdd style="display:none;margin-top:.8rem;border-top:1px dashed #ccc;padding-top:.8rem">
-      <div class=bar><input id=ktitle placeholder="标题"><input id=kcat2 placeholder="分类(默认通用)"><input id=ktags placeholder="标签(逗号分隔)"></div>
-      <textarea id=kcontent placeholder="正文 / 口径说明" style="width:100%;height:70px"></textarea>
-      <input id=ksource placeholder="来源（可选，如：统计制度方法）" style="width:100%;margin:.4rem 0">
-      <div class=bar><button onclick=addKnowledge()>保存</button><span id=kaddMsg style="color:var(--mut);font-size:.8rem"></span></div>
-    </div>
-  </section>
-
-  <section>
-    <h2>数据收集（全网开放数据）</h2>
-    <div class=bar>
-      <label>数据源</label>
-      <select id=csrc>
-        <option value="worldbank">世界银行（亚太）</option>
-        <option value="global">世界银行（全球对比）</option>
-      </select>
-      <label>年份</label><input id=cyear type=number value=2024 style="width:5rem">
-      <input id=cinds placeholder="指标别名，如 gdp,population,cpi（可空=全部）" style="width:38%">
-      <button onclick=collectData()>从网络采集</button>
-    </div>
-    <div id=collectMsg class=sub style="margin-top:.5rem"></div>
-  </section>
-
-  <section>
-    <h2>统计公报</h2>
-    <pre id=bulletin></pre>
-    <button class=ghost onclick=aiInterpret()>AI 解读（云端）</button>
-    <pre id=ai style="margin-top:.6rem"></pre>
-  </section>
-
-</div>
-<script>
-const Y = () => document.getElementById('year').value;
-const setStatus = t => document.getElementById('status').textContent = t;
-
-async function loadAll(){
-  loadOverview(); loadTable(); loadBulletin(); loadCustom();
-  loadDb(); loadKnowledge(); loadIndicatorKeys();
-}
-
-async function loadDb(){
-  try{
-    const r = await fetch('/api/db'); const d = await r.json();
-    document.getElementById('dbInfo').textContent =
-      `数据库：${d.path} · 引擎 ${d.engine} · 指标 ${d.indicator_rows} 条 · 知识 ${d.knowledge_rows} 条 · ${(d.size_bytes/1024).toFixed(1)} KB`;
-  }catch(e){ document.getElementById('dbInfo').textContent = '数据库状态读取失败：'+e; }
-}
-async function loadKnowledge(){
-  try{
-    const r = await fetch('/api/knowledge'); const list = await r.json();
-    renderKnowledge(list);
-  }catch(e){ document.getElementById('klist').textContent='知识库加载失败：'+e; }
-}
-async function searchKnowledge(){
-  const q = document.getElementById('ksearch').value;
-  const r = await fetch('/api/knowledge?q='+encodeURIComponent(q));
-  renderKnowledge(await r.json());
-}
-function renderKnowledge(list){
-  const el = document.getElementById('klist');
-  if(!list.length){ el.innerHTML='（暂无知识，可点击「新增知识」，或 CLI 执行 `db seed`）'; return; }
-  el.innerHTML = list.map(k=>`<div style="border-bottom:1px solid #eee;padding:.5rem 0">
-    <div><b>${k.category} · ${k.title}</b>${k.source?('（'+k.source+'）'):''}
-      <button class=ghost style="padding:.15rem .5rem;font-size:.72rem" onclick="delKnowledge(${k.id})">删除</button></div>
-    <div style="color:var(--mut);font-size:.8rem;margin-top:.2rem">${k.content}</div>
-    ${k.tags?('<div style="color:#94a3b8;font-size:.72rem;margin-top:.2rem">标签：'+k.tags+'</div>'):''}
-  </div>`).join('');
-}
-function showKAdd(){ const d=document.getElementById('kAdd'); d.style.display=d.style.display==='none'?'block':'none'; }
-async function addKnowledge(){
-  const payload={ title:document.getElementById('ktitle').value,
-    category:document.getElementById('kcat2').value||'通用',
-    tags:document.getElementById('ktags').value,
-    content:document.getElementById('kcontent').value,
-    source:document.getElementById('ksource').value };
-  const el=document.getElementById('kaddMsg'); el.textContent='保存中…';
-  if(!payload.title||!payload.content){ el.textContent='标题与正文必填'; return; }
-  try{
-    const r=await fetch('/api/knowledge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-    const d=await r.json(); el.textContent=d.ok?'已保存，列表已刷新':'失败：'+(d.error||'');
-    if(d.ok) loadKnowledge();
-  }catch(e){ el.textContent='请求失败：'+e; }
-}
-async function delKnowledge(id){
-  if(!confirm('确认删除该知识？')) return;
-  const r=await fetch('/api/knowledge?id='+id,{method:'DELETE'});
-  const d=await r.json(); if(d.ok) loadKnowledge();
-}
-
-async function collectData(){
-  const el=document.getElementById('collectMsg'); el.textContent='采集中（联网，请稍候）…';
-  const payload={ source: document.getElementById('csrc').value,
-    year: document.getElementById('cyear').value || null,
-    indicators: document.getElementById('cinds').value || null };
-  try{
-    const r=await fetch('/api/collect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-    const d=await r.json();
-    if(d.ok){ el.textContent=`已写入 ${d.count} 条（来源见指标表 note）`; loadOverview(); loadTable(); }
-    else el.textContent='失败：'+(d.error||'');
-  }catch(e){ el.textContent='请求失败：'+e; }
-}
-
-async function loadCustom(){
-  try{
-    const r = await fetch('/api/custom'); const list = await r.json();
-    document.getElementById('cust').innerHTML = '<option value="">选择分析…</option>' +
-      list.map(c=>`<option value="${c.name}">${c.name}（${c.description||''}）</option>`).join('');
-  }catch(e){ document.getElementById('cust').innerHTML='<option>分析加载失败</option>'; }
-}
-async function runCustom(){
-  const name = document.getElementById('cust').value; if(!name) return;
-  const el = document.getElementById('custOut'); el.textContent='运行中…';
-  const r = await fetch('/api/custom?name='+encodeURIComponent(name)+'&year='+Y());
-  const d = await r.json();
-  if(d.error){ el.textContent='运行失败：'+d.error; return; }
-  let html = `<div style="font-size:1.7rem;font-weight:700">${d.value}${d.unit?(' '+d.unit):''}</div>`;
-  if(d.yoy!==undefined) html += `<div style="color:#16a34a;margin-top:.2rem">同比 ${d.yoy}%</div>`;
-  if(d.expr) html += `<div style="color:var(--mut);font-size:.8rem;margin-top:.3rem">公式：${d.expr}</div>`;
-  el.innerHTML = html;
-}
-let IND_KEYS = [];
-async function loadIndicatorKeys(){
-  try{ const r = await fetch('/api/indicator_keys'); IND_KEYS = await r.json(); }
-  catch(e){ IND_KEYS = []; }
-}
-function catList(){ return [...new Set(IND_KEYS.map(k=>k.category))]; }
-function indListOf(cat){ return [...new Set(IND_KEYS.filter(k=>k.category===cat).map(k=>k.indicator))]; }
-function fillVarRow(row){
-  const cat=row.querySelector('.vcat'); const vind=row.querySelector('.vind');
-  cat.innerHTML = catList().map(c=>`<option>${c}</option>`).join('');
-  cat.onchange = ()=>{ vind.innerHTML = indListOf(cat.value).map(i=>`<option>${i}</option>`).join(''); };
-  cat.onchange();
-}
-function addVarRow(){
-  const row=document.createElement('div');
-  row.className='row'; row.style.gap='.4rem'; row.style.margin='.3rem 0';
-  row.innerHTML='<input class=vname placeholder="变量名(如 x)" style="width:6rem">'+
-    '<select class=vcat></select><select class=vind></select>'+
-    '<input class=vdim placeholder="维度" value="亚太" style="width:7rem">'+
-    '<button class=ghost style="padding:.15rem .5rem" onclick="this.closest(\'.row\').remove()">✕</button>';
-  document.getElementById('varRows').appendChild(row);
-  fillVarRow(row);
-}
-function showAdd(){ const d=document.getElementById('custAdd'); d.style.display = d.style.display==='none'?'block':'none'; if(d.style.display==='block' && document.querySelectorAll('#varRows .row').length===0) addVarRow(); }
-async function addCustom(){
-  const variables={};
-  let bad=false, msg='';
-  document.querySelectorAll('#varRows .row').forEach(row=>{
-    const vn=row.querySelector('.vname').value.trim();
-    const vc=row.querySelector('.vcat').value;
-    const vi=row.querySelector('.vind').value;
-    const vd=row.querySelector('.vdim').value.trim();
-    if(bad) return;
-    if(!vn){ bad=true; msg='变量名不能为空'; return; }
-    if(!/^[A-Za-z_]\w*$/.test(vn)){ bad=true; msg='变量名需为字母/下划线开头的英文名'; return; }
-    const spec=[vc,vi]; if(vd && vd!=='亚太') spec.push(vd);
-    variables[vn]=spec;
-  });
-  if(bad){ document.getElementById('caddMsg').textContent=msg; return; }
-  if(!Object.keys(variables).length){ document.getElementById('caddMsg').textContent='请至少添加一个变量'; return; }
-  const payload={
-    name: document.getElementById('cname').value.trim(),
-    unit: document.getElementById('cunit').value,
-    description: document.getElementById('cdesc').value,
-    variables: variables,
-    expr: document.getElementById('cexpr').value.trim(),
-    compare: document.getElementById('ccmp').checked,
-  };
-  if(!payload.name || !payload.expr){ document.getElementById('caddMsg').textContent='名称与表达式必填'; return; }
-  const el=document.getElementById('caddMsg'); el.textContent='保存中…';
-  try{
-    const r=await fetch('/api/custom',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-    const d=await r.json();
-    el.textContent=d.ok?'已保存，列表已刷新':'失败：'+(d.error||'');
-    if(d.ok){ loadCustom(); document.getElementById('varRows').innerHTML=''; }
-  }catch(e){ el.textContent='请求失败：'+e; }
-}
-
-async function loadOverview(){
-  setStatus('加载中…');
-  try{
-    const r = await fetch('/api/overview?year='+Y());
-    const d = await r.json();
-    document.getElementById('cards').innerHTML = d.cards.map(c=>
-      `<div class=card><div class=label>${c.label}</div><div class=val>${c.value}</div><div class=sub>${c.sub}</div></div>`).join('');
-    renderTownChart(d.towns||[]);
-    const sel = document.getElementById('cat');
-    sel.innerHTML = '<option value="">全部</option>' + d.categories.map(c=>`<option>${c}</option>`).join('');
-    setStatus('已更新 · '+d.year+' 年');
-  }catch(e){ setStatus('看板加载失败：'+e); }
-}
-
-function renderTownChart(towns){
-  if(!towns.length){document.getElementById('townChart').innerHTML='（暂无分街镇数据）';return;}
-  const max = Math.max(...towns.map(t=>t.产值));
-  document.getElementById('townChart').innerHTML = towns.map(t=>{
-    const w = max? (t.产值/max*100):0;
-    return `<div class=row><div class=name>${t.街镇}</div>
-      <div class=track><div class=fill style="width:${w}%"></div></div>
-      <div class=num>${t.产值} 亿</div></div>`;
-  }).join('');
-}
-
-async function loadTable(){
-  try{
-    const cat = document.getElementById('cat').value;
-    const q = document.getElementById('tsearch').value.trim();
-    const u = '/api/indicators?year='+Y()+(cat?('&category='+encodeURIComponent(cat)):'')+(q?('&q='+encodeURIComponent(q)):'');
-    const r = await fetch(u); const rows = await r.json();
-    const tb = document.querySelector('#tbl tbody');
-    document.getElementById('tcount').textContent = rows.length? (rows.length+' 条'):'';
-    if(!rows.length){tb.innerHTML='<tr><td colspan=8>无数据</td></tr>';return;}
-    tb.innerHTML = rows.map((r,i)=>`<tr>
-      <td><input type=radio name=selrow class=selrow value="${i}" data-c="${r.category}" data-i="${r.indicator}" data-d="${r.dimension}"></td>
-      <td>${r.year}</td><td>${r.category}</td><td>${r.indicator}</td>
-      <td>${r.dimension}</td><td>${r.value}</td><td>${r.unit}</td><td>${r.note||''}</td>
-    </tr>`).join('');
-  }catch(e){ document.getElementById('tcount').textContent='指标加载失败：'+e; }
-}
-function buildFromSelected(){
-  const sel = document.querySelector('#tbl .selrow:checked');
-  if(!sel){ alert('请先在指标总表选中一个指标'); return; }
-  showAdd();
-  const vr = document.getElementById('varRows'); vr.innerHTML='';
-  addVarRow();
-  const row = vr.lastElementChild;
-  row.querySelector('.vname').value = 'x';
-  const cat = row.querySelector('.vcat');
-  cat.value = sel.dataset.c; cat.dispatchEvent(new Event('change'));
-  row.querySelector('.vind').value = sel.dataset.i;
-  row.querySelector('.vdim').value = sel.dataset.d;
-  document.getElementById('caddMsg').textContent = '已带入所选指标，填好名称与公式即可保存';
-}
-
-async function ask(cloud=false){
-  const t = document.getElementById('q').value; if(!t) return;
-  const el = document.getElementById('out'); el.textContent='分析中…';
-  const u = '/api/ask?text='+encodeURIComponent(t)+(cloud?('&cloud=1'):'');
-  try{
-    const r = await fetch(u); const d = await r.json();
-    let html = renderAsk(d);
-    if(d['知识库参考']) html += `<div style="margin-top:.6rem;color:var(--mut);font-size:.82rem;border-top:1px solid #334155;padding-top:.5rem"><b>知识库参考：</b>${d['知识库参考']}</div>`;
-    el.innerHTML = html || '(无结果)';
-  }catch(e){ el.textContent='请求失败：'+e; }
-}
-function renderAsk(d){
-  if(!d || typeof d!=='object') return String(d);
-  let html='';
-  for(const [k,v] of Object.entries(d)){
-    if(k==='知识库参考') continue;
-    if(Array.isArray(v)){
-      html += `<div style="margin:.5rem 0"><b>${k}</b>`;
-      if(v.length && typeof v[0]==='object'){
-        html += '<table style="margin-top:.3rem"><thead><tr>'+Object.keys(v[0]).map(c=>`<th>${c}</th>`).join('')+'</tr></thead><tbody>'
-          + v.map(r=>`<tr>${Object.values(r).map(x=>`<td>${x??''}</td>`).join('')}</tr>`).join('')+'</tbody></table>';
-      } else { html += '<div>'+v.join('、')+'</div>'; }
-      html += '</div>';
-    } else if(v && typeof v==='object'){
-      html += `<div style="margin:.5rem 0"><b>${k}</b><div style="margin-left:.7rem;margin-top:.2rem">`
-        + Object.entries(v).map(([kk,vv])=>`${kk}：${vv}`).join('； ')+'</div></div>';
-    } else {
-      html += `<div style="margin:.4rem 0"><b>${k}</b>：${v}</div>`;
-    }
-  }
-  return html;
-}
-function fillExpr(kind){
-  const vars = [...document.querySelectorAll('#varRows .vname')].map(i=>i.value.trim()).filter(Boolean);
-  const a = vars[0]||'x', b = vars[1]||'y';
-  const map = { share:`${a} / ${b} * 100`, diff:`${a} - ${b}`, ratio:`${a} / ${b}`, sum:`${a} + ${b}` };
-  document.getElementById('cexpr').value = map[kind]||'';
-}
-
-async function loadBulletin(){
-  try{
-    const r = await fetch('/api/report?year='+Y());
-    document.getElementById('bulletin').textContent = await r.text();
-  }catch(e){ document.getElementById('bulletin').textContent='公报加载失败：'+e; }
-}
-async function aiInterpret(){
-  const el = document.getElementById('ai'); el.textContent='解读中…';
-  const r = await fetch('/api/report?year='+Y()+'&cloud=1');
-  el.textContent = await r.text();
-}
-
-loadAll();
-</script></body></html>
-"""
-
-
 @app.route("/")
 def index():
     return pages.PAGE_INDEX
@@ -496,6 +95,11 @@ def serve_css():
 @app.route("/app.js")
 def serve_js():
     return pages.APP_JS, 200, {"Content-Type": "application/javascript; charset=utf-8"}
+
+
+@app.route("/i18n.js")
+def serve_i18n():
+    return pages.I18N_JS, 200, {"Content-Type": "application/javascript; charset=utf-8"}
 
 
 @app.route("/api/overview")

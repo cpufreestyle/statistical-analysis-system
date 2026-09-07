@@ -33,7 +33,7 @@ function syncYear(y) {
   if (s) s.value = y;
   loadOverview();
   loadIndicators();
-  showToast('年份已切换至 ' + y + '年', 'success');
+  showToast(tr('年份已切换至') + ' ' + y + (window.CUR_LANG === 'zh' ? '年' : ''), 'success');
 }
 
 /* ───── Tab 切换（来自快捷按钮） ───── */
@@ -56,17 +56,17 @@ async function loadOverview() {
     const d = await r.json();
     grid.innerHTML = (d.cards || []).map(c => `
       <div class="metric-card">
-        <div class="metric-header"><span class="metric-label">${h(c.label)}</span><span class="metric-tag">${y}年</span></div>
+        <div class="metric-header"><span class="metric-label">${h(tr(c.label))}</span><span class="metric-tag">${y}${window.CUR_LANG === 'zh' ? '年' : ''}</span></div>
         <div class="metric-value">${h(c.value)}<span class="metric-unit"></span></div>
-        <div class="metric-footer"><span class="metric-change">${h(c.sub || '')}</span></div>
+        <div class="metric-footer"><span class="metric-change">${h(trData(c.sub || ''))}</span></div>
       </div>`).join('');
-  } catch (e) { grid.innerHTML = '<div class="metric-card" style="grid-column:1/-1;color:var(--gray-400)">加载失败</div>'; }
+  } catch (e) { grid.innerHTML = '<div class="metric-card" style="grid-column:1/-1;color:var(--gray-400)">' + tr('加载失败') + '</div>'; }
 }
 
 /* ═══════ 智能查询 ═══════ */
 async function runAnalyze() {
   var input = document.getElementById('nlqInput').value.trim();
-  if (!input) { showToast('请先输入查询问题', 'error'); return; }
+  if (!input) { showToast(tr('请先输入查询问题'), 'error'); return; }
   var btn = document.getElementById('btnAnalyze'); btn.classList.add('loading');
   var el = document.getElementById('nlqResult'); el.innerHTML = '<div class="skeleton skeleton-line" style="width:60%"></div><div class="skeleton skeleton-line" style="width:40%"></div>';
   try {
@@ -74,30 +74,34 @@ async function runAnalyze() {
     var d = await r.json();
     var html = renderAsk(d);
     var ref = d['知识库参考'];
-    if (ref) html += '<div class="kb-ref"><b>知识库参考：</b>' + h(ref) + '</div>';
-    el.innerHTML = html || '(无结果)';
-    showToast('分析完成', 'success');
-  } catch (e) { el.innerHTML = '<div style=color:var(--red-500)>请求失败：' + h(e) + '</div>'; showToast('请求失败', 'error'); }
+    if (ref) html += '<div class="kb-ref"><b>' + tr('知识库参考') + '：</b>' + h(ref) + '</div>';
+    el.innerHTML = html || '(' + tr('无结果') + ')';
+    showToast(tr('分析完成'), 'success');
+  } catch (e) { el.innerHTML = '<div style=color:var(--red-500)>' + tr('请求失败') + '：' + h(e) + '</div>'; showToast(tr('请求失败'), 'error'); }
   finally { btn.classList.remove('loading'); }
 }
 
 function renderAsk(d) {
   if (!d || typeof d !== 'object') return String(d);
   var html = '';
+  var sep = window.CUR_LANG === 'zh' ? '：' : ': ';
+  var jsep = window.CUR_LANG === 'zh' ? '； ' : '; ';
+  var lsep = window.CUR_LANG === 'zh' ? '、' : ', ';
   for (var k in d) { if (k === '知识库参考') continue;
     var v = d[k];
+    var kk = tr(k);
     if (Array.isArray(v) && v.length) {
-      html += '<div class="rk"><b>' + k + '</b>';
+      html += '<div class="rk"><b>' + kk + '</b>';
       if (typeof v[0] === 'object') {
         var keys = Object.keys(v[0]);
-        html += '<table class="rkt"><thead><tr>' + keys.map(c => '<th>' + c + '</th>').join('') + '</tr></thead><tbody>'
+        html += '<table class="rkt"><thead><tr>' + keys.map(c => '<th>' + tr(c) + '</th>').join('') + '</tr></thead><tbody>'
           + v.map(r => '<tr>' + keys.map(c => '<td>' + (r[c] ?? '') + '</td>').join('') + '</tr>').join('') + '</tbody></table>';
-      } else { html += '<div>' + v.join('、') + '</div>'; }
+      } else { html += '<div>' + v.join(lsep) + '</div>'; }
       html += '</div>';
     } else if (v && typeof v === 'object' && !Array.isArray(v)) {
-      html += '<div class="rk"><b>' + k + '</b><div class="rki">' + Object.entries(v).map(function(e) { return e[0] + '：' + e[1]; }).join('； ') + '</div></div>';
+      html += '<div class="rk"><b>' + kk + '</b><div class="rki">' + Object.entries(v).map(function(e) { return e[0] + sep + e[1]; }).join(jsep) + '</div></div>';
     } else {
-      html += '<div class="rk"><b>' + k + '</b>：' + (v ?? '—') + '</div>';
+      html += '<div class="rk"><b>' + kk + '</b>' + sep + (v ?? '—') + '</div>';
     }
   }
   return html;
@@ -113,19 +117,19 @@ async function loadIndicators() {
   if (!tb) return;
   try {
     var r = await fetch(u); var rows = await r.json();
-    document.getElementById('indCount').textContent = rows.length ? rows.length + ' 条' : '';
+    document.getElementById('indCount').textContent = rows.length ? rows.length + (window.CUR_LANG === 'zh' ? ' 条' : ' rows') : '';
     if (!rows.length) { tb.innerHTML = '<tr><td colspan=8 style="color:var(--gray-400)">无数据</td></tr>'; return; }
     tb.innerHTML = rows.map(function(r) { return '<tr>'
       + '<td><input type=radio name=selrow class=selrow data-c="' + a(r.category) + '" data-i="' + a(r.indicator) + '" data-d="' + a(r.dimension) + '" onclick="toggleCb(this,event)"></td>'
-      + '<td class="ind-name" title="' + a(r.note || '') + '">' + h(r.indicator) + '</td>'
-      + '<td><span class="tag tag-blue">' + h(r.category) + '</span></td>'
-      + '<td>' + h(r.dimension) + '</td>'
+      + '<td class="ind-name" title="' + a(r.note || '') + '">' + h(tr(r.indicator)) + '</td>'
+      + '<td><span class="tag tag-blue">' + h(tr(r.category)) + '</span></td>'
+      + '<td>' + h(tr(r.dimension)) + '</td>'
       + '<td class="num">' + (r.value !== null && r.value !== undefined ? r.value.toLocaleString() : '—') + '</td>'
-      + '<td>' + h(r.unit || '') + '</td>'
+      + '<td>' + h(tr(r.unit || '')) + '</td>'
       + '<td class="note-cell" style="color:var(--gray-400)" title="' + a(r.note || '') + '">' + h(r.note || '') + '</td>'
       + '</tr>'; }).join('');
 
-  } catch (e) { tb.innerHTML = '<tr><td colspan=8 style="color:var(--red-500)">加载失败</td></tr>'; }
+  } catch (e) { tb.innerHTML = '<tr><td colspan=8 style="color:var(--red-500)">' + tr('加载失败') + '</td></tr>'; }
 }
 
 function toggleCb(el, ev) { ev.stopPropagation(); var all=document.querySelectorAll('#indTable .selrow'); all.forEach(function(r){r.checked=false}); el.checked=true; }
@@ -143,7 +147,7 @@ function createFromSelected() {
   row.querySelector('.vcat').value = sel.dataset.c || '';
   row.querySelector('.vind').value = sel.dataset.i || '';
   row.querySelector('.vdim').value = sel.dataset.d || '';
-  document.getElementById('caddMsg').textContent = '已带入所选指标，填好名称与公式即可保存';
+  document.getElementById('caddMsg').textContent = tr('已带入所选指标，填好名称与公式即可保存');
 }
 
 /* ═══════ 自定义分析 ═══════ */
@@ -153,13 +157,13 @@ async function loadCustomList() {
     var list = await r.json();
     var sel = document.getElementById('customSelect');
     if (!sel) return;
-    sel.innerHTML = '<option value="">选择已有分析…</option>' + list.map(function(a) { return '<option value="' + a(a.name) + '">' + h(a.name) + (a.description ? ' — ' + h(a.description) : '') + '</option>'; }).join('');
+    sel.innerHTML = '<option value="">' + tr('选择已有分析…') + '</option>' + list.map(function(a) { return '<option value="' + a.name + '">' + h(a.name) + (a.description ? ' — ' + h(a.description) : '') + '</option>'; }).join('');
   } catch (e) { /* 忽略 */ }
 }
 
 async function runCustom() {
   var sel = document.getElementById('customSelect');
-  if (!sel || !sel.value) { showToast('请先选择一个分析', 'error'); return; }
+  if (!sel || !sel.value) { showToast(tr('请先选择一个分析'), 'error'); return; }
   var y = document.getElementById('globalYear')?.value || '2024';
   var btn = document.getElementById('btnRunCustom'); btn.classList.add('loading');
   var el = document.getElementById('customResult');
@@ -168,11 +172,11 @@ async function runCustom() {
     var d = await r.json();
     if (d.error) { el.innerHTML = '<div class="rk" style="color:var(--red-500)">' + h(d.error) + '</div>'; return; }
     el.innerHTML = '<div class="custom-card">'
-      + '<div class="custom-value">' + (d.value !== undefined ? d.value.toLocaleString() : '—') + (d.unit ? ' <span class="custom-unit">' + h(d.unit) + '</span>' : '') + '</div>'
-      + (d.yoy !== undefined ? '<div class="custom-yoy ' + (d.yoy >= 0 ? 'up' : 'down') + '">' + (d.yoy >= 0 ? '▲' : '▼') + ' 同比 ' + d.yoy + '%</div>' : '')
-      + (d.expr ? '<div class="custom-expr">公式：' + h(d.expr) + '</div>' : '')
+      + '<div class="custom-value">' + (d.value !== undefined ? d.value.toLocaleString() : '—') + (d.unit ? ' <span class="custom-unit">' + h(tr(d.unit)) + '</span>' : '') + '</div>'
+      + (d.yoy !== undefined ? '<div class="custom-yoy ' + (d.yoy >= 0 ? 'up' : 'down') + '">' + (d.yoy >= 0 ? '▲' : '▼') + ' ' + tr('同比') + ' ' + d.yoy + '%</div>' : '')
+      + (d.expr ? '<div class="custom-expr">' + (window.CUR_LANG === 'zh' ? '公式：' : 'Expr: ') + h(d.expr) + '</div>' : '')
       + '</div>';
-    showToast('分析完成', 'success');
+    showToast(tr('分析完成'), 'success');
   } catch (e) { el.innerHTML = '<div style="color:var(--red-500)">请求失败</div>'; }
   finally { btn.classList.remove('loading'); }
 }
@@ -198,7 +202,7 @@ function fillExpr(kind) {
 async function saveCustom() {
   var name = document.getElementById('customName').value.trim();
   var expr = document.getElementById('customExpr').value.trim();
-  if (!name || !expr) { showToast('名称和表达式必填', 'error'); return; }
+  if (!name || !expr) { showToast(tr('名称和表达式必填'), 'error'); return; }
   var vars = {};
   var valid = true;
   document.querySelectorAll('#varRows .var-row').forEach(function(row) {
@@ -208,15 +212,15 @@ async function saveCustom() {
     if (!vn || !vc || !vi) { valid = false; return; }
     vars[vn] = [vc, vi];
   });
-  if (!valid || Object.keys(vars).length === 0) { showToast('请至少填一个有效变量（名称/专业/指标）', 'error'); return; }
+  if (!valid || Object.keys(vars).length === 0) { showToast(tr('请至少填一个有效变量（名称/专业/指标）'), 'error'); return; }
   var body = { name: name, expr: expr, unit: document.getElementById('customUnit').value.trim(),
     description: document.getElementById('customDesc').value.trim(), compare: document.getElementById('customCmp').checked, variables: vars };
   try {
     var r = await fetch(API + '/api/custom', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     var d = await r.json();
-    if (d.ok) { showToast('已保存「' + name + '」', 'success'); closeAddCustom(); loadCustomList(); }
-    else { showToast(d.error || '保存失败', 'error'); }
-  } catch (e) { showToast('保存失败：' + e, 'error'); }
+    if (d.ok) { showToast((window.CUR_LANG === 'zh' ? '已保存「' + name + '」' : 'Saved "' + name + '"'), 'success'); closeAddCustom(); loadCustomList(); }
+    else { showToast(d.error || tr('保存失败'), 'error'); }
+  } catch (e) { showToast(tr('保存失败') + '：' + e, 'error'); }
 }
 
 /* ═══════ 工具函数 ═══════ */
@@ -230,6 +234,14 @@ function showToast(msg, type) {
   toast.className = 'toast show' + (type ? ' ' + type : '');
   clearTimeout(window._toastTimer);
   window._toastTimer = setTimeout(function() { toast.className = 'toast'; }, 2200);
+}
+
+/* 切换语言后刷新依赖接口的动态区域（卡片 / 指标表 / 自定义列表） */
+function refreshLang() {
+  loadOverview();
+  loadIndicators();
+  loadCustomList();
+  // 年份下拉文案与副标题已在 applyLang 内处理
 }
 
 /* ═══════ 侧边栏卡片折叠 ═══════ */

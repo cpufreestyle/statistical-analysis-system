@@ -177,6 +177,21 @@ body { font-family: var(--font); color: var(--gray-700); background: var(--gray-
   flex-shrink: 0;
 }
 
+/* 语言切换按钮 */
+.lang-toggle {
+  padding: 7px 14px;
+  background: #fff;
+  color: var(--gray-600);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--font);
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.lang-toggle:hover { border-color: var(--blue-300); color: var(--blue-600); }
+
 .header-year {
   display: flex;
   align-items: center;

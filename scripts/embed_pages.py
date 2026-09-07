@@ -16,6 +16,7 @@ FILES = {
     "PAGE_APP": "app.html",
     "STYLE_CSS": "style.css",
     "APP_JS": "app.js",
+    "I18N_JS": "i18n.js",
 }
 
 

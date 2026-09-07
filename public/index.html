@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>全国统计分析系统</title>
+<title data-i18n="page.title">全国统计分析系统</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700;900&display=swap" rel="stylesheet">
@@ -152,6 +152,22 @@ body {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(43, 107, 219, 0.3);
 }
+
+/* 语言切换按钮 */
+.lang-toggle {
+  margin-left: 4px;
+  padding: 7px 14px;
+  background: #fff;
+  color: var(--gray-600);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--font);
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.lang-toggle:hover { border-color: var(--blue-300); color: var(--blue-600); }
 
 /* ============ Hero Section ============ */
 .hero {
@@ -625,15 +641,16 @@ body {
   <div class="nav-inner">
   <div class="nav-brand">
     <div class="nav-logo">统</div>
-    <div class="nav-title">全国统计分析系统</div>
+    <div class="nav-title" data-i18n="nav.title">全国统计分析系统</div>
   </div>
   <ul class="nav-links">
-    <li><a href="#features">功能特性</a></li>
-    <li><a href="#process">工作流程</a></li>
-    <li><a href="#architecture">系统架构</a></li>
-    <li><a href="#tech">技术栈</a></li>
+    <li><a href="#features" data-i18n="功能特性">功能特性</a></li>
+    <li><a href="#process" data-i18n="工作流程">工作流程</a></li>
+    <li><a href="#architecture" data-i18n="系统架构">系统架构</a></li>
+    <li><a href="#tech" data-i18n="技术栈">技术栈</a></li>
   </ul>
-  <a href="/app" class="nav-cta">进入系统 →</a>
+  <button id="langToggle" class="lang-toggle" type="button" onclick="toggleLang()">EN</button>
+  <a href="/app" class="nav-cta" data-i18n="进入系统 →">进入系统 →</a>
   </div>
 </nav>
 
@@ -642,31 +659,31 @@ body {
   <div class="hero-badge">
     InfiniSynapse Server API 驱动
   </div>
-  <h1>用 <span>AI</span> 重新定义<br>全国经济数据分析</h1>
-  <p class="hero-subtitle">
+  <h1 data-i18n-html="hero.title">用 <span>AI</span> 重新定义<br>全国经济数据分析</h1>
+  <p class="hero-subtitle" data-i18n-html="hero.subtitle">
     基于国家统计局、海关总署等<b>公开数据</b>，<br>
     融合自然语言查询与自定义分析，实现从数据采集到智能解读的全链路自动化。
   </p>
   <div class="hero-actions">
-    <a href="/app" class="btn-primary">开始分析 →</a>
-    <a href="#features" class="btn-secondary">了解更多 ↓</a>
+    <a href="/app" class="btn-primary" data-i18n="开始分析 →">开始分析 →</a>
+    <a href="#features" class="btn-secondary" data-i18n="了解更多 ↓">了解更多 ↓</a>
   </div>
   <div class="hero-stats">
     <div class="hero-stat">
       <div class="hero-stat-value">100%</div>
-      <div class="hero-stat-label">公开数据来源</div>
+      <div class="hero-stat-label" data-i18n="公开数据来源">公开数据来源</div>
     </div>
     <div class="hero-stat">
       <div class="hero-stat-value">4</div>
-      <div class="hero-stat-label">分析工作台</div>
+      <div class="hero-stat-label" data-i18n="分析工作台">分析工作台</div>
     </div>
     <div class="hero-stat">
       <div class="hero-stat-value">AI</div>
-      <div class="hero-stat-label">云端智能解读</div>
+      <div class="hero-stat-label" data-i18n="云端智能解读">云端智能解读</div>
     </div>
     <div class="hero-stat">
       <div class="hero-stat-value">∞</div>
-      <div class="hero-stat-label">自然语言查询</div>
+      <div class="hero-stat-label" data-i18n="自然语言查询">自然语言查询</div>
     </div>
   </div>
 </section>
@@ -675,50 +692,50 @@ body {
 <section class="features" id="features">
   <div class="features-inner">
     <div class="section-label">Features</div>
-    <h2 class="section-title">四大分析引擎，覆盖完整工作流</h2>
-    <p class="section-desc">
+    <h2 class="section-title" data-i18n="四大分析引擎，覆盖完整工作流">四大分析引擎，覆盖完整工作流</h2>
+    <p class="section-desc" data-i18n="section.desc.features">
       从自然语言提问到深度统计分析，从指标检索到自定义建模——一个工作台，解决所有全国宏观统计分析需求。
     </p>
     <div class="features-grid">
       <div class="feature-card">
         <div class="feature-icon">🔮</div>
-        <div class="feature-title">智能查询</div>
-        <div class="feature-desc">
+        <div class="feature-title" data-i18n="智能查询">智能查询</div>
+        <div class="feature-desc" data-i18n="feature.desc.query">
           用自然语言提问，AI 自动理解意图、检索数据、生成分析报告。无需学习复杂语法，问"2024 年社会消费品零售总额"直接返回数值。
         </div>
       </div>
       <div class="feature-card">
         <div class="feature-icon">📊</div>
-        <div class="feature-title">指标总表</div>
-        <div class="feature-desc">
+        <div class="feature-title" data-i18n="指标总表">指标总表</div>
+        <div class="feature-desc" data-i18n="feature.desc.catalog">
           结构化的指标检索界面。支持关键词搜索，勾选指标即可一键"用所选建分析"，免写 JSON、免手敲表达式。
         </div>
       </div>
       <div class="feature-card">
         <div class="feature-icon">📋</div>
-        <div class="feature-title">自定义分析</div>
-        <div class="feature-desc">
+        <div class="feature-title" data-i18n="自定义分析">自定义分析</div>
+        <div class="feature-desc" data-i18n="feature.desc.custom">
           下拉选择专业 / 指标 / 维度，提供"占比 / 差值 / 倍数 / 合计"常用公式一键填充，支持同比计算，结果以卡片呈现。
         </div>
       </div>
       <div class="feature-card">
         <div class="feature-icon">🤖</div>
-        <div class="feature-title">AI 云端解读</div>
-        <div class="feature-desc">
+        <div class="feature-title" data-i18n="AI 云端解读">AI 云端解读</div>
+        <div class="feature-desc" data-i18n="feature.desc.ai">
           基于 InfiniSynapse Server API，对分析结果进行深度语义解读。不只给数字，更给出可执行的洞察建议。
         </div>
       </div>
       <div class="feature-card">
         <div class="feature-icon">📚</div>
-        <div class="feature-title">知识库管理</div>
-        <div class="feature-desc">
+        <div class="feature-title" data-i18n="知识库管理">知识库管理</div>
+        <div class="feature-desc" data-i18n="feature.desc.kb">
           集成国家统计局、海关总署等公开数据源的统计口径说明。统一管理数据来源，支持自定义知识条目在线新增。
         </div>
       </div>
       <div class="feature-card">
         <div class="feature-icon">⬇️</div>
-        <div class="feature-title">数据采集</div>
-        <div class="feature-desc">
+        <div class="feature-title" data-i18n="数据采集">数据采集</div>
+        <div class="feature-desc" data-i18n="feature.desc.collect">
           自动化数据采集流水线，仅抓取公开、无需鉴权的数据。同步到本地 SQLite，保证离线可用与历史追溯。
         </div>
       </div>
@@ -729,40 +746,40 @@ body {
 <!-- Process Section -->
 <section class="section" id="process">
   <div class="section-label">Workflow</div>
-  <h2 class="section-title">四步完成深度分析</h2>
-  <p class="section-desc">
+  <h2 class="section-title" data-i18n="四步完成深度分析">四步完成深度分析</h2>
+  <p class="section-desc" data-i18n="section.desc.process">
     从提问到洞察，每一步都有 AI 参与。不只是一个查询工具——是一套完整的数据分析工作流。
   </p>
   <div class="process-steps">
     <div class="process-step">
       <div class="process-num">STEP 01</div>
       <div class="process-icon">💬</div>
-      <div class="process-title">自然语言提问</div>
-      <div class="process-desc">
+      <div class="process-title" data-i18n="自然语言提问">自然语言提问</div>
+      <div class="process-desc" data-i18n="process.desc.1">
         用中文描述你的分析需求，AI 自动解析意图并匹配数据
       </div>
     </div>
     <div class="process-step">
       <div class="process-num">STEP 02</div>
       <div class="process-icon">🔍</div>
-      <div class="process-title">智能数据检索</div>
-      <div class="process-desc">
+      <div class="process-title" data-i18n="智能数据检索">智能数据检索</div>
+      <div class="process-desc" data-i18n="process.desc.2">
         从公开数据源检索，自动匹配指标、处理单位和口径差异
       </div>
     </div>
     <div class="process-step">
       <div class="process-num">STEP 03</div>
       <div class="process-icon">📈</div>
-      <div class="process-title">统计分析计算</div>
-      <div class="process-desc">
+      <div class="process-title" data-i18n="统计分析计算">统计分析计算</div>
+      <div class="process-desc" data-i18n="process.desc.3">
         在本地 SQLite 中执行统计分析，生成图表和数据表
       </div>
     </div>
     <div class="process-step">
       <div class="process-num">STEP 04</div>
       <div class="process-icon">🧠</div>
-      <div class="process-title">AI 深度解读</div>
-      <div class="process-desc">
+      <div class="process-title" data-i18n="AI 深度解读">AI 深度解读</div>
+      <div class="process-desc" data-i18n="process.desc.4">
         云端 AI 对结果进行语义解读，输出洞察建议和风险提示
       </div>
     </div>
@@ -772,16 +789,16 @@ body {
 <!-- Architecture Section -->
 <section class="section" id="architecture">
   <div class="section-label">Architecture</div>
-  <h2 class="section-title">系统架构设计</h2>
-  <p class="section-desc">
+  <h2 class="section-title" data-i18n="系统架构设计">系统架构设计</h2>
+  <p class="section-desc" data-i18n="section.desc.arch">
     前后端分离，数据本地化存储，AI 能力云端调度。兼顾性能、安全与可扩展性。
   </p>
   <div class="arch-grid">
     <div class="arch-card">
       <div class="arch-stage">LAYER 1</div>
       <div class="arch-icon">🖥️</div>
-      <div class="arch-title">前端交互层</div>
-      <div class="arch-desc">
+      <div class="arch-title" data-i18n="前端交互层">前端交互层</div>
+      <div class="arch-desc" data-i18n-html="arch.desc.1">
         原生 HTML/CSS/JS<br>
         瑞士排版风格<br>
         响应式设计
@@ -790,8 +807,8 @@ body {
     <div class="arch-card">
       <div class="arch-stage">LAYER 2</div>
       <div class="arch-icon">⚡</div>
-      <div class="arch-title">API 网关层</div>
-      <div class="arch-desc">
+      <div class="arch-title" data-i18n="API 网关层">API 网关层</div>
+      <div class="arch-desc" data-i18n-html="arch.desc.2">
         Flask 后端服务<br>
         自动扩缩容<br>
         边缘计算加速
@@ -800,8 +817,8 @@ body {
     <div class="arch-card">
       <div class="arch-stage">LAYER 3</div>
       <div class="arch-icon">🗄️</div>
-      <div class="arch-title">数据存储层</div>
-      <div class="arch-desc">
+      <div class="arch-title" data-i18n="数据存储层">数据存储层</div>
+      <div class="arch-desc" data-i18n-html="arch.desc.3">
         本地 SQLite<br>
         知识库索引<br>
         历史数据追溯
@@ -810,8 +827,8 @@ body {
     <div class="arch-card">
       <div class="arch-stage">LAYER 4</div>
       <div class="arch-icon">🤖</div>
-      <div class="arch-title">AI 能力层</div>
-      <div class="arch-desc">
+      <div class="arch-title" data-i18n="AI 能力层">AI 能力层</div>
+      <div class="arch-desc" data-i18n-html="arch.desc.4">
         InfiniSynapse API<br>
         多模型调度<br>
         流式响应
@@ -824,35 +841,35 @@ body {
 <section class="tech-stack" id="tech">
   <div class="tech-inner">
     <div class="section-label" style="color: var(--blue-400);">Technology</div>
-    <h2 class="section-title" style="color: white;">技术栈详情</h2>
+    <h2 class="section-title" style="color: white;" data-i18n="技术栈详情">技术栈详情</h2>
     <div class="tech-grid">
       <div class="tech-card">
-        <div class="tech-card-title">前端</div>
-        <div class="tech-card-desc">
+        <div class="tech-card-title" data-i18n="前端">前端</div>
+        <div class="tech-card-desc" data-i18n-html="tech.desc.1">
           原生 HTML5 + CSS3 + JavaScript<br>
           零依赖，轻量高效<br>
           思源黑体 + Roboto 字体
         </div>
       </div>
       <div class="tech-card">
-        <div class="tech-card-title">后端</div>
-        <div class="tech-card-desc">
+        <div class="tech-card-title" data-i18n="后端">后端</div>
+        <div class="tech-card-desc" data-i18n-html="tech.desc.2">
           Python + Flask<br>
           RESTful API 设计<br>
           本地 SQLite 存储
         </div>
       </div>
       <div class="tech-card">
-        <div class="tech-card-title">AI 模型</div>
-        <div class="tech-card-desc">
+        <div class="tech-card-title" data-i18n="AI 模型">AI 模型</div>
+        <div class="tech-card-desc" data-i18n-html="tech.desc.3">
           InfiniSynapse Server API<br>
           多模型智能路由<br>
           SSE 流式响应
         </div>
       </div>
       <div class="tech-card">
-        <div class="tech-card-title">数据科学</div>
-        <div class="tech-card-desc">
+        <div class="tech-card-title" data-i18n="数据科学">数据科学</div>
+        <div class="tech-card-desc" data-i18n-html="tech.desc.4">
           SQLite 本地存储<br>
           统计分析引擎<br>
           数据可视化
@@ -864,27 +881,30 @@ body {
 
 <!-- CTA Section -->
 <section class="cta">
-  <h2 class="cta-title">准备好开始分析了吗？</h2>
-  <p class="cta-desc">
+  <h2 class="cta-title" data-i18n="准备好开始分析了吗？">准备好开始分析了吗？</h2>
+  <p class="cta-desc" data-i18n="cta.desc">
     立即体验全国统计分析系统，让 AI 帮你发现数据背后的洞察。
   </p>
-  <a href="/app" class="btn-primary" style="font-size: 16px; padding: 16px 32px;">
+  <a href="/app" class="btn-primary" style="font-size: 16px; padding: 16px 32px;" data-i18n="进入分析系统 →">
     进入分析系统 →
   </a>
 </section>
 
 <!-- Footer -->
 <footer class="footer">
-  <p>
+  <p data-i18n-html="footer.text">
     全国统计分析系统<br>
     数据来源：国家统计局 · 海关总署（均为公开数据）<br>
     本项目仅使用公开数据，不含任何内部或涉密数据<br><br>
-    <a href="/app">进入系统</a> ·
-    <a href="#features">功能特性</a> ·
-    <a href="#architecture">系统架构</a>
+  </p>
+  <p>
+    <a href="/app" data-i18n="footer.enter">进入系统</a> ·
+    <a href="#features" data-i18n="footer.features">功能特性</a> ·
+    <a href="#architecture" data-i18n="footer.arch">系统架构</a>
   </p>
 </footer>
 
+<script src="/i18n.js?v=2"></script>
 <script>
 // Smooth scroll for anchor links
 document.querySelectorAll('a[href^="#"]').forEach(anchor => {

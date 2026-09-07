@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>全国统计分析系统</title>
-<link rel="stylesheet" href="style.css">
+<title data-i18n="page.title">全国统计分析系统</title>
+<link rel="stylesheet" href="/style.css?v=2">
 </head>
 <body>
 
@@ -13,19 +13,20 @@
   <div class="header-brand">
     <div class="header-logo">统</div>
     <div>
-      <span class="header-title">全国统计分析</span>
+      <span class="header-title" data-i18n="全国统计分析">全国统计分析</span>
       <span class="header-title-en">China Stats</span>
     </div>
   </div>
 
   <div class="header-search">
     <span class="search-icon">🔍</span>
-    <input type="text" placeholder="搜索指标、地区、分析主题…" />
-    <button class="search-btn">搜索</button>
+    <input type="text" data-i18n-ph="搜索指标、地区、分析主题…" placeholder="搜索指标、地区、分析主题…" />
+    <button class="search-btn" data-i18n="搜索">搜索</button>
   </div>
 
   <div class="header-right">
-    <a href="/" style="font-size:12px;color:var(--gray-400);text-decoration:none;margin-right:12px;padding:4px 10px;border:1px solid var(--gray-200);border-radius:6px;transition:all 0.2s;" onmouseover="this.style.color='var(--blue-600)';this.style.borderColor='var(--blue-300)'" onmouseout="this.style.color='var(--gray-400)';this.style.borderColor='var(--gray-200)'">🏠 首页</a>
+    <a href="/" data-i18n="home.link" style="font-size:12px;color:var(--gray-400);text-decoration:none;margin-right:12px;padding:4px 10px;border:1px solid var(--gray-200);border-radius:6px;transition:all 0.2s;" onmouseover="this.style.color='var(--blue-600)';this.style.borderColor='var(--blue-300)'" onmouseout="this.style.color='var(--gray-400)';this.style.borderColor='var(--gray-200)'">🏠 首页</a>
+    <button id="langToggle" class="lang-toggle" type="button" onclick="toggleLang()">EN</button>
     <div class="header-year">
       <span></span>
       <select id="globalYear" onchange="syncYear(this.value)">
@@ -44,68 +45,68 @@
 <div class="layout">
   <div class="content">
     <div class="page-header">
-      <h1 class="page-title">数据概览</h1>
-      <p class="page-subtitle">2024年度全国经济数据统计与分析 <span class="section-badge" style="background:var(--green-50);color:var(--green-600);font-weight:500">仅使用公开数据</span></p>
+      <h1 class="page-title" data-i18n="数据概览">数据概览</h1>
+      <p class="page-subtitle"><span id="subtitleYear">2024</span><span data-i18n="subtitle.text">年度全国经济数据统计与分析</span> <span class="section-badge" style="background:var(--green-50);color:var(--green-600);font-weight:500" data-i18n="badge.public">仅使用公开数据</span></p>
     </div>
 
     <!-- ═══════ 查询工作台 ═══════ -->
     <div class="workbench">
       <div class="wb-tabs">
-        <button class="wb-tab active" data-tab="nlq">🌟 智能查询</button>
-        <button class="wb-tab" data-tab="indicators">📊 指标总表</button>
-        <button class="wb-tab" data-tab="custom">📋 自定义分析</button>
+        <button class="wb-tab active" data-tab="nlq" data-i18n="🌟 智能查询">🌟 智能查询</button>
+        <button class="wb-tab" data-tab="indicators" data-i18n="📊 指标总表">📊 指标总表</button>
+        <button class="wb-tab" data-tab="custom" data-i18n="📋 自定义分析">📋 自定义分析</button>
       </div>
       <div class="wb-body">
         <!-- 智能查询 -->
         <div class="wb-panel active" id="panel-nlq">
-          <p style="font-size:13px;color:var(--gray-500);margin-bottom:12px">输入你的分析问题，AI 将基于全国统计数据为你生成分析结果</p>
+          <p style="font-size:13px;color:var(--gray-500);margin-bottom:12px" data-i18n="输入你的分析问题，AI 将基于全国统计数据为你生成分析结果">输入你的分析问题，AI 将基于全国统计数据为你生成分析结果</p>
           <div class="query-row">
-            <input type="text" class="query-input" id="nlqInput" placeholder="例如：2024年社会消费品零售总额是多少？" />
+            <input type="text" class="query-input" id="nlqInput" data-i18n-ph="例如：2024年社会消费品零售总额是多少？" placeholder="例如：2024年社会消费品零售总额是多少？" />
             <button class="btn btn-primary" id="btnAnalyze" onclick="runAnalyze()">
               <span class="spinner"></span>
-              <span class="btn-label">📡 开始分析</span>
+              <span class="btn-label" data-i18n="📡 开始分析">📡 开始分析</span>
             </button>
           </div>
-          <div class="query-hint">💡 试试这些问题</div>
+          <div class="query-hint" data-i18n="💡 试试这些问题">💡 试试这些问题</div>
           <div class="query-suggestions">
-            <span class="suggestion-chip" onclick="fillQuery('2024年地区生产总值（GDP）是多少？')">2024年GDP是多少？</span>
-            <span class="suggestion-chip" onclick="fillQuery('2024年社会消费品零售总额')">社会消费品零售总额</span>
-            <span class="suggestion-chip" onclick="fillQuery('2024年固定资产投资总额')">固定资产投资总额</span>
-            <span class="suggestion-chip" onclick="fillQuery('2024年常住人口数据')">常住人口数据</span>
+            <span class="suggestion-chip" data-i18n="chip.gdp" data-q="2024年地区生产总值（GDP）是多少？" onclick="fillQuery(this.dataset.q)">2024年GDP是多少？</span>
+            <span class="suggestion-chip" data-i18n="chip.retail" data-q="2024年社会消费品零售总额" onclick="fillQuery(this.dataset.q)">社会消费品零售总额</span>
+            <span class="suggestion-chip" data-i18n="chip.invest" data-q="2024年固定资产投资总额" onclick="fillQuery(this.dataset.q)">固定资产投资总额</span>
+            <span class="suggestion-chip" data-i18n="chip.pop" data-q="2024年常住人口数据" onclick="fillQuery(this.dataset.q)">常住人口数据</span>
           </div>
           <div id="nlqResult" class="ans-box"></div>
         </div>
 
         <!-- 指标总表 -->
         <div class="wb-panel" id="panel-indicators">
-          <p style="font-size:.8rem;color:var(--gray-400);margin:0 0 .5rem">勾选指标后点「用所选建分析」可一键带入自定义分析；也可在上方自然语言框直接问具体指标名。</p>
+          <p style="font-size:.8rem;color:var(--gray-400);margin:0 0 .5rem" data-i18n="勾选指标后点「用所选建分析」可一键带入自定义分析；也可在上方自然语言框直接问具体指标名。">勾选指标后点「用所选建分析」可一键带入自定义分析；也可在上方自然语言框直接问具体指标名。</p>
           <div class="query-row" style="margin-bottom:10px">
             <select class="query-input" style="flex:none;max-width:160px" id="indCat" onchange="loadIndicators()">
-              <option value="">全部专业</option>
-              <option>国民经济核算</option>
-              <option>工业</option>
-              <option>对外贸易</option>
-              <option>金融</option>
-              <option>人口与就业</option>
-              <option>服务业</option>
-              <option>农业</option>
+              <option value="" data-i18n="全部专业">全部专业</option>
+              <option data-i18n="国民经济核算">国民经济核算</option>
+              <option data-i18n="工业">工业</option>
+              <option data-i18n="对外贸易">对外贸易</option>
+              <option data-i18n="金融">金融</option>
+              <option data-i18n="人口与就业">人口与就业</option>
+              <option data-i18n="服务业">服务业</option>
+              <option data-i18n="农业">农业</option>
             </select>
-            <input type="text" class="query-input" id="indSearch" placeholder="关键词搜索指标 / 说明 / 维度" onkeydown="if(event.key==='Enter')loadIndicators()" />
-            <button class="btn btn-primary" onclick="loadIndicators()">🔍 查询</button>
-            <button class="btn btn-secondary" onclick="createFromSelected()">用所选指标创建分析</button>
+            <input type="text" class="query-input" id="indSearch" data-i18n-ph="关键词搜索指标 / 说明 / 维度" placeholder="关键词搜索指标 / 说明 / 维度" onkeydown="if(event.key==='Enter')loadIndicators()" />
+            <button class="btn btn-primary" data-i18n="🔍 查询" onclick="loadIndicators()">🔍 查询</button>
+            <button class="btn btn-secondary" data-i18n="用所选指标创建分析" onclick="createFromSelected()">用所选指标创建分析</button>
             <span id="indCount" style="color:var(--gray-500);font-size:.8rem;flex-shrink:0"></span>
           </div>
           <div class="data-table-wrap">
             <table class="data-table" id="indTable">
               <thead>
                 <tr>
-                  <th style="width:30px">选择</th>
-                  <th class="th-left">指标</th>
-                  <th>专业</th>
-                  <th>维度</th>
-                  <th class="th-num">数值</th>
-                  <th>单位</th>
-                  <th class="th-note">说明</th>
+                  <th style="width:30px" data-i18n="选择">选择</th>
+                  <th class="th-left" data-i18n="指标">指标</th>
+                  <th data-i18n="专业">专业</th>
+                  <th data-i18n="维度">维度</th>
+                  <th class="th-num" data-i18n="数值">数值</th>
+                  <th data-i18n="单位">单位</th>
+                  <th class="th-note" data-i18n="说明">说明</th>
                 </tr>
               </thead>
               <tbody>
@@ -120,19 +121,19 @@
           <!-- 运行已有分析 -->
           <div class="query-row">
             <select class="query-input" style="flex:1" id="customSelect">
-              <option value="">选择已有分析…</option>
+              <option value="" data-i18n="选择已有分析…">选择已有分析…</option>
             </select>
             <button class="btn btn-primary" id="btnRunCustom" onclick="runCustom()">
               <span class="spinner"></span>
-              <span class="btn-label">运行</span>
+              <span class="btn-label" data-i18n="运行">运行</span>
             </button>
-            <button class="btn btn-secondary" onclick="openAddCustom()">＋ 新建</button>
+            <button class="btn btn-secondary" data-i18n="＋ 新建" onclick="openAddCustom()">＋ 新建</button>
           </div>
           <div id="customResult" class="ans-box">
             <div class="empty-state">
               <div class="empty-icon">📋</div>
-              <div class="empty-title">选择并运行分析</div>
-              <div class="empty-desc">从下拉列表选择一个已有的自定义分析，或点击「新建」创建自己的分析模板</div>
+              <div class="empty-title" data-i18n="选择并运行分析">选择并运行分析</div>
+              <div class="empty-desc" data-i18n="从下拉列表选择一个已有的自定义分析，或点击「新建」创建自己的分析模板">从下拉列表选择一个已有的自定义分析，或点击「新建」创建自己的分析模板</div>
             </div>
           </div>
 
@@ -140,34 +141,34 @@
           <div id="customAdd" class="custom-add" style="display:none">
             <div class="metric-card" style="margin-top:14px">
               <div class="query-row" style="margin-bottom:10px">
-                <input type="text" class="query-input" id="customName" placeholder="分析名称（必填）" style="flex:1" />
-                <input type="text" class="query-input" id="customUnit" placeholder="单位，如 %、亿元" style="max-width:120px" />
+                <input type="text" class="query-input" id="customName" data-i18n-ph="分析名称（必填）" placeholder="分析名称（必填）" style="flex:1" />
+                <input type="text" class="query-input" id="customUnit" data-i18n-ph="单位，如 %、亿元" placeholder="单位，如 %、亿元" style="max-width:120px" />
               </div>
-              <input type="text" class="query-input" id="customDesc" placeholder="说明（可选）" style="width:100%;margin-bottom:10px" />
+              <input type="text" class="query-input" id="customDesc" data-i18n-ph="说明（可选）" placeholder="说明（可选）" style="width:100%;margin-bottom:10px" />
 
-              <div style="font-size:.85rem;font-weight:600;color:var(--gray-700);margin:.5rem 0 .3rem">变量绑定</div>
-              <table style="width:100%;font-size:.82rem;margin-bottom:6px"><thead><tr><th>变量</th><th>专业</th><th>指标</th><th>维度（可选）</th><th></th></tr></thead></table>
+              <div style="font-size:.85rem;font-weight:600;color:var(--gray-700);margin:.5rem 0 .3rem" data-i18n="变量绑定">变量绑定</div>
+              <table style="width:100%;font-size:.82rem;margin-bottom:6px"><thead><tr><th data-i18n="变量">变量</th><th data-i18n="专业">专业</th><th data-i18n="指标">指标</th><th data-i18n="维度（可选）">维度（可选）</th><th></th></tr></thead></table>
               <div id="varRows"></div>
-              <button class="btn btn-ghost" style="font-size:.8rem" onclick="addVarRow()">＋ 增加变量</button>
+              <button class="btn btn-ghost" style="font-size:.8rem" data-i18n="＋ 增加变量" onclick="addVarRow()">＋ 增加变量</button>
 
               <div class="query-row" style="margin-top:10px">
-                <input type="text" class="query-input" id="customExpr" placeholder="表达式，如 x / y * 100" style="flex:1" />
+                <input type="text" class="query-input" id="customExpr" data-i18n-ph="表达式，如 x / y * 100" placeholder="表达式，如 x / y * 100" style="flex:1" />
               </div>
               <div class="query-row" style="margin-top:6px;gap:6px;flex-wrap:wrap">
-                <span style="font-size:.8rem;color:var(--gray-400)">常用公式：</span>
-                <button class="btn btn-ghost" style="padding:4px 8px;font-size:.8rem" onclick="fillExpr('share')">占比 x/y×100</button>
-                <button class="btn btn-ghost" style="padding:4px 8px;font-size:.8rem" onclick="fillExpr('diff')">差值 x−y</button>
-                <button class="btn btn-ghost" style="padding:4px 8px;font-size:.8rem" onclick="fillExpr('ratio')">倍数 x/y</button>
-                <button class="btn btn-ghost" style="padding:4px 8px;font-size:.8rem" onclick="fillExpr('sum')">合计 x+y</button>
+                <span style="font-size:.8rem;color:var(--gray-400)" data-i18n="常用公式：">常用公式：</span>
+                <button class="btn btn-ghost" style="padding:4px 8px;font-size:.8rem" data-i18n="占比 x/y×100" onclick="fillExpr('share')">占比 x/y×100</button>
+                <button class="btn btn-ghost" style="padding:4px 8px;font-size:.8rem" data-i18n="差值 x−y" onclick="fillExpr('diff')">差值 x−y</button>
+                <button class="btn btn-ghost" style="padding:4px 8px;font-size:.8rem" data-i18n="倍数 x/y" onclick="fillExpr('ratio')">倍数 x/y</button>
+                <button class="btn btn-ghost" style="padding:4px 8px;font-size:.8rem" data-i18n="合计 x+y" onclick="fillExpr('sum')">合计 x+y</button>
                 <label style="font-size:.85rem;margin-left:8px;display:flex;align-items:center;gap:4px">
-                  <input type="checkbox" id="customCmp"> 计算同比
+                  <input type="checkbox" id="customCmp"> <span data-i18n="计算同比">计算同比</span>
                 </label>
               </div>
               <div class="query-row" style="margin-top:10px;justify-content:space-between">
                 <span id="caddMsg" style="font-size:.8rem;color:var(--blue-600)"></span>
                 <span>
-                  <button class="btn btn-secondary" onclick="closeAddCustom()">取消</button>
-                  <button class="btn btn-primary" onclick="saveCustom()">保存分析</button>
+                  <button class="btn btn-secondary" data-i18n="取消" onclick="closeAddCustom()">取消</button>
+                  <button class="btn btn-primary" data-i18n="保存分析" onclick="saveCustom()">保存分析</button>
                 </span>
               </div>
             </div>
@@ -178,8 +179,8 @@
 
     <!-- ═══════ 关键指标 ═══════ -->
     <div class="section-header">
-      <div class="section-title">关键指标 <span class="section-badge">公开数据</span></div>
-      <a class="section-link" onclick="switchTab('indicators')">查看全部指标 →</a>
+      <div class="section-title" data-i18n="关键指标">关键指标 <span class="section-badge" data-i18n="公开数据">公开数据</span></div>
+      <a class="section-link" data-i18n="查看全部指标 →" onclick="switchTab('indicators')">查看全部指标 →</a>
     </div>
     <div class="metrics-grid" id="metricsGrid">
       <div class="metric-card"><div class="metric-header"><span class="metric-label">加载中…</span></div><div class="metric-value"><div class="skeleton skeleton-line" style="width:80px;height:24px"></div></div></div>
@@ -190,24 +191,24 @@
 
     <!-- ═══════ 快速开始 ═══════ -->
     <div class="section-header">
-      <div class="section-title">快速开始</div>
+      <div class="section-title" data-i18n="快速开始">快速开始</div>
     </div>
     <div class="quick-grid">
       <div class="quick-card" onclick="fillQuery('2024年GDP各产业构成分析')">
-        <div class="quick-title">GDP 构成分析</div>
-        <div class="quick-desc">查看三大产业增加值及占比</div>
+        <div class="quick-title" data-i18n="GDP 构成分析">GDP 构成分析</div>
+        <div class="quick-desc" data-i18n="查看三大产业增加值及占比">查看三大产业增加值及占比</div>
       </div>
       <div class="quick-card" onclick="fillQuery('2024年规上工业关键指标')">
-        <div class="quick-title">工业运行</div>
-        <div class="quick-desc">对比规上工业总产值与增加值</div>
+        <div class="quick-title" data-i18n="工业运行">工业运行</div>
+        <div class="quick-desc" data-i18n="对比规上工业总产值与增加值">对比规上工业总产值与增加值</div>
       </div>
       <div class="quick-card" onclick="fillQuery('2024年贸易数据概览')">
-        <div class="quick-title">贸易统计</div>
-        <div class="quick-desc">社会消费品零售总额等数据</div>
+        <div class="quick-title" data-i18n="贸易统计">贸易统计</div>
+        <div class="quick-desc" data-i18n="社会消费品零售总额等数据">社会消费品零售总额等数据</div>
       </div>
       <div class="quick-card" onclick="fillQuery('2024年投资与人口数据')">
-        <div class="quick-title">投资与人口</div>
-        <div class="quick-desc">固定资产投资与常住人口</div>
+        <div class="quick-title" data-i18n="投资与人口">投资与人口</div>
+        <div class="quick-desc" data-i18n="固定资产投资与常住人口">固定资产投资与常住人口</div>
       </div>
     </div>
   </div>
@@ -217,46 +218,46 @@
     <!-- 知识库与数据源 -->
     <div class="side-card">
       <div class="side-card-header toggleable" onclick="toggleSidebarCard(this)">
-        <div class="side-card-title"><span class="icon">📚</span> 知识库与数据源</div>
+        <div class="side-card-title"><span class="icon">📚</span> <span data-i18n="知识库与数据源">知识库与数据源</span></div>
         <div style="display:flex;align-items:center;gap:8px">
-          <span class="side-card-more" onclick="event.stopPropagation()" style="font-size:11px;color:var(--blue-600)">管理</span>
+          <span class="side-card-more" data-i18n="管理" onclick="event.stopPropagation()" style="font-size:11px;color:var(--blue-600)">管理</span>
           <span class="side-card-arrow"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
         </div>
       </div>
       <div class="side-card-body">
         <ul class="source-list">
-          <li class="source-item"><span class="source-dot"></span>国家统计局（公开数据）</li>
-          <li class="source-item"><span class="source-dot"></span>海关总署（公开数据）</li>
-          <li class="source-item"><span class="source-dot"></span>世界银行 Open Data</li>
-          <li class="source-item"><span class="source-dot"></span>权威统计年鉴</li>
+          <li class="source-item"><span class="source-dot"></span><span data-i18n="国家统计局（公开数据）">国家统计局（公开数据）</span></li>
+          <li class="source-item"><span class="source-dot"></span><span data-i18n="海关总署（公开数据）">海关总署（公开数据）</span></li>
+          <li class="source-item"><span class="source-dot"></span><span data-i18n="世界银行 Open Data">世界银行 Open Data</span></li>
+          <li class="source-item"><span class="source-dot"></span><span data-i18n="权威统计年鉴">权威统计年鉴</span></li>
         </ul>
-        <p style="font-size:11px;color:var(--gray-400);margin-top:8px;line-height:1.5">本项目<b>仅使用公开数据</b>，不含任何内部或涉密数据</p>
+        <p style="font-size:11px;color:var(--gray-400);margin-top:8px;line-height:1.5" data-i18n="本项目仅使用公开数据，不含任何内部或涉密数据">本项目<b>仅使用公开数据</b>，不含任何内部或涉密数据</p>
       </div>
     </div>
 
     <!-- 数据收集 -->
     <div class="side-card">
       <div class="side-card-header toggleable" onclick="toggleSidebarCard(this)">
-        <div class="side-card-title"><span class="icon">⬇️</span> 数据收集</div>
+        <div class="side-card-title"><span class="icon">⬇️</span> <span data-i18n="数据收集">数据收集</span></div>
         <span class="side-card-arrow"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
       </div>
       <div class="side-card-body">
         <select class="query-input" style="width:100%;margin-bottom:8px;padding:8px 10px">
-          <option>国家统计局</option>
-          <option>海关总署</option>
-          <option>世界银行 Open Data</option>
+          <option data-i18n="国家统计局">国家统计局</option>
+          <option data-i18n="海关总署">海关总署</option>
+          <option data-i18n="世界银行 Open Data">世界银行 Open Data</option>
         </select>
-        <input type="text" class="query-input" style="width:100%;margin-bottom:8px;padding:8px 10px" placeholder="指标名，如 GDP、CPI" />
-        <button class="btn btn-secondary side-btn" onclick="showToast('开始采集公开数据…', 'success')">从公开数据源采集</button>
+        <input type="text" class="query-input" style="width:100%;margin-bottom:8px;padding:8px 10px" data-i18n-ph="指标名，如 GDP、CPI" placeholder="指标名，如 GDP、CPI" />
+        <button class="btn btn-secondary side-btn" data-i18n="从公开数据源采集" onclick="showToast(tr('开始采集公开数据…'), 'success')">从公开数据源采集</button>
       </div>
     </div>
 
     <!-- 统计公报 -->
     <div class="side-card">
       <div class="side-card-header toggleable" onclick="toggleSidebarCard(this)">
-        <div class="side-card-title"><span class="icon">📄</span> 统计公报</div>
+        <div class="side-card-title"><span class="icon">📄</span> <span data-i18n="统计公报">统计公报</span></div>
         <div style="display:flex;align-items:center;gap:8px">
-          <span class="side-card-more" onclick="event.stopPropagation()">更多</span>
+          <span class="side-card-more" data-i18n="更多" onclick="event.stopPropagation()">更多</span>
           <span class="side-card-arrow"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
         </div>
       </div>
@@ -264,46 +265,46 @@
         <div class="report-item">
           <div class="report-file-icon pdf">📄</div>
           <div class="report-info">
-            <div class="report-name">2024年国民经济和社会发展统计公报</div>
+            <div class="report-name" data-i18n="2024年国民经济和社会发展统计公报">2024年国民经济和社会发展统计公报</div>
             <div class="report-date">2025-02-28</div>
           </div>
         </div>
         <div class="report-item">
           <div class="report-file-icon xlsx">📊</div>
           <div class="report-info">
-            <div class="report-name">2024年全国统计年鉴</div>
+            <div class="report-name" data-i18n="2024年全国统计年鉴">2024年全国统计年鉴</div>
             <div class="report-date">2024-12-01</div>
           </div>
         </div>
-        <button class="btn btn-ghost side-btn" style="color:var(--blue-600);justify-content:center">查看全部公报</button>
+        <button class="btn btn-ghost side-btn" style="color:var(--blue-600);justify-content:center" data-i18n="查看全部公报">查看全部公报</button>
       </div>
     </div>
 
     <!-- 今日动态 -->
     <div class="side-card">
       <div class="side-card-header">
-        <div class="side-card-title"><span class="icon">📡</span> 今日动态</div>
+        <div class="side-card-title"><span class="icon">📡</span> <span data-i18n="今日动态">今日动态</span></div>
       </div>
       <div class="side-card-body">
         <div class="activity-item">
           <span class="activity-time">10:32</span>
-          <span class="activity-text">完成查询：2024年GDP构成分析</span>
+          <span class="activity-text" data-i18n="完成查询：2024年GDP构成分析">完成查询：2024年GDP构成分析</span>
         </div>
         <div class="activity-item">
           <span class="activity-time">09:15</span>
-          <span class="activity-text">数据源「国家统计局」已更新</span>
+          <span class="activity-text" data-i18n="数据源「国家统计局」已更新">数据源「国家统计局」已更新</span>
         </div>
         <div class="activity-item">
           <span class="activity-time">08:40</span>
-          <span class="activity-text">统计公报「2024年度全国经济概览」发布</span>
+          <span class="activity-text" data-i18n="统计公报「2024年度全国经济概览」已发布">统计公报「2024年度全国经济概览」已发布</span>
         </div>
         <div class="activity-item">
           <span class="activity-time">08:05</span>
-          <span class="activity-text">数据采集任务「海关月度数据」完成</span>
+          <span class="activity-text" data-i18n="数据采集任务「海关月度数据」完成">数据采集任务「海关月度数据」完成</span>
         </div>
         <div class="activity-item">
           <span class="activity-time">07:50</span>
-          <span class="activity-text">完成查询：固定资产投资对比</span>
+          <span class="activity-text" data-i18n="完成查询：固定资产投资对比">完成查询：固定资产投资对比</span>
         </div>
       </div>
     </div>
@@ -313,16 +314,17 @@
 <!-- 变量行模板 -->
 <template id="varTpl">
   <div class="var-row query-row" style="margin-bottom:4px">
-    <input type="text" class="query-input vname" placeholder="变量名，如 x" style="max-width:60px" />
-    <input type="text" class="query-input vcat" placeholder="专业" style="flex:1" />
-    <input type="text" class="query-input vind" placeholder="指标" style="flex:1.5" />
-    <input type="text" class="query-input vdim" placeholder="维度（可选）" style="flex:1" />
+    <input type="text" class="query-input vname" data-i18n-ph="变量名，如 x" placeholder="变量名，如 x" style="max-width:60px" />
+    <input type="text" class="query-input vcat" data-i18n-ph="专业" placeholder="专业" style="flex:1" />
+    <input type="text" class="query-input vind" data-i18n-ph="指标" placeholder="指标" style="flex:1.5" />
+    <input type="text" class="query-input vdim" data-i18n-ph="维度（可选）" placeholder="维度（可选）" style="flex:1" />
     <button class="btn btn-ghost" style="padding:4px 8px;color:var(--red-500)" onclick="removeVarRow(this)">✕</button>
   </div>
 </template>
 
 <div class="toast" id="toast"></div>
 
-<script src="app.js"></script>
+<script src="/i18n.js?v=2"></script>
+<script src="/app.js?v=2"></script>
 </body>
 </html>
