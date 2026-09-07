@@ -25,6 +25,7 @@
     "page.title": "China Statistics System",
     "home.link": "🏠 Home",
     "搜索": "Search",
+    "搜索指标、地区、分析主题…": "Search indicators, regions, topics…",
     "仅使用公开数据": "Public Data Only",
     "badge.public": "Public Data Only",
 
@@ -85,6 +86,7 @@
     "变量绑定": "Variable Binding",
     "变量": "Var",
     "维度（可选）": "Dimension (opt)",
+    "变量名，如 x": "Var name, e.g. x",
     "＋ 增加变量": "＋ Add Variable",
     "表达式，如 x / y * 100": "Expression, e.g. x / y * 100",
     "常用公式：": "Common formulas: ",
@@ -118,7 +120,7 @@
     "世界银行 Open Data": "World Bank Open Data",
     "权威统计年鉴": "Authoritative Yearbooks",
     "本项目仅使用公开数据，不含任何内部或涉密数据":
-      "This project uses public data only — no internal or classified data.",
+      "This project uses <b>public data</b> only — no internal or classified data.",
     "数据收集": "Data Collection",
     "国家统计局": "National Bureau of Statistics",
     "海关总署": "General Administration of Customs",
@@ -285,6 +287,8 @@
   /* 翻译一段数据文本（未知则原样返回） */
   function tr(s) {
     if (s == null) return s;
+    // 只有英文模式才翻译；中文模式原样返回（否则切回中文仍显示英文）
+    if (window.CUR_LANG !== "en") return s;
     return ZH2EN[s] !== undefined ? ZH2EN[s] : s;
   }
 
@@ -317,17 +321,25 @@
     var root = document.documentElement;
     if (root) root.lang = lang === "en" ? "en" : "zh-CN";
 
+    /* 首次应用时把「原始中文」缓存到属性里，切换回中文时用它还原。
+       （不能在非英文时不做处理：那样从英文切回中文会残留英文。） */
     document.querySelectorAll("[data-i18n]").forEach(function (el) {
       var k = el.getAttribute("data-i18n");
-      if (ZH2EN[k] != null) el.textContent = ZH2EN[k];
+      var orig = el.getAttribute("data-i18n-orig");
+      if (orig == null) { orig = el.textContent; el.setAttribute("data-i18n-orig", orig); }
+      el.textContent = (lang === "en" && ZH2EN[k] != null) ? ZH2EN[k] : orig;
     });
     document.querySelectorAll("[data-i18n-html]").forEach(function (el) {
       var k = el.getAttribute("data-i18n-html");
-      if (ZH2EN[k] != null) el.innerHTML = ZH2EN[k];
+      var orig = el.getAttribute("data-i18n-orig");
+      if (orig == null) { orig = el.innerHTML; el.setAttribute("data-i18n-orig", orig); }
+      el.innerHTML = (lang === "en" && ZH2EN[k] != null) ? ZH2EN[k] : orig;
     });
     document.querySelectorAll("[data-i18n-ph]").forEach(function (el) {
       var k = el.getAttribute("data-i18n-ph");
-      if (ZH2EN[k] != null) el.setAttribute("placeholder", ZH2EN[k]);
+      var orig = el.getAttribute("data-i18n-orig-ph");
+      if (orig == null) { orig = el.getAttribute("placeholder") || ""; el.setAttribute("data-i18n-orig-ph", orig); }
+      el.setAttribute("placeholder", (lang === "en" && ZH2EN[k] != null) ? ZH2EN[k] : orig);
     });
 
     /* 年份下拉：中文加“年”后缀 */

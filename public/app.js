@@ -189,6 +189,8 @@ function closeAddCustom() { document.getElementById('customAdd').style.display =
 function addVarRow() {
   var tpl = document.getElementById('varTpl').content.cloneNode(true);
   document.getElementById('varRows').appendChild(tpl);
+  // 新增行的 placeholder 来自模板（中文），需按当前语言重新应用一次
+  if (typeof window.applyLang === 'function') window.applyLang(window.CUR_LANG);
 }
 function removeVarRow(btn) { var row = btn.closest('.var-row'); if (row) row.remove(); }
 
