@@ -10,6 +10,9 @@ data/*.db
 data/indicators_*.csv
 web_server.log
 web_server.err
+server.log
+server_err.log
+server_out.log
 
 # ---- 系统 ----
 .DS_Store

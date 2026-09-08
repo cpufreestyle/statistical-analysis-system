@@ -67,6 +67,7 @@ async function loadOverview() {
 async function runAnalyze() {
   var input = document.getElementById('nlqInput').value.trim();
   if (!input) { showToast(tr('请先输入查询问题'), 'error'); return; }
+  window._lastQuery = input;
   var btn = document.getElementById('btnAnalyze'); btn.classList.add('loading');
   var el = document.getElementById('nlqResult'); el.innerHTML = '<div class="skeleton skeleton-line" style="width:60%"></div><div class="skeleton skeleton-line" style="width:40%"></div>';
   try {
@@ -95,13 +96,13 @@ function renderAsk(d) {
       if (typeof v[0] === 'object') {
         var keys = Object.keys(v[0]);
         html += '<table class="rkt"><thead><tr>' + keys.map(c => '<th>' + tr(c) + '</th>').join('') + '</tr></thead><tbody>'
-          + v.map(r => '<tr>' + keys.map(c => '<td>' + (r[c] ?? '') + '</td>').join('') + '</tr>').join('') + '</tbody></table>';
-      } else { html += '<div>' + v.join(lsep) + '</div>'; }
+          + v.map(r => '<tr>' + keys.map(c => '<td>' + tv(r[c] ?? '') + '</td>').join('') + '</tr>').join('') + '</tbody></table>';
+      } else { html += '<div>' + v.map(tv).join(lsep) + '</div>'; }
       html += '</div>';
     } else if (v && typeof v === 'object' && !Array.isArray(v)) {
-      html += '<div class="rk"><b>' + kk + '</b><div class="rki">' + Object.entries(v).map(function(e) { return e[0] + sep + e[1]; }).join(jsep) + '</div></div>';
+      html += '<div class="rk"><b>' + kk + '</b><div class="rki">' + Object.entries(v).map(function(e) { return tr(e[0]) + sep + tv(e[1]); }).join(jsep) + '</div></div>';
     } else {
-      html += '<div class="rk"><b>' + kk + '</b>' + sep + (v ?? '—') + '</div>';
+      html += '<div class="rk"><b>' + kk + '</b>' + sep + tv(v ?? '—') + '</div>';
     }
   }
   return html;
@@ -164,6 +165,7 @@ async function loadCustomList() {
 async function runCustom() {
   var sel = document.getElementById('customSelect');
   if (!sel || !sel.value) { showToast(tr('请先选择一个分析'), 'error'); return; }
+  window._lastCustom = sel.value;
   var y = document.getElementById('globalYear')?.value || '2024';
   var btn = document.getElementById('btnRunCustom'); btn.classList.add('loading');
   var el = document.getElementById('customResult');
@@ -228,6 +230,12 @@ async function saveCustom() {
 /* ═══════ 工具函数 ═══════ */
 function h(s) { return (s == null ? '' : String(s)).replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 function a(s) { return (s == null ? '' : String(s)).replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+/* 翻译结果里的「值」：字符串才处理，先精确匹配再组合串替换 */
+function tv(v) {
+  if (typeof v !== 'string') return v;
+  var t = tr(v);
+  return t !== v ? t : trData(v);
+}
 
 /* ═══════ Toast ═══════ */
 function showToast(msg, type) {
@@ -242,7 +250,17 @@ function showToast(msg, type) {
 function refreshLang() {
   loadOverview();
   loadIndicators();
-  loadCustomList();
+  // 已展示过的分析结果按新语言重跑，避免结果面板停留在旧语言
+  if (window._lastQuery) {
+    var qi = document.getElementById('nlqInput');
+    if (qi) { qi.value = window._lastQuery; runAnalyze(); }
+  }
+  // 自定义分析需等下拉选项重载后再回填并运行
+  loadCustomList().then(function () {
+    if (!window._lastCustom) return;
+    var cs = document.getElementById('customSelect');
+    if (cs) { cs.value = window._lastCustom; runCustom(); }
+  });
   // 年份下拉文案与副标题已在 applyLang 内处理
 }
 
