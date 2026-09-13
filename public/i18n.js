@@ -8,8 +8,8 @@
   "use strict";
 
   if (window.CUR_LANG == null) {
-    try { window.CUR_LANG = localStorage.getItem("qu_lang") || "zh"; }
-    catch (e) { window.CUR_LANG = "zh"; }
+    try { window.CUR_LANG = localStorage.getItem("qu_lang_v2") || "en"; }
+    catch (e) { window.CUR_LANG = "en"; }
   }
 
   /* 尽早暴露全局：函数声明会被提升，故此处赋值安全。
@@ -371,7 +371,7 @@
     var tb = document.getElementById("langToggle");
     if (tb) tb.textContent = lang === "zh" ? "EN" : "中文";
 
-    try { localStorage.setItem("qu_lang", lang); } catch (e) {}
+    try { localStorage.setItem("qu_lang_v2", lang); } catch (e) {}
     window.dispatchEvent(new CustomEvent("langchange", { detail: lang }));
   }
 
