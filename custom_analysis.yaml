@@ -1,19 +1,26 @@
 # 自定义分析配置（用户可自由增删，无需改代码）
 #
 # 每个分析项字段：
-#   name        分析名称（在命令行 / 网页中引用）
-#   unit        结果单位
-#   description 一句话说明
-#   variables   变量映射：变量名 -> [专业, 指标, 维度]
-#   expr        表达式，可用变量名及 min/max/abs/round/sum
-#   compare     是否计算同比(true/false)
+#   name           分析名称（在命令行 / 网页中引用）
+#   name_en        可选：英文名称。缺省时英文界面回退显示 name
+#   unit           结果单位
+#   description    一句话说明
+#   description_en 可选：英文说明
+#   variables      变量映射：变量名 -> [专业, 指标, 维度]
+#   expr           表达式，可用变量名及 min/max/abs/round/sum
+#   compare        是否计算同比(true/false)
 #
 # 变量里的「专业 / 指标 / 维度」必须与指标宽表中的值对应
 # （见 data/ap_macro.csv 与 data/nbs_cn.csv，均为真实公开数据）。
+#
+# 名称与说明属于「用户配置的内容」，引擎不做机器翻译；
+# 英文接口按 name_en / description_en 取用，缺失则回退中文原文。
 
 - name: 工业占GDP比重
+  name_en: Industry Share of GDP
   unit: "%"
   description: 工业增加值 / 国内生产总值(GDP)
+  description_en: Industry value added / GDP
   variables:
     industry: [工业, 工业增加值, 亚太]
     gdp: [综合, 国内生产总值(GDP), 亚太]
@@ -21,8 +28,10 @@
   compare: true
 
 - name: 贸易依存度
+  name_en: Trade Openness
   unit: "%"
   description: (货物服务出口总额 + 进口总额) / 国内生产总值(GDP)
+  description_en: (Goods & services exports + imports) / GDP
   variables:
     exp: [贸易, 货物服务出口总额, 亚太]
     imp: [贸易, 货物服务进口总额, 亚太]
@@ -31,8 +40,10 @@
   compare: true
 
 - name: 中国社零占GDP比重
+  name_en: China Retail Sales Share of GDP
   unit: "%"
   description: 社会消费品零售总额 / 地区生产总值（国家统计局口径）
+  description_en: Retail sales of consumer goods / GDP (China NBS basis)
   variables:
     retail: [贸易, 社会消费品零售总额, 中国]
     gdp: [综合, 地区生产总值, 中国]

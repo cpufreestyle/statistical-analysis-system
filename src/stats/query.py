@@ -103,8 +103,15 @@ def _normalize(text: str) -> str:
     return text + (" " + " ".join(extra) if extra else "")
 
 
-def _match_indicators(text: str, year: int, dimension: str | None) -> list[dict[str, object]]:
-    """在指标库中查找名称被问句直接提及的指标，返回该年数值。"""
+def _match_indicators(text: str, year: int, dimension: str | None,
+                      lang: str = "en") -> list[dict[str, object]]:
+    """在指标库中查找名称被问句直接提及的指标，返回该年数值。
+
+    指标在库里存的是中文规范名，所以英文问句（``GDP growth``）走不通——
+    这里同时拿 ``labels`` 的英文标签比对，让中英文问句命中同一批指标。
+    输出的 ``指标`` 仍是中文规范名，由标签层统一本地化。
+    """
+    from src import labels
     from src.db import query_indicators
 
     rows = query_indicators(year=year, dimension=dimension) if dimension \
@@ -113,11 +120,17 @@ def _match_indicators(text: str, year: int, dimension: str | None) -> list[dict[
         # 未指定维度时优先看默认口径，避免把十几个经济体全列出来
         order = {d: i for i, d in enumerate(ind.DIMENSION_PREFERENCE)}
         rows = sorted(rows, key=lambda r: order.get(r["dimension"], 99))
+    probe = text.lower()
     seen: set[tuple[str, str]] = set()
     out: list[dict[str, object]] = []
     for r in rows:
         name = r["indicator"]
-        if not name or name not in text:
+        if not name:
+            continue
+        english = labels.label("indicator", name, lang)
+        # 英文标签至少 3 字符才参与匹配，避免短标签（如 "%"）造成误命中
+        hit_en = len(english) >= 3 and english.lower() in probe
+        if name not in text and not hit_en:
             continue
         key = (name, r["dimension"])
         if key in seen:
@@ -138,7 +151,7 @@ def _match_indicators(text: str, year: int, dimension: str | None) -> list[dict[
 def ask(text: str, default_year: int = DEFAULT_YEAR, with_knowledge: bool = True,
         dimension: str | None = None, lang: str = "en") -> dict[str, object]:
     year = parse_year(text, default_year)
-    result = _ask_core(text, year, dimension)
+    result = _ask_core(text, year, dimension, lang)
     if with_knowledge:
         ctx = knowledge.retrieve_context(text, lang=lang)
         if ctx:
@@ -146,16 +159,19 @@ def ask(text: str, default_year: int = DEFAULT_YEAR, with_knowledge: bool = True
     return result
 
 
-def _ask_core(text: str, year: int, dimension: str | None) -> dict[str, object]:
+def _ask_core(text: str, year: int, dimension: str | None,
+              lang: str = "en") -> dict[str, object]:
     probe = _normalize(text)
     t = probe.lower()
-    # 1) 自定义分析优先：命中名称即按用户定义公式求值
+    # 1) 自定义分析优先：命中名称即按用户定义公式求值（中文名 / 英文名都认）
     for a in cust.load_custom():
-        if a.get("name", "") and a.get("name", "").lower() in t:
-            return {"年份": year, a.get("name", ""): cust.run_custom(a, year)}
+        for candidate in (a.get("name", ""), a.get("name_en", "")):
+            if candidate and candidate.lower() in t:
+                return {"年份": year,
+                        cust.display_name(a, lang): cust.run_custom(a, year, lang)}
     # 2) 具体指标名直命中：问到「社会消费品零售总额」/「retail sales」这类要答到点，
     #    优先级高于宽泛的专业关键词（否则「retail sales」会被"贸易"整块吞掉）
-    hits = _match_indicators(probe, year, dimension)
+    hits = _match_indicators(probe, year, dimension, lang)
     if hits:
         return {"年份": year, "匹配指标": hits}
     # 3) 专业关键词路由

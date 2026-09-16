@@ -50,11 +50,92 @@ _SAFE_BUILTINS: dict[str, object] = {
 
 class CustomAnalysis(TypedDict, total=False):
     name: str
+    name_en: str
     unit: str
     description: str
+    description_en: str
     variables: dict[str, list[str]]
     expr: str
     compare: bool
+
+
+#: 求值期错误信息（中 / 英）。自定义分析的名字与说明由用户配置，
+#: 不机器翻译；但引擎自己产生的错误必须双语，否则英文接口会漏出中文。
+_ERRORS: dict[str, dict[str, str]] = {
+    "missing_vars": {"zh": "缺少部分变量数据", "en": "Missing data for some variables"},
+    "expr_failed": {"zh": "表达式求值失败：{err}",
+                    "en": "Expression evaluation failed: {err}"},
+    "name_expr_required": {"zh": "name 与 expr 必填", "en": "name and expr are required"},
+    "vars_required": {"zh": "variables 必须是非空对象",
+                      "en": "variables must be a non-empty object"},
+    "expr_invalid": {"zh": "表达式无效：{err}", "en": "Invalid expression: {err}"},
+    "duplicate": {"zh": "已存在同名分析：{name}",
+                  "en": "An analysis with this name already exists: {name}"},
+}
+
+
+def _err(key: str, lang: str = "zh", **kw: object) -> str:
+    table = _ERRORS[key]
+    template = table["zh"] if str(lang).startswith("zh") else table["en"]
+    return template.format(**kw)
+
+
+def _is_zh(lang: str) -> bool:
+    return str(lang).startswith("zh")
+
+
+def _localize_term(kind: str, key: str, lang: str) -> str:
+    """把数据词条（单位等）翻成目标语言；未登记则原样返回。"""
+    if not key:
+        return ""
+    try:
+        from src import labels
+    except Exception:  # 标签层不可用不应影响自定义分析
+        return key
+    return labels.label(kind, key, lang)
+
+
+def display_name(a: CustomAnalysis, lang: str = "zh") -> str:
+    """分析名称。``name_en`` 缺失时回退中文名——用户配置的内容不做机器翻译。"""
+    if _is_zh(lang):
+        return a.get("name", "")
+    return a.get("name_en") or a.get("name", "")
+
+
+def display_description(a: CustomAnalysis, lang: str = "zh") -> str:
+    if _is_zh(lang):
+        return a.get("description", "")
+    return a.get("description_en") or a.get("description", "")
+
+
+def find_custom(name: str) -> CustomAnalysis | None:
+    """按名称查分析项；中文名与英文名（不分大小写）都能命中。"""
+    if not name:
+        return None
+    want = name.strip().lower()
+    for a in load_custom():
+        for candidate in (a.get("name", ""), a.get("name_en", "")):
+            if candidate and candidate.strip().lower() == want:
+                return a
+    return None
+
+
+def list_custom(lang: str = "zh") -> list[dict[str, str]]:
+    """分析列表（名称 / 说明 / 单位按语言本地化），供下拉选择。
+
+    ``name_key`` 是配置里的规范中文名（可能为空），供需要稳定标识的调用方使用；
+    ``name`` 才是展示用名称，也是查询时可直接回传的入参（:func:`find_custom` 中英都认）。
+    """
+    out: list[dict[str, str]] = []
+    for a in load_custom():
+        raw_unit = a.get("unit", "")
+        out.append({
+            "name": display_name(a, lang),
+            "name_key": a.get("name", ""),
+            "description": display_description(a, lang),
+            "unit": _localize_term("unit", raw_unit, lang),
+        })
+    return out
 
 
 def load_custom() -> list[CustomAnalysis]:
@@ -87,22 +168,23 @@ def _safe_eval(expr: str, namespace: Mapping[str, object]) -> float | None:
     return float(result) if result is not None else None
 
 
-def run_custom(a: CustomAnalysis, year: int) -> dict[str, object]:
-    """对单个自定义分析求值，返回结构化结果。"""
+def run_custom(a: CustomAnalysis, year: int, lang: str = "zh") -> dict[str, object]:
+    """对单个自定义分析求值，返回结构化结果（名称与错误信息按 ``lang`` 本地化）。"""
     namespace = {
         var: _var_value(spec, year) for var, spec in a.get("variables", {}).items()
     }
     if any(v is None for v in namespace.values()):
-        return {"name": a.get("name", ""), "error": "缺少部分变量数据"}
+        return {"name": display_name(a, lang), "error": _err("missing_vars", lang)}
     try:
         value = _safe_eval(a.get("expr", ""), namespace)
     except Exception as e:  # noqa: BLE001 - 把表达式错误原样返回给调用方
-        return {"name": a.get("name", ""), "error": f"表达式求值失败：{e}"}
+        return {"name": display_name(a, lang),
+                "error": _err("expr_failed", lang, err=e)}
 
     result: dict[str, object] = {
-        "name": a.get("name", ""),
+        "name": display_name(a, lang),
         "value": value,
-        "unit": a.get("unit", ""),
+        "unit": _localize_term("unit", a.get("unit", ""), lang),
         "expr": a.get("expr", ""),
     }
     if a.get("compare"):
@@ -120,24 +202,26 @@ def run_custom(a: CustomAnalysis, year: int) -> dict[str, object]:
     return result
 
 
-def run_all_custom(year: int) -> list[dict[str, object]]:
-    return [run_custom(a, year) for a in load_custom()]
+def run_all_custom(year: int, lang: str = "zh") -> list[dict[str, object]]:
+    return [run_custom(a, year, lang) for a in load_custom()]
 
 
-def add_custom(data: dict[str, object]) -> tuple[bool, str]:
+def add_custom(data: dict[str, object], lang: str = "zh") -> tuple[bool, str]:
     """校验并追加一条自定义分析到 yaml。返回 (成功?, 错误信息)。"""
     name = str(data.get("name", "")).strip()
     expr = str(data.get("expr", "")).strip()
     if not name or not expr:
-        return (False, "name 与 expr 必填")
+        return (False, _err("name_expr_required", lang))
     variables = data.get("variables", {})
     if not isinstance(variables, dict) or not variables:
-        return (False, "variables 必须是非空对象")
+        return (False, _err("vars_required", lang))
 
     item: CustomAnalysis = {
         "name": name,
+        "name_en": str(data.get("name_en", "")).strip(),
         "unit": str(data.get("unit", "")),
         "description": str(data.get("description", "")),
+        "description_en": str(data.get("description_en", "")).strip(),
         "variables": cast("dict[str, list[str]]", variables),
         "expr": expr,
         "compare": bool(data.get("compare", False)),
@@ -147,11 +231,11 @@ def add_custom(data: dict[str, object]) -> tuple[bool, str]:
     try:
         _safe_eval(item["expr"], probe)
     except Exception as e:
-        return (False, f"表达式无效：{e}")
+        return (False, _err("expr_invalid", lang, err=e))
 
     items = load_custom()
     if any(x.get("name") == name for x in items):
-        return (False, f"已存在同名分析：{name}")
+        return (False, _err("duplicate", lang, name=name))
     items.append(item)
     _save(items)
     return (True, "")

@@ -1,13 +1,16 @@
 /* ============================================
    亚太统计分析系统 · 国际化（中 / 英）
    字典以「中文原文」为 key，英文为 value；
-   静态文案用 data-i18n / data-i18n-html / data-i18n-ph 标注，
-   动态数据（指标名、维度、单位、结果键）由 tr() / trData() 在渲染时翻译。
+   静态文案用 data-i18n / data-i18n-html / data-i18n-ph 标注。
+
+   注意：**数据标识符不再由前端翻译**。指标 / 专业 / 维度 / 单位 / 来源说明
+   由服务端按 ?lang= 本地化（见 data/labels.csv 与 src/labels.py），
+   接口返回什么就渲染什么；本文件只负责静态 UI 文案与结构键的展示名。
 
    翻译策略（两级，不依赖人工维护词表）：
-     1) tr(s)   先查精确字典；未命中则交给 trData() 做组合串替换。
+     1) tr(s)     精确字典 → ASCII 结构键表（ASK_KEY_LABELS）→ trData()。
      2) trData(s) 用「字典里所有中文词条（长词优先）」逐个替换，
-        因此「货物服务出口总额(亿元)」这类拼装串也能整体翻译。
+        兜底服务端新增、前端字典尚未收录的中文拼装串。
    ============================================ */
 (function () {
   "use strict";
@@ -355,6 +358,42 @@
     .concat(UNIT_TERMS)
     .sort(function (a, b) { return b.length - a.length; });
 
+  /* 结构键（服务端 lang=en 时返回的 ASCII 键）-> 英文标签。
+     数据词条（指标名/专业/维度/单位）由服务端本地化，这里只管框架键。 */
+  var ASK_KEY_LABELS = {
+    year: "Year",
+    dimension: "Region",
+    matched_indicators: "Matched indicators",
+    indicator_overview: "Indicator overview",
+    ranking_by_economy: "Ranking by economy",
+    indicator: "Indicator",
+    indicator_name: "Indicator",
+    indicator_value: "Value",
+    value: "Value",
+    unit: "Unit",
+    yoy: "YoY",
+    rank: "Rank",
+    economy: "Economy",
+    note: "Note",
+    remark: "Remark",
+    kb_reference: "Knowledge base",
+    ai_interpretation: "AI interpretation",
+    value_cny_100m: "Value (CNY 100M)",
+    value_usd_100m: "Value (USD 100M)",
+    secondary_industry_investment_share: "Secondary-industry investment share",
+    title: "Title",
+    source: "Source",
+    content: "Content",
+    category: "Profession",
+    sections: "Sections",
+    rows: "Rows",
+    knowledge: "Knowledge base",
+    ai: "AI interpretation",
+    ai_note: "Note",
+    value_key: "Value",
+    unit_key: "Unit"
+  };
+
   /* 用「长词优先」逐个替换组合串中的术语。仅英文模式生效。 */
   function trData(s) {
     if (s == null) return s;
@@ -368,11 +407,12 @@
     return out;
   }
 
-  /* 翻译一段文本：精确字典优先，未命中则做组合串替换（未知内容原样返回）。 */
+  /* 翻译一段文本：精确字典 → ASCII 结构键 → 组合串替换（未知内容原样返回）。 */
   function tr(s) {
     if (s == null) return s;
     if (window.CUR_LANG !== "en") return s;
     if (ZH2EN[s] !== undefined) return ZH2EN[s];
+    if (ASK_KEY_LABELS[s] !== undefined) return ASK_KEY_LABELS[s];
     return trData(s);
   }
 

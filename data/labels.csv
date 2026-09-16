@@ -1,0 +1,87 @@
+# 数据标识符的多语言标签包（label pack）
+#
+# 为什么需要这个文件：
+#   指标宽表（data/ap_macro.csv、data/nbs_cn.csv）里的 category / indicator /
+#   dimension / unit 存的是中文规范键，这样数据文件本身可读、可与官方统计口径对齐。
+#   但中文键不能直接给非中文消费方——REST API 一出去就露馅。
+#   因此在这里集中维护「中文规范键 → ASCII slug + 英文标签」的映射，
+#   由 src/labels.py 在服务端按 lang 本地化。
+#
+# 字段：
+#   kind  category | indicator | dimension | unit
+#   key   中文规范键（与 CSV / 数据库中的值逐字一致，是唯一的连接键）
+#   slug 稳定的 ASCII 标识符，供程序消费；一旦发布不再更改
+#   en    英文标签
+#
+# 约定：
+#   - key 是规范键，因此中文标签无需重复维护。
+#   - 新增指标时，先在数据文件里落中文键，再来这里补一行 slug + en。
+#   - 未在此登记的键不会被翻译，原样返回（不会报错），保证向前兼容。
+#   - 以 # 开头的行是注释，加载时跳过。
+#
+kind,key,slug,en
+
+# ---- 专业分类 ----
+category,综合,national_accounts,National Accounts
+category,工业,industry,Industry
+category,贸易,trade,Trade
+category,人口,population,Population
+category,投资,investment,Investment
+# 服务业 / 农业 目前没有对应数据行，但作为自然语言查询的路由结果键会出现，
+# 不登记的话英文接口会漏出中文键。
+category,服务业,services,Services
+category,农业,agriculture,Agriculture
+
+# ---- 指标 ----
+indicator,GDP增长率,gdp_growth,GDP Growth
+indicator,人均GDP,gdp_per_capita,GDP per Capita
+indicator,国内生产总值(GDP),gdp_current_usd,GDP (current US$)
+indicator,地区生产总值,gdp_nbs,GDP (NBS)
+indicator,地区生产总值(GDP),gdp_nbs,GDP (NBS)
+indicator,第一产业增加值,primary_industry_value_added,Primary Industry Value Added
+indicator,第二产业增加值,secondary_industry_value_added,Secondary Industry Value Added
+indicator,第三产业增加值,tertiary_industry_value_added,Tertiary Industry Value Added
+indicator,工业增加值,industry_value_added,Industry Value Added
+indicator,规模以上工业增加值,above_scale_industry_value_added,Above-Scale Industry Value Added
+indicator,规上工业增加值,above_scale_industry_value_added,Above-Scale Industry Value Added
+indicator,规模以上工业总产值,above_scale_industry_gross_output,Above-Scale Industry Gross Output
+indicator,规模以上服务业营业收入,above_scale_services_revenue,Above-Scale Services Revenue
+indicator,限额以上商品销售额,above_quota_retail_sales,Above-Quota Retail Sales
+indicator,农业总产值,gross_output_agriculture,Gross Output Value of Agriculture
+indicator,货物服务出口总额,exports_goods_services,Exports of Goods & Services
+indicator,货物服务进口总额,imports_goods_services,Imports of Goods & Services
+indicator,货物进出口总额,total_imports_exports,Total Imports & Exports
+indicator,社会消费品零售总额,retail_sales_consumer_goods,Retail Sales of Consumer Goods
+indicator,固定资产投资总额,fixed_asset_investment,Fixed Asset Investment
+indicator,居民人均可支配收入,per_capita_disposable_income,Per Capita Disposable Income
+indicator,总人口,total_population,Total Population
+indicator,常住人口,resident_population,Resident Population
+indicator,失业率,unemployment_rate,Unemployment Rate
+indicator,通货膨胀率(CPI),inflation_cpi,Inflation (CPI)
+indicator,预期寿命,life_expectancy,Life Expectancy
+
+# ---- 维度（经济体 / 区域聚合）----
+dimension,亚太,asia_pacific,Asia-Pacific
+dimension,亚太(发展中),asia_pacific_developing,Asia-Pacific (developing)
+dimension,中国,china,China
+dimension,日本,japan,Japan
+dimension,韩国,south_korea,South Korea
+dimension,印度,india,India
+dimension,印度尼西亚,indonesia,Indonesia
+dimension,泰国,thailand,Thailand
+dimension,越南,viet_nam,Viet Nam
+dimension,马来西亚,malaysia,Malaysia
+dimension,菲律宾,philippines,Philippines
+dimension,新加坡,singapore,Singapore
+dimension,澳大利亚,australia,Australia
+dimension,美国,united_states,United States
+
+# ---- 单位 ----
+unit,%,percent,%
+unit,美元,usd,USD
+unit,亿美元,usd_100m,USD 100M
+unit,元,cny,CNY
+unit,亿元,cny_100m,CNY 100M
+unit,亿人,hundred_million_people,100M people
+unit,万人,ten_thousand_people,10K people
+unit,岁,years,years

@@ -24,6 +24,10 @@ const DIM_ISO = {
 function isZh() { return window.CUR_LANG === 'zh'; }
 function enc(s) { return encodeURIComponent(s == null ? '' : String(s)); }
 
+/* 数据接口统一带上界面语言：服务端据此本地化专业 / 指标 / 维度 / 单位标识符，
+   前端不再对数据做二次词条替换（i18n.js 只负责静态 UI 文案）。 */
+function langQ() { return 'lang=' + (isZh() ? 'zh' : 'en'); }
+
 /* ───── 页面入口 ───── */
 (function init() {
   document.querySelectorAll('.wb-tab').forEach(btn => {
@@ -53,6 +57,22 @@ function fillSelect(id, values, current, labelFn) {
     return '<option value="' + a(val) + '">' + h(label) + '</option>';
   }).join('');
   if (values.some(v => String(v) === prev)) sel.value = prev;
+  return sel.value;
+}
+
+/* 用服务端返回的 {label, key, slug} 选项填充下拉框。
+   value 用**中文规范键**（`key`）：它是内部连接键，跨语言稳定，
+   不会因为界面语言变化而让已选中的项失效；展示文案用 `label`（已按 lang 本地化）。 */
+function fillSelectOptions(id, options, current) {
+  const sel = document.getElementById(id);
+  if (!sel) return '';
+  const prev = current != null ? String(current) : sel.value;
+  const opts = (options || []).filter(o => o && (o.key || o.slug));
+  sel.innerHTML = opts.map(o => {
+    const val = o.key || o.slug;
+    return '<option value="' + a(val) + '" data-slug="' + a(o.slug || '') + '">' + h(o.label || val) + '</option>';
+  }).join('');
+  if (opts.some(o => String(o.key || o.slug) === prev)) sel.value = prev;
   return sel.value;
 }
 
@@ -101,33 +121,41 @@ async function loadOverview() {
   const grid = document.getElementById('metricsGrid');
   if (!grid) return;
   try {
-    const r = await fetch(API + '/api/overview?year=' + enc(STATE.year) + '&dimension=' + enc(STATE.dimension));
+    const r = await fetch(API + '/api/overview?year=' + enc(STATE.year) + '&dimension=' + enc(STATE.dimension) + '&' + langQ());
     const d = await r.json();
     if (d.dimension) STATE.dimension = d.dimension;
     if (d.year) STATE.year = String(d.year);
 
-    fillSelect('globalDimension', d.dimensions || [], STATE.dimension, v => tr(v));
+    // 下拉框用服务端返回的 {label,key,slug} 选项：value 是规范键，label 已按 lang 本地化
+    fillSelectOptions('globalDimension', d.dimension_options, STATE.dimension);
     fillSelect('globalYear', d.years || [], STATE.year, v => v + (isZh() ? '年' : ''));
-    if (d.categories) {
+    if (d.category_options) {
       var curCat = (document.getElementById('indCat') || {}).value || '';
-      fillSelect('indCat', [''].concat(d.categories), curCat,
-        v => v === '' ? tr('全部专业') : tr(v));
+      var sel = document.getElementById('indCat');
+      if (sel) {
+        sel.innerHTML = '<option value="">' + h(tr('全部专业')) + '</option>'
+          + d.category_options.map(function (o) {
+              return '<option value="' + a(o.key || o.slug) + '">' + h(o.label) + '</option>';
+            }).join('');
+        if (Array.from(sel.options).some(function (o) { return o.value === curCat; })) sel.value = curCat;
+      }
     }
 
     const sy = document.getElementById('subtitleYear');
     if (sy) sy.textContent = STATE.year;
 
+    // 卡片字段全部来自服务端本地化结果，前端不再做数据词条替换
     grid.innerHTML = (d.cards || []).map(c => `
       <div class="metric-card">
         <div class="metric-header">
-          <span class="metric-label">${h(tr(c.label))}</span>
-          <span class="metric-tag">${h(tr(c.dimension || STATE.dimension))}</span>
+          <span class="metric-label">${h(c.label)}</span>
+          <span class="metric-tag">${h(c.dimension || '')}</span>
         </div>
-        <div class="metric-value">${h(c.value)}<span class="metric-unit">${h(tr(c.unit || ''))}</span></div>
+        <div class="metric-value">${h(c.value)}<span class="metric-unit">${h(c.unit || '')}</span></div>
         <div class="metric-footer">
           ${c.yoy ? `<span class="metric-change">${h(tr('同比'))} ${h(c.yoy)}</span>` : ''}
         </div>
-        <div class="metric-src" title="${a(c.note || '')}">${h(trData(c.note || ''))}</div>
+        <div class="metric-src" title="${a(c.note || '')}">${h(c.note || '')}</div>
       </div>`).join('');
   } catch (e) {
     grid.innerHTML = '<div class="metric-card" style="grid-column:1/-1;color:var(--gray-400)">' + tr('加载失败') + '</div>';
@@ -152,7 +180,7 @@ async function runAnalyze() {
     var r = await fetch(u);
     var d = await r.json();
     var html = '';
-    var ai = d['AI 解读'];
+    var ai = pick(d, 'AI 解读', 'ai_interpretation');
     if (ai) {
       html += '<div class="ai-card"><div class="ai-head">🤖 ' + tr('AI 云端解读') + '</div>'
         + '<div class="ai-body">' + mdToHtml(ai) + '</div>'
@@ -160,7 +188,7 @@ async function runAnalyze() {
         + '</div>';
     }
     html += renderAsk(d);
-    var ref = d['知识库参考'];
+    var ref = pick(d, '知识库参考', 'kb_reference');
     if (ref) html += '<div class="kb-ref"><b>' + tr('知识库参考') + '</b>' + mdToHtml(ref) + '</div>';
     el.innerHTML = html || '<div class="rk">' + tr('无结果') + '</div>';
     showToast(tr('分析完成'), 'success');
@@ -173,7 +201,13 @@ async function runAnalyze() {
   }
 }
 
-/* 结果对象 -> 可读卡片 / 表格 */
+/* 结果对象 -> 可读卡片 / 表格（结构键中英两套，取值时都要认） */
+function pick(d, zhKey, enKey) {
+  if (!d) return undefined;
+  if (d[zhKey] !== undefined) return d[zhKey];
+  return d[enKey];
+}
+
 function renderAsk(d) {
   if (!d || typeof d !== 'object') return tval(d);
   var html = '';
@@ -181,7 +215,7 @@ function renderAsk(d) {
   var jsep = isZh() ? '； ' : '; ';
   var lsep = isZh() ? '、' : ', ';
   for (var k in d) {
-    if (k === '知识库参考' || k === 'AI 解读') continue;
+    if (k === '知识库参考' || k === 'AI 解读' || k === 'kb_reference' || k === 'ai_interpretation') continue;
     var v = d[k];
     var kk = tr(k);
     if (Array.isArray(v) && v.length) {
@@ -215,7 +249,8 @@ async function loadIndicators() {
   var u = API + '/api/indicators?year=' + enc(STATE.year)
     + '&dimension=' + enc(STATE.dimension)
     + (cat ? '&category=' + enc(cat) : '')
-    + (q ? '&q=' + enc(q.trim()) : '');
+    + (q ? '&q=' + enc(q.trim()) : '')
+    + '&' + langQ();
   var tb = document.querySelector('#indTable tbody');
   if (!tb) return;
   try {
@@ -227,14 +262,16 @@ async function loadIndicators() {
       tb.innerHTML = '<tr><td colspan="7" style="color:var(--gray-400)">' + tr('无可展示数据') + '</td></tr>';
       return;
     }
+    // 数据字段（indicator/category/dimension/unit/note）已由服务端按 lang 本地化；
+    // 单选钮的 data-* 存**规范键**（*_key），供新增自定义分析时回填稳定标识。
     tb.innerHTML = rows.map(function (r) { return '<tr>'
-      + '<td><input type=radio name=selrow class=selrow data-c="' + a(r.category) + '" data-i="' + a(r.indicator) + '" data-d="' + a(r.dimension) + '" onclick="toggleCb(this,event)"></td>'
-      + '<td class="ind-name" title="' + a(trData(r.note || '')) + '">' + h(tr(r.indicator)) + '</td>'
-      + '<td><span class="tag tag-blue">' + h(tr(r.category)) + '</span></td>'
-      + '<td>' + h(tr(r.dimension)) + '</td>'
+      + '<td><input type=radio name=selrow class=selrow data-c="' + a(r.category_key || r.category) + '" data-i="' + a(r.indicator_key || r.indicator) + '" data-d="' + a(r.dimension_key || r.dimension) + '" onclick="toggleCb(this,event)"></td>'
+      + '<td class="ind-name" title="' + a(r.note || '') + '">' + h(r.indicator) + '</td>'
+      + '<td><span class="tag tag-blue">' + h(r.category) + '</span></td>'
+      + '<td>' + h(r.dimension) + '</td>'
       + '<td class="num">' + (r.value !== null && r.value !== undefined ? Number(r.value).toLocaleString() : '—') + '</td>'
-      + '<td>' + h(tr(r.unit || '')) + '</td>'
-      + '<td class="note-cell" style="color:var(--gray-400)" title="' + a(trData(r.note || '')) + '">' + h(trData(r.note || '')) + '</td>'
+      + '<td>' + h(r.unit || '') + '</td>'
+      + '<td class="note-cell" style="color:var(--gray-400)" title="' + a(r.note || '') + '">' + h(r.note || '') + '</td>'
       + '</tr>'; }).join('');
   } catch (e) {
     tb.innerHTML = '<tr><td colspan="7" style="color:var(--red-500)">' + tr('加载失败') + '</td></tr>';
@@ -266,13 +303,15 @@ function createFromSelected() {
 /* ═══════ 自定义分析 ═══════ */
 async function loadCustomList() {
   try {
-    var r = await fetch(API + '/api/custom');
+    var r = await fetch(API + '/api/custom?' + langQ());
     var list = await r.json();
     var sel = document.getElementById('customSelect');
     if (!sel) return;
+    // value 用规范名（name_key）：跨语言稳定，切换界面语言后已选项仍然有效
     sel.innerHTML = '<option value="">' + tr('选择已有分析…') + '</option>'
       + list.map(function (a2) {
-          return '<option value="' + a(a2.name) + '">' + h(a2.name)
+          var val = a2.name_key || a2.name;
+          return '<option value="' + a(val) + '">' + h(a2.name)
             + (a2.description ? ' — ' + h(a2.description) : '') + '</option>';
         }).join('');
   } catch (e) { /* 忽略 */ }
@@ -286,7 +325,7 @@ async function runCustom() {
   btn.classList.add('loading');
   var el = document.getElementById('customResult');
   try {
-    var r = await fetch(API + '/api/custom?name=' + enc(sel.value) + '&year=' + enc(STATE.year));
+    var r = await fetch(API + '/api/custom?name=' + enc(sel.value) + '&year=' + enc(STATE.year) + '&' + langQ());
     var d = await r.json();
     if (d.error) {
       el.innerHTML = '<div class="rk" style="color:var(--red-500)">' + h(d.error) + '</div>';
@@ -347,13 +386,15 @@ async function saveCustom() {
   }
   var body = {
     name: name, expr: expr,
+    name_en: (document.getElementById('customNameEn') || {}).value ? document.getElementById('customNameEn').value.trim() : '',
     unit: document.getElementById('customUnit').value.trim(),
     description: document.getElementById('customDesc').value.trim(),
+    description_en: (document.getElementById('customDescEn') || {}).value ? document.getElementById('customDescEn').value.trim() : '',
     compare: document.getElementById('customCmp').checked,
     variables: vars
   };
   try {
-    var r = await fetch(API + '/api/custom', {
+    var r = await fetch(API + '/api/custom?' + langQ(), {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
     });
     var d = await r.json();
@@ -398,7 +439,8 @@ async function loadBulletin() {
 function renderBulletin(d) {
   var zh = isZh();
   var html = '';
-  html += '<div class="bul-title">' + h(tr(d.dimension)) + ' · '
+  // 公报的结构化字段已由服务端按 lang 本地化，这里不再做词条替换
+  html += '<div class="bul-title">' + h(d.dimension) + ' · '
     + (zh ? '国民经济和社会发展统计公报（摘要）' : 'Economic and Social Development Statistical Bulletin (Summary)')
     + ' — ' + h(d.year) + (zh ? '年' : '') + '</div>';
   html += '<div class="bul-src">' + (zh
@@ -406,12 +448,12 @@ function renderBulletin(d) {
     : 'Sources: World Bank Open Data · National Bureau of Statistics · General Administration of Customs (all public)')
     + '</div>';
   (d.sections || []).forEach(function (sec) {
-    html += '<div class="bul-sec">' + h(tr(sec.category)) + '</div>';
+    html += '<div class="bul-sec">' + h(sec.category) + '</div>';
     (sec.rows || []).forEach(function (row) {
       html += '<div class="bul-row">'
-        + '<span class="bul-ind">' + h(tr(row.indicator)) + '</span>'
+        + '<span class="bul-ind">' + h(row.indicator) + '</span>'
         + '<span class="bul-val">' + h(row.value)
-        + (row.unit === '%' ? '%' : (row.unit ? ' ' + h(tr(row.unit)) : '')) + '</span>'
+        + (row.unit === '%' ? '%' : (row.unit ? ' ' + h(row.unit) : '')) + '</span>'
         + (row.yoy ? '<span class="bul-yoy">' + h(tr('同比')) + ' ' + h(row.yoy) + '</span>' : '')
         + '</div>';
     });
@@ -516,7 +558,8 @@ function refreshLang() {
   loadIndicators();
   loadDbStats();
   var bo = document.getElementById('bulletinOut');
-  if (bo && window._lastBulletin) bo.innerHTML = renderBulletin(window._lastBulletin);
+  // 公报内容已由服务端按 lang 本地化，切换语言必须重新取数（缓存的是上一语言的文本）
+  if (bo && window._lastBulletin) loadBulletin();
   if (window._lastQuery) {
     var qi = document.getElementById('nlqInput');
     if (qi) { qi.value = window._lastQuery; runAnalyze(); }

@@ -1,14 +1,19 @@
 """命令行入口，模仿 agent_infini 的子命令风格。
 
 用法：
-  python -m src.cli init                     # 初始化数据库 + 示例数据
+  python -m src.cli init                     # 初始化数据库 + 载入真实公开数据种子
   python -m src.cli load <file.csv>          # 导入数据
-  python -m src.cli ask "2024年全国GDP"       # 本地自然语言查询
+  python -m src.cli ask "2024 GDP"           # 本地自然语言查询（默认英文输出）
+  python -m src.cli ask "2024年GDP" --lang zh # 中文输出
   python -m src.cli ask "..." --cloud        # 走 InfiniSynapse 云端 AI 分析
   python -m src.cli cloud "分析全国工业结构"   # 云端多轮分析(需配置开启)
-  python -m src.cli report [--year 2024]     # 生成统计公报
+  python -m src.cli report [--year 2024] [--dimension 亚太] [--lang en]
   python -m src.cli export [--year 2024]     # 导出 CSV
+  python -m src.cli custom list [--lang en]  # 自定义分析（英文字段名）
   python -m src.cli web                       # 启动 Web 看板
+
+``--lang`` 控制数据标识符（专业 / 指标 / 维度 / 单位）与知识库召回的语言；
+缺省 ``en``。条目本身以中文规范键入库，接口层按语言本地化，两边保持一致。
 """
 from __future__ import annotations
 
@@ -18,28 +23,33 @@ from src import loader
 from src.stats import query as nlq
 from src.stats import custom as cust
 from src import report
+from src import labels
 from src import knowledge as kb
 from src import collect as collector
 from src.db import db_info, init_db
 
 
-def _do_ask(text: str, use_cloud: bool):
+def _do_ask(text: str, use_cloud: bool, lang: str = labels.DEFAULT_LANG):
+    lang = labels.normalize_lang(lang)
     if use_cloud:
         from src.analyzer import get_analyzer, AgentInfiniError
         try:
-            az = get_analyzer()
+            az = get_analyzer(lang=lang)
             if az is None:
                 print("云端分析未启用（config.yaml 中 infinisynapse.enabled=false），"
                       "改用本地统计：")
-                print(json.dumps(nlq.ask(text), ensure_ascii=False, indent=2))
+                print(json.dumps(labels.localize_payload(nlq.ask(text, lang=lang), lang),
+                                 ensure_ascii=False, indent=2))
                 return
             out = az.analyze(text)
             print(json.dumps(out, ensure_ascii=False, indent=2))
         except AgentInfiniError as e:
             print(f"[云端分析失败] {e}\n已回退到本地统计：")
-            print(json.dumps(nlq.ask(text), ensure_ascii=False, indent=2))
+            print(json.dumps(labels.localize_payload(nlq.ask(text, lang=lang), lang),
+                             ensure_ascii=False, indent=2))
         return
-    print(json.dumps(nlq.ask(text), ensure_ascii=False, indent=2))
+    print(json.dumps(labels.localize_payload(nlq.ask(text, lang=lang), lang),
+                     ensure_ascii=False, indent=2))
 
 
 def main():
@@ -53,12 +63,19 @@ def main():
     sp_ask.add_argument("text")
     sp_ask.add_argument("--cloud", action="store_true",
                         help="走 InfiniSynapse 云端 AI 分析")
+    sp_ask.add_argument("--lang", default="en", choices=["en", "zh"],
+                        help="输出语言（默认 en）：影响指标/专业/维度/单位标识符与知识库召回")
     sp_cloud = sub.add_parser("cloud", help="云端多轮 AI 分析(需配置开启)")
     sp_cloud.add_argument("text")
+    sp_cloud.add_argument("--lang", default="en", choices=["en", "zh"],
+                          help="输出语言（默认 en）")
     sp_report = sub.add_parser("report", help="生成统计公报")
     sp_report.add_argument("--year", type=int, default=2024)
     sp_report.add_argument("--cloud", action="store_true",
                            help="追加 InfiniSynapse 云端 AI 解读")
+    sp_report.add_argument("--dimension", default="亚太", help="维度（中文名 / 英文名 / slug）")
+    sp_report.add_argument("--lang", default="en", choices=["en", "zh"],
+                           help="输出语言（默认 en）")
     sp_export = sub.add_parser("export", help="导出 CSV")
     sp_export.add_argument("--year", type=int, default=2024)
     sp_custom = sub.add_parser("custom", help="自定义分析（list / run <名称>）")
@@ -66,6 +83,8 @@ def main():
                            choices=["list", "run"])
     sp_custom.add_argument("name", nargs="?", default=None)
     sp_custom.add_argument("--year", type=int, default=2024)
+    sp_custom.add_argument("--lang", default="en", choices=["en", "zh"],
+                           help="输出语言（默认 en）")
     sp_web = sub.add_parser("web", help="启动 Web 看板")
     sp_web.add_argument("--host", default="0.0.0.0", help="绑定地址（默认 0.0.0.0 便于云端/容器外部访问）")
     sp_web.add_argument("--port", type=int, default=5000, help="监听端口（默认 5000）")
@@ -147,28 +166,31 @@ def main():
         n = loader.load_file(args.file)
         print(f"已导入 {n} 条指标。")
     elif args.cmd == "ask":
-        _do_ask(args.text, use_cloud=args.cloud)
+        _do_ask(args.text, use_cloud=args.cloud, lang=args.lang)
     elif args.cmd == "cloud":
-        _do_ask(args.text, use_cloud=True)
+        _do_ask(args.text, use_cloud=True, lang=args.lang)
     elif args.cmd == "report":
-        print(report.generate_report(args.year, use_cloud=args.cloud))
+        dim = labels.key_of("dimension", args.dimension)
+        print(report.generate_report(args.year, use_cloud=args.cloud,
+                                     dimension=dim, lang=args.lang))
     elif args.cmd == "export":
         path = f"data/indicators_{args.year}.csv"
         report.export_csv(args.year, path)
         print(f"已导出到 {path}")
     elif args.cmd == "custom":
         if args.action == "list":
-            items = cust.load_custom()
+            items = cust.list_custom(args.lang)
             if not items:
                 print("暂无自定义分析，可在 custom_analysis.yaml 中新增。")
             for a in items:
                 print(f"- {a.get('name')}：{a.get('description', '')}")
         elif args.action == "run" and args.name:
-            a = next((x for x in cust.load_custom() if x.get("name") == args.name), None)
+            # find_custom 中英文名都能命中（英文界面可直接用 name_en）
+            a = cust.find_custom(args.name)
             if not a:
-                print(f"未找到自定义分析：{args.name}")
+                print(f"未找到自定义分析：{args.name} / not found: {args.name}")
             else:
-                print(json.dumps(cust.run_custom(a, args.year),
+                print(json.dumps(cust.run_custom(a, args.year, args.lang),
                                  ensure_ascii=False, indent=2))
     elif args.cmd == "web":
         from src.web import app, _ensure_data

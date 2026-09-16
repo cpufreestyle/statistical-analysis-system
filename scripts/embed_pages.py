@@ -31,6 +31,8 @@ FILES = {
 DATA_FILES = {
     "AP_MACRO_CSV": "ap_macro.csv",
     "NBS_CN_CSV": "nbs_cn.csv",
+    # 数据标识符的多语言标签包：服务端本地化的唯一事实来源，见 src/labels.py
+    "LABELS_CSV": "labels.csv",
 }
 
 
@@ -44,7 +46,9 @@ def _write_assets(out: Path, base: Path, mapping: dict[str, str], doc: str) -> N
         path = base / fname
         if not path.exists():
             raise SystemExit(f"缺失文件: {path}")
-        content = path.read_text(encoding="utf-8")
+        # utf-8-sig：带 BOM 的 UTF-8 会被剥掉 BOM，避免内嵌常量里带上 \ufeff
+        # （BOM 会污染 CSV 首行，让标签包静默失效——见 src/labels.py 的说明）。
+        content = path.read_text(encoding="utf-8-sig").lstrip("\ufeff")
         lines.append(f"{name} = {content!r}")
         lines.append("")
     out.write_text("\n".join(lines), encoding="utf-8")

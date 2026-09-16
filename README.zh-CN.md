@@ -19,7 +19,7 @@
 | 每个数字都可溯源 | 每行数据在其 `note` 字段记录来源（如 `World Bank Open Data (NY.GDP.MKTP.CD, EAS)`），看板在每张 KPI 卡片下都展示出来 |
 | AI 无法编造数字 | 本地检索到的统计结果作为「唯一允许的事实」注入提示词（明确要求「不得编造未给出的数字」） |
 | 不做跨口径运算 | 指标函数先锁定单一维度，再仅在该维度内取数——这修掉了一个真实 bug：同比曾混用两个维度，算出毫无意义的 `+326%` |
-| 双语单一事实来源 | 全站 UI 由同一份字典（`public/i18n.js`）驱动，英文界面无残留中文标签 |
+| 双语单一事实来源 | 标识符层由 `data/labels.csv` 在**服务端**本地化，因此 REST API 也是双语的，而不只是看板；`public/i18n.js` 现在只承载静态 UI 文案 |
 
 ## 功能界面
 
@@ -79,17 +79,22 @@ python -m src.cli web --port 5000   # 打开 http://127.0.0.1:5000
 ## 命令行
 
 ```bash
-python -m src.cli ask "2024 年 GDP"                 # 本地自然语言查询（中/英）
+python -m src.cli ask "2024 GDP"                    # 本地查询，默认英文输出
+python -m src.cli ask "2024 年 GDP" --lang zh        # 同一查询，中文标识符
 python -m src.cli ask "工业增加值" --cloud           # 追加 InfiniSynapse 云端解读
 python -m src.cli report --year 2024                # 统计公报（文本）
+python -m src.cli report --year 2024 --dimension 中国 --lang zh
 python -m src.cli report --year 2024 --cloud        # 公报 + AI 解读
-python -m src.cli custom list                       # 列出已声明的自定义分析
-python -m src.cli custom run "贸易依存度"
+python -m src.cli custom list --lang en             # 列出已声明的自定义分析
+python -m src.cli custom run "Trade Openness"       # 英文名同样可命中
 python -m src.cli collect --country EAS --indicators gdp,population
 python -m src.cli collect --source global --indicators gdp --countries CHN,USA,JPN
 python -m src.cli knowledge search --query "GDP 口径"
 python -m src.cli db info
 ```
+
+`--lang`（默认 `en`）控制数据标识符与知识库召回的语言；凡是需要填写维度 / 专业的地方，
+中英文名与 slug 都接受。
 
 ## 配置
 
@@ -108,19 +113,55 @@ export INFINISYNAPSE_SERVER="https://app.infinisynapse.cn"   # 可选覆盖
 前端会把当前语言作为 `lang` 参数发出，后端转成 API 的 `x-lang` 头
 （`en_US` / `zh_CN`），因此 AI 会以用户正在阅读的语言作答。
 
+## API 语言契约
+
+指标行以**中文规范键**入库（`category` / `indicator` 等），这样数据文件可读、
+且与官方统计口径逐字对齐。但直接把中文键交给非中文消费方，接口里就会冒出
+`综合` / `GDP增长率` / `亿美元`。因此本地化只在**一处**发生：`data/labels.csv` + `src/labels.py`。
+
+所有含数据的响应，每个标识符都给三层：
+
+| 字段 | 含义 | 示例 |
+| --- | --- | --- |
+| `category` / `indicator` / `dimension` / `unit` | 请求语言下的展示值 | `National Accounts` / `GDP Growth` |
+| `*_key` | 中文规范键——跨语言稳定，适合做连接键 | `综合` / `GDP增长率` |
+| `*_slug` | 供程序消费的稳定 ASCII 标识符 | `national_accounts` / `gdp_growth` |
+
+语言解析顺序：`?lang=` → `Accept-Language` 头 → `en`。
+
+```bash
+curl -s "http://127.0.0.1:5000/api/indicators?year=2024&dimension=China&lang=en"
+curl -s "http://127.0.0.1:5000/api/report?format=json&year=2024&dimension=%E4%BA%9A%E5%A4%AA&lang=zh"
+```
+
+入参接受全部三层，因此 `?dimension=China`、`?dimension=china`、`?dimension=中国` 三者等价。
+未登记的词条原样返回——既不猜测翻译，也不抛异常——因此新增指标不会打断既有调用。
+
+对着运行中的服务跑契约检查：
+
+```bash
+python scripts/check_i18n.py
+```
+
+它会用两种语言遍历全部数据端点：英文模式下任何展示字段残留中文即判失败，
+中文模式下丢失中文同样判失败。
+
 ## 架构
 
 ```text
 public/                   前端源码（index.html, app.html, app.js, i18n.js, style.css）
 data/ap_macro.csv         世界银行 Open Data 真实种子（脚本生成，已提交）
 data/nbs_cn.csv           国家统计局 / 海关总署中国国内明细真实种子
+data/labels.csv           标识符标签包：kind,key,slug,en（i18n 的唯一事实来源）
 scripts/fetch_wb_data.py  抓取世界银行数据集
 scripts/embed_pages.py    将 public/ 内嵌进 src/pages.py、data/ 内嵌进 src/seed_data.py
+scripts/check_i18n.py     契约检查：英文接口不得残留中文
 src/web.py                Flask 应用：页面、REST API、冷启动播种
 src/cli.py                命令行入口（ask / report / collect / custom / knowledge / db / web）
 src/loader.py             种子载入 + 用户 CSV/Excel 导入
 src/collect.py            采集流水线（可插拔数据源、限速）
 src/db.py                 基于 SQLAlchemy Core 的 SQLite（指标宽表 + 知识库表）
+src/labels.py             标识符本地化：label / slug / key_of / localize_payload
 src/stats/indicators.py   各统计专业指标函数（维度锚定）
 src/stats/core.py         基础算子：同比 / 占比 / 排名 / 汇总
 src/stats/query.py        双语自然语言查询引擎（本地规则）

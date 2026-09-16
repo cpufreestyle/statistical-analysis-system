@@ -83,21 +83,29 @@ def build_bulletin_data(year: int, dimension: str = "亚太",
 
 def _render_text(data: dict[str, object], year: int, dimension: str,
                  lang: str) -> str:
-    """把结构化公报渲染成纯文本（CLI / 云端 prompt 上下文使用）。"""
+    """把结构化公报渲染成纯文本（CLI / 云端 prompt 上下文使用）。
+
+    结构化数据里的标识符是中文规范键；这里按 ``lang`` 本地化，
+    因此 ``--lang en`` 输出的是英文专业 / 指标 / 单位，不会夹中文。
+    """
+    from src import labels
+
     t = _L["zh"] if lang.startswith("zh") else _L["en"]
     lines: list[str] = [
-        t["title"].format(dim=dimension, year=year),
+        t["title"].format(dim=labels.label("dimension", dimension, lang), year=year),
         "=" * 64,
         t["source"],
         "",
     ]
     idx = 0
     for section in cast("list[dict[str, object]]", data["sections"]):
-        lines.append(f"[{section['category']}]")
+        lines.append(f"[{labels.label('category', str(section['category']), lang)}]")
         for row in cast("list[dict[str, object]]", section["rows"]):
             idx += 1
             suffix = (f"  ({t['yoy']} {row['yoy']})" if row["yoy"] else "")
-            lines.append(f"{idx:>2}. {row['indicator']}: {row['value']} {row['unit']}{suffix}")
+            indicator = labels.label("indicator", str(row["indicator"]), lang)
+            unit = labels.label("unit", str(row["unit"]), lang)
+            lines.append(f"{idx:>2}. {indicator}: {row['value']} {unit}{suffix}")
         lines.append("")
     kb_rows = cast("list[dict[str, object]]", data["knowledge"])
     if kb_rows:

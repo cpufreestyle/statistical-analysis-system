@@ -21,7 +21,7 @@ Most "AI + data" demos let the model guess. This one is built the other way roun
 | Every number is traceable | Each row stores the source in its `note` field (e.g. `World Bank Open Data (NY.GDP.MKTP.CD, EAS)`), and the dashboard surfaces it under every KPI card |
 | The AI cannot hallucinate figures | The locally retrieved statistics are injected into the prompt as the only allowed facts ("do not invent figures that are not given") |
 | No cross-caliber arithmetic | Indicator functions first lock onto one region, then read only within that region — this fixed a real bug where YoY mixed two regions and produced a meaningless `+326%` |
-| Bilingual, single source of truth | One dictionary (`public/i18n.js`) drives the whole UI; the English view has no leftover Chinese labels |
+| Bilingual, single source of truth | The identifier layer is localized **server-side** from `data/labels.csv`, so the REST API is bilingual too — not just the dashboard. `public/i18n.js` now only carries static UI copy |
 
 ## Screens
 
@@ -86,17 +86,22 @@ The first start loads the real public dataset from the bundled seed files into S
 ## CLI
 
 ```bash
-python -m src.cli ask "2024 GDP"                    # local natural-language query (EN/中文)
+python -m src.cli ask "2024 GDP"                    # local query, English output (default)
+python -m src.cli ask "2024 GDP" --lang zh           # same query, Chinese identifiers
 python -m src.cli ask "工业增加值" --cloud            # + InfiniSynapse interpretation
 python -m src.cli report --year 2024                 # statistical bulletin (text)
+python -m src.cli report --year 2024 --dimension 中国 --lang zh
 python -m src.cli report --year 2024 --cloud         # bulletin + AI interpretation
-python -m src.cli custom list                        # declared custom analyses
-python -m src.cli custom run "贸易依存度"
+python -m src.cli custom list --lang en              # declared custom analyses
+python -m src.cli custom run "Trade Openness"        # English name works too
 python -m src.cli collect --country EAS --indicators gdp,population
 python -m src.cli collect --source global --indicators gdp --countries CHN,USA,JPN
 python -m src.cli knowledge search --query "GDP 口径"
 python -m src.cli db info
 ```
+
+`--lang` (default `en`) selects the language of the data identifiers and of the knowledge-base
+recall, and accepts the English name / slug anywhere a region or category is expected.
 
 ## Configuration
 
@@ -115,19 +120,57 @@ environment and leave `infinisynapse.api_key` commented out.
 The frontend sends its current language as `lang`, which becomes the API `x-lang` header
 (`en_US` / `zh_CN`), so the AI answers in the language the user is reading.
 
+## API language contract
+
+Indicator rows are stored with **Chinese canonical keys** (`category` / `indicator` so the data
+files stay readable and match the official statistical terminology word-for-word). Handing those
+to a non-Chinese consumer would leak `综合` / `GDP增长率` / `亿美元` straight through the API, so
+localization happens in one place: `data/labels.csv` + `src/labels.py`.
+
+Every data-bearing response carries three layers per identifier:
+
+| Field | Meaning | Example |
+| --- | --- | --- |
+| `category` / `indicator` / `dimension` / `unit` | localized display value for the requested language | `National Accounts` / `GDP Growth` |
+| `*_key` | the Chinese canonical key — stable across languages, use it as a join key | `综合` / `GDP增长率` |
+| `*_slug` | stable ASCII identifier for programmatic use | `national_accounts` / `gdp_growth` |
+
+Language resolution order: `?lang=` → `Accept-Language` header → `en`.
+
+```bash
+curl -s "http://127.0.0.1:5000/api/indicators?year=2024&dimension=China&lang=en"
+curl -s "http://127.0.0.1:5000/api/report?format=json&year=2024&dimension=%E4%BA%9A%E5%A4%AA&lang=zh"
+```
+
+Input accepts all three layers, so `?dimension=China`, `?dimension=china` and `?dimension=中国`
+are equivalent. Unregistered terms are returned as-is — never translated by guesswork, never
+raising an error — so adding an indicator cannot break an existing call.
+
+Run the contract check against a live server:
+
+```bash
+python scripts/check_i18n.py
+```
+
+It walks every data endpoint in both languages and fails if any display field still contains CJK
+characters in English mode (or lost them in Chinese mode).
+
 ## Architecture
 
 ```text
 public/                   frontend source (index.html, app.html, app.js, i18n.js, style.css)
 data/ap_macro.csv         real World Bank Open Data seed (generated, committed)
 data/nbs_cn.csv           real NBS / Customs seed for China domestic detail
+data/labels.csv           identifier label pack: kind,key,slug,en (single source for i18n)
 scripts/fetch_wb_data.py  fetch the World Bank dataset
 scripts/embed_pages.py    embed public/ -> src/pages.py and data/ -> src/seed_data.py
+scripts/check_i18n.py     contract check: no CJK leaks in English API responses
 src/web.py                Flask app: pages, REST API, cold-start seeding
 src/cli.py                argparse entry (ask / report / collect / custom / knowledge / db / web)
 src/loader.py             seed loading + user CSV/Excel import
 src/collect.py            collection pipeline (pluggable sources, rate limited)
 src/db.py                 SQLAlchemy Core over SQLite (indicators wide table + knowledge table)
+src/labels.py             identifier localization: label / slug / key_of / localize_payload
 src/stats/indicators.py   per-profession indicator functions (region-anchored)
 src/stats/core.py         primitives: YoY, share, ranking, aggregation
 src/stats/query.py        bilingual natural-language query engine (local rules)

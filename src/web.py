@@ -24,6 +24,7 @@ from src import report
 from src.db import query_indicators, db_info, init_db
 from src import knowledge as kb
 from src import collect as collector
+from src import labels
 from src.stats import indicators as ind
 from src.stats import query as nlq
 from src.stats import custom as cust
@@ -47,9 +48,28 @@ def _no_cache(resp):
 
 
 def _lang() -> str:
-    """请求语言：zh / en（默认 en，与前端默认语言一致）。"""
-    v = (request.args.get("lang") or "").strip().lower()
-    return "zh" if v.startswith("zh") else "en"
+    """请求语言：``?lang=`` 优先，其次 ``Accept-Language`` 头，最后默认 en（与前端默认一致）。
+
+    数据标识符（专业 / 指标 / 维度 / 单位）由 :mod:`src.labels` 按此语言在服务端本地化，
+    不再依赖浏览器端的词条替换——因此直接调接口的第三方也能拿到正确语言。
+    """
+    explicit = request.args.get("lang")
+    if explicit:
+        return labels.normalize_lang(explicit)
+    return (labels.lang_from_accept_language(request.headers.get("Accept-Language"))
+            or labels.DEFAULT_LANG)
+
+
+def _dimension_arg() -> str:
+    """维度入参：规范键（``中国``）与英文标签 / slug（``China`` / ``china``）等价。"""
+    raw = (request.args.get("dimension") or "").strip()
+    return labels.key_of("dimension", raw) if raw else DEFAULT_DIMENSION
+
+
+def _category_arg() -> str | None:
+    """专业入参：同样接受英文标签 / slug。"""
+    raw = (request.args.get("category") or "").strip()
+    return labels.key_of("category", raw) if raw else None
 
 
 def _fmt(v: object) -> str:
@@ -60,24 +80,43 @@ def _fmt(v: object) -> str:
     return str(v)
 
 
-def _overview(year: int, dimension: str) -> dict[str, object]:
-    """汇总首页需要的卡片（真实数据，按维度动态生成，附同比与出处）。"""
+def _overview(year: int, dimension: str, lang: str) -> dict[str, object]:
+    """汇总首页需要的卡片（真实数据，按维度动态生成，附同比与出处）。
+
+    每个字段给三层：本地化展示值 + ``*_key``（中文规范键）+ ``*_slug``（ASCII 稳定键）。
+    ``dimensions`` / ``categories`` 保持规范键列表（可作为请求参数原样回传），
+    另给 ``*_options`` 供前端下拉框用「键做 value、本地化文案做 label」。
+    """
     raw = ind.dimension_cards(year, dimension)
     cards = [{
-        "label": c["label"],
+        "label": labels.label("indicator", str(c["label"]), lang),
+        "label_key": str(c["label"]),
+        "label_slug": labels.slug("indicator", str(c["label"])),
         "value": _fmt(c["value"]),
-        "unit": c.get("unit", ""),
+        "unit": labels.label("unit", str(c.get("unit", "")), lang),
+        "unit_key": str(c.get("unit", "")),
+        "unit_slug": labels.slug("unit", str(c.get("unit", ""))),
         "yoy": c.get("yoy", ""),
-        "note": c.get("note", ""),
-        "dimension": c.get("dimension", dimension),
+        "note": labels.localize_note(str(c.get("note", "")), lang),
+        "note_key": str(c.get("note", "")),
+        "dimension": labels.label("dimension", str(c.get("dimension", dimension)), lang),
+        "dimension_key": str(c.get("dimension", dimension)),
+        "dimension_slug": labels.slug("dimension", str(c.get("dimension", dimension))),
     } for c in raw]
+    dims = ind.available_dimensions()
+    cats = ind.all_categories()
     return {
         "year": year,
-        "dimension": dimension,
+        "lang": lang,
+        "dimension": labels.label("dimension", dimension, lang),
+        "dimension_key": dimension,
+        "dimension_slug": labels.slug("dimension", dimension),
         "cards": cards,
-        "dimensions": ind.available_dimensions(),
+        "dimensions": dims,
         "years": ind.available_years(),
-        "categories": ind.all_categories(),
+        "categories": cats,
+        "dimension_options": labels.localize_terms("dimension", dims, lang),
+        "category_options": labels.localize_terms("category", cats, lang),
     }
 
 
@@ -120,8 +159,7 @@ def serve_favicon():
 @app.route("/api/overview")
 def api_overview():
     year = request.args.get("year", type=int) or DEFAULT_YEAR
-    dimension = (request.args.get("dimension") or DEFAULT_DIMENSION).strip()
-    return jsonify(_overview(year, dimension))
+    return jsonify(_overview(year, _dimension_arg(), _lang()))
 
 
 @app.route("/api/db")
@@ -236,19 +274,30 @@ def api_collect():
 
 @app.route("/api/indicators")
 def api_indicators():
+    """指标宽表查询。
+
+    这是给程序消费的主要数据接口：每行的 ``category`` / ``indicator`` /
+    ``dimension`` / ``unit`` 按 ``lang`` 本地化，并并列给出 ``*_key``（中文规范键）
+    与 ``*_slug``（ASCII 稳定键），英文消费方无需任何中文词表即可使用。
+    """
+    lang = _lang()
     year = request.args.get("year", type=int)
-    category = request.args.get("category")
-    dimension = (request.args.get("dimension") or "").strip() or None
+    dimension_raw = (request.args.get("dimension") or "").strip()
+    dimension = labels.key_of("dimension", dimension_raw) if dimension_raw else None
     q = (request.args.get("q") or "").strip().lower()
-    rows = query_indicators(year=year, category=category or None,
+    rows = query_indicators(year=year, category=_category_arg(),
                             dimension=dimension)
+    localized = labels.localize_indicators(rows, lang)
     if q:
-        rows = [
-            r for r in rows
-            if q in r["indicator"].lower() or q in (r["note"] or "").lower()
-            or q in r["dimension"].lower() or q in r["category"].lower()
+        # 同时匹配「原始行 + 本地化行」的全部字段：中文词、英文词、
+        # 规范键与 slug 都能命中（例如 q=retail 命中 Retail Sales of Consumer Goods）
+        localized = [
+            loc for raw, loc in zip(rows, localized)
+            if q in " ".join(
+                str(v) for v in list(raw.values()) + list(loc.values())
+            ).lower()
         ]
-    return jsonify(rows)
+    return jsonify(localized)
 
 
 def _cloud_prompt(text: str, local: dict[str, object], lang: str) -> str:
@@ -278,12 +327,13 @@ def _cloud_prompt(text: str, local: dict[str, object], lang: str) -> str:
 def api_ask():
     text = request.args.get("text", "")
     use_cloud = request.args.get("cloud", "0") == "1"
-    dimension = (request.args.get("dimension") or "").strip() or None
+    dimension_raw = (request.args.get("dimension") or "").strip()
+    dimension = labels.key_of("dimension", dimension_raw) if dimension_raw else None
     lang = _lang()
-    local = nlq.ask(text, dimension=dimension)
+    local = nlq.ask(text, dimension=dimension, lang=lang)
 
     if not use_cloud:
-        return jsonify(local)
+        return jsonify(labels.localize_payload(local, lang))
 
     from src.analyzer import get_analyzer, AgentInfiniError
     try:
@@ -291,37 +341,45 @@ def api_ask():
         if az is None:
             local["注"] = ("Cloud AI is not enabled — showing local statistics only."
                            if lang == "en" else "云端未启用，仅本地统计")
-            return jsonify(local)
+            return jsonify(labels.localize_payload(local, lang))
+        # 云端提示词喂原始（中文规范键）事实，避免本地化后再回溯口径
         out = az.analyze(_cloud_prompt(text, local, lang))
         answer = str(out.get("result") or "").strip()
         if answer:
             local["AI 解读"] = answer
         if out.get("task_id"):
             local["task_id"] = out["task_id"]
-        return jsonify(local)
+        return jsonify(labels.localize_payload(local, lang))
     except AgentInfiniError as e:
         local["注"] = (f"Cloud analysis failed: {e}" if lang == "en"
                        else f"云端分析失败：{e}")
-        return jsonify(local)
+        return jsonify(labels.localize_payload(local, lang))
 
 
 @app.route("/api/report")
 def api_report():
     year = request.args.get("year", type=int) or DEFAULT_YEAR
-    dimension = (request.args.get("dimension") or DEFAULT_DIMENSION).strip()
     use_cloud = request.args.get("cloud", "0") == "1"
-    # format=json：返回结构化公报，由前端按界面语言渲染（避免服务端硬编码文案漏译）
+    lang = _lang()
+    dimension = _dimension_arg()
+    # format=json：返回结构化公报，标识符由服务端按 lang 本地化后交给前端渲染
     if request.args.get("format") == "json":
-        return jsonify(report.build_report(
-            year, use_cloud=use_cloud, dimension=dimension, lang=_lang()))
+        built = report.build_report(year, use_cloud=use_cloud,
+                                    dimension=dimension, lang=lang)
+        return jsonify(labels.localize_payload(built, lang))
     return report.generate_report(year, use_cloud=use_cloud,
-                                  dimension=dimension, lang=_lang())
+                                  dimension=dimension, lang=lang)
 
 
 @app.route("/api/indicator_keys")
 def api_indicator_keys():
-    """返回全部可绑定指标键 (category, indicator, dimension)，供新增分析时下拉选择。"""
+    """返回全部可绑定指标键，供「新增自定义分析」下拉选择。
+
+    每项给本地化的 ``category`` / ``indicator`` / ``dimension`` 用于展示，
+    同时给 ``*_key``（写回 YAML 用的规范键）与 ``*_slug``（ASCII 稳定键）。
+    """
     init_db()
+    lang = _lang()
     rows = query_indicators()
     keys: list[dict[str, str]] = []
     seen: set[tuple[str, str, str]] = set()
@@ -330,30 +388,36 @@ def api_indicator_keys():
         if k in seen:
             continue
         seen.add(k)
-        keys.append({"category": k[0], "indicator": k[1], "dimension": k[2]})
+        entry: dict[str, str] = {}
+        for field, value in zip(("category", "indicator", "dimension"), k):
+            entry[field] = labels.label(field, value, lang)
+            entry[f"{field}_key"] = value
+            entry[f"{field}_slug"] = labels.slug(field, value)
+        keys.append(entry)
     return jsonify(keys)
 
 
 @app.route("/api/custom", methods=["GET", "POST"])
 def api_custom():
+    lang = _lang()
     if request.method == "POST":
         data = request.get_json(force=True) or {}
-        ok, err = cust.add_custom(data)
+        ok, err = cust.add_custom(data, lang=lang)
         if not ok:
             return jsonify({"ok": False, "error": err}), 400
         return jsonify({"ok": True})
     name = request.args.get("name")
     year = request.args.get("year", type=int) or DEFAULT_YEAR
     if not name:
-        return jsonify([
-            {"name": a.get("name", ""), "description": a.get("description", ""),
-             "unit": a.get("unit", "")}
-            for a in cust.load_custom()
-        ])
-    a = next((x for x in cust.load_custom() if x.get("name") == name), None)
+        return jsonify(cust.list_custom(lang))
+    a = cust.find_custom(name)
     if a is None:
-        return jsonify({"error": f"未找到自定义分析：{name}"}), 404
-    return jsonify(cust.run_custom(a, year))
+        msg = (f"Custom analysis not found: {name}" if lang == "en"
+               else f"未找到自定义分析：{name}")
+        return jsonify({"error": msg}), 404
+    # 自定义分析的「名称」是用户自己写的配置（name / name_en），已由 run_custom 按语言取用；
+    # 这里只把结构键与单位等数据词条本地化。
+    return jsonify(labels.localize_payload(cust.run_custom(a, year, lang), lang))
 
 
 def _ensure_data() -> None:
