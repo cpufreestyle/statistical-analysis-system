@@ -35,6 +35,7 @@ generated-images/
 
 # ---- IDE / AI 助手工作目录（非源码，勿提交）----
 _app_data/
+.workbuddy/
 .codebuddy/memory/
 .codebuddy/sandbox/history.json
 .qoder/
