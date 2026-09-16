@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://qu-stat-system.vercel.app/sitemap.xml

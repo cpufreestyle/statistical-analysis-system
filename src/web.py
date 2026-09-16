@@ -60,6 +60,16 @@ def _lang() -> str:
             or labels.DEFAULT_LANG)
 
 
+def _html_lang() -> str:
+    """页面 ``<html lang>``：按请求语言输出，供爬虫与分享链接使用。
+
+    页面模板里写的是占位符 ``__HTML_LANG__``（见 ``public/index.html`` / ``app.html``），
+    这里按 ``?lang=`` / ``Accept-Language`` 替换。原先两页都写死 ``zh-CN``，
+    与「产品默认英文」矛盾——爬虫与分享卡片会误判语言。
+    """
+    return "zh-CN" if labels.normalize_lang(_lang()) == "zh" else "en"
+
+
 def _dimension_arg() -> str:
     """维度入参：规范键（``中国``）与英文标签 / slug（``China`` / ``china``）等价。"""
     raw = (request.args.get("dimension") or "").strip()
@@ -122,12 +132,32 @@ def _overview(year: int, dimension: str, lang: str) -> dict[str, object]:
 
 @app.route("/")
 def index():
-    return pages.PAGE_INDEX
+    return pages.PAGE_INDEX.replace("__HTML_LANG__", _html_lang())
 
 
 @app.route("/app")
 def app_page():
-    return pages.PAGE_APP
+    return pages.PAGE_APP.replace("__HTML_LANG__", _html_lang())
+
+
+@app.route("/robots.txt")
+def serve_robots():
+    return pages.ROBOTS_TXT, 200, {"Content-Type": "text/plain; charset=utf-8"}
+
+
+@app.route("/sitemap.xml")
+def serve_sitemap():
+    return pages.SITEMAP_XML, 200, {"Content-Type": "application/xml; charset=utf-8"}
+
+
+@app.route("/og-image.svg")
+def serve_og_image():
+    """社交分享卡片（og:image）。
+
+    SVG 体积最小、零依赖；但 Facebook / X / LinkedIn 对 SVG 的 og:image 支持不稳，
+    正式投放前建议换成 1200×630 的 PNG/JPG（改本路由与 og:image 的 URL 即可）。
+    """
+    return pages.OG_IMAGE_SVG, 200, {"Content-Type": "image/svg+xml; charset=utf-8"}
 
 
 @app.route("/style.css")

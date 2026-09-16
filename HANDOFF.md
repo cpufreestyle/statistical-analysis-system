@@ -176,7 +176,7 @@ python -m src.cli db info
    | ✅ P0 | **导出 + 分享链接（已实现）** | 后端 `GET /api/export.csv`（复用 `query_indicators` + `labels.localize_indicators`，utf-8-sig + `attachment` 下载头；`year`/`dimension` 缺省 = 全部，`indicator` 导出单指标跨年全序列）；前端指标面板「⬇ 导出 CSV」+ 图表面板「⬇ 导出当前指标」+ 顶栏「🔗 分享」；筛选状态经 `history.replaceState` 同步进地址栏，分享链接打开即还原同一视图（含图表指标） |
    | P1 | **时序只有 6 年** | 2019–2024，做不了趋势与周期分析。世界银行免费可取 1960 起 |
    | P1 | **单一 LLM provider** | 只接 InfiniSynapse 一家国内服务，海外用户拿不到 key |
-   | P1 | **SEO 不全** | 缺 `og:image` / `robots.txt` / `sitemap.xml`；`index.html` 写死 `<html lang="zh-CN">` 与英文默认矛盾 |
+   | ✅ P1 | **SEO（已实现）** | 新增 `public/robots.txt` / `sitemap.xml` / `og-image.svg`，并内嵌进 `src/pages.py` 由 `/robots.txt` `/sitemap.xml` `/og-image.svg` 提供（`scripts/embed_pages.py` 的 `SEO_FILES`）；`index.html` 与 `app.html` 补 `og:image`，`<html lang>` 改为占位符 `__HTML_LANG__`，由 `_html_lang()` 按 `?lang=` / `Accept-Language` 输出——原先写死 `zh-CN` 与英文默认矛盾 |
    | P2 | 表格无分页；移动端仅 3 个断点 | 另缺 API 文档页、隐私政策 / 条款 |
 
    （数据层 i18n 这条 P0 已于 `f0d63b1` 完成，不再是缺口。）
@@ -243,8 +243,10 @@ python -m src.cli db info
 3. **导出 + 分享链接**（P0）。`/api/export.csv` 复用 CLI 的 `export` 逻辑 +
    前端下载按钮 + `history.replaceState` 同步筛选状态。
 4. **探活线上并核对 Vercel 项目设置**（见 §5、§6.3），清理 `builds` 残留警告。
-5. **补 SEO 与分享卡片**（P1，成本极低）：`og:image` / `robots.txt` / `sitemap.xml`，
-   并让 `<html lang>` 随语言开关走。
+5. ~~**补 SEO 与分享卡片**（P1）~~ ✅ 已完成：`og:image` / `robots.txt` / `sitemap.xml`
+   均已落地，`<html lang>` 随 `?lang=` / `Accept-Language` 走。
+   遗留优化：`og-image.svg` 是 SVG，Facebook / X / LinkedIn 对 SVG 的 og:image 支持不稳，
+   正式投放前换成 **1200×630 PNG/JPG**（改 `/og-image.svg` 路由与 og 标签 URL 即可）。
 6. **时序扩到 1960+**（P1）。改 `fetch_wb_data.py` 的参数范围即可，世界银行免费无鉴权。
 7. **发布一次正式 release**，对齐 tag 与 `pyproject.toml` 版本号（见 §6.2）。
 

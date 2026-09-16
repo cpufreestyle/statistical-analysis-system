@@ -27,6 +27,14 @@ FILES = {
     "I18N_JS": "i18n.js",
 }
 
+# SEO 静态资源（robots / sitemap / 分享卡片），同样内嵌进 pages.py 以保证
+# Vercel serverless 环境也能直接以 /robots.txt /sitemap.xml /og-image.svg 提供。
+SEO_FILES = {
+    "ROBOTS_TXT": "robots.txt",
+    "SITEMAP_XML": "sitemap.xml",
+    "OG_IMAGE_SVG": "og-image.svg",
+}
+
 # 真实公开数据种子集（由 scripts/fetch_wb_data.py / 官方公报整理而来）
 DATA_FILES = {
     "AP_MACRO_CSV": "ap_macro.csv",
@@ -56,8 +64,10 @@ def _write_assets(out: Path, base: Path, mapping: dict[str, str], doc: str) -> N
 
 
 def main() -> None:
-    _write_assets(OUT, PUBLIC, FILES,
-                  "由 scripts/embed_pages.py 自动生成 —— 前端页面资源内嵌（Vercel 兼容）。")
+    # 页面资源与 SEO 资源合并写入同一个 pages.py —— _write_assets 是整文件覆写，
+    # 分两次调用会让后一次冲掉前一次。
+    _write_assets(OUT, PUBLIC, {**FILES, **SEO_FILES},
+                  "由 scripts/embed_pages.py 自动生成 —— 前端页面与 SEO 资源内嵌（Vercel 兼容）。")
     _write_assets(OUT_DATA, DATA, DATA_FILES,
                   "由 scripts/embed_pages.py 自动生成 —— 真实公开数据种子集（Vercel 兼容）。")
 
