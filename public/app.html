@@ -51,6 +51,7 @@
         <button class="wb-tab" data-tab="indicators" data-i18n="📊 指标总表">📊 指标总表</button>
         <button class="wb-tab" data-tab="custom" data-i18n="📋 自定义分析">📋 自定义分析</button>
         <button class="wb-tab" data-tab="bulletin" data-i18n="📄 统计公报">📄 统计公报</button>
+        <button class="wb-tab" data-tab="charts" data-i18n="📈 图表">📈 图表</button>
       </div>
       <div class="wb-body">
         <!-- 智能查询 -->
@@ -187,6 +188,32 @@
             </label>
           </div>
           <div id="bulletinOut" class="bulletin-out"></div>
+        </div>
+
+        <!-- 图表 -->
+        <div class="wb-panel" id="panel-charts">
+          <p style="font-size:.8rem;color:var(--gray-400);margin:0 0 .6rem" data-i18n="选择指标后可查看跨年趋势与分经济体排名（自绘 SVG，无图表库依赖）">选择指标后可查看跨年趋势与分经济体排名（自绘 SVG，无图表库依赖）</p>
+          <div class="query-row" style="margin-bottom:10px">
+            <select class="query-input" style="flex:none;max-width:260px" id="chartIndicator" onchange="loadChartSeries()">
+              <option value="" data-i18n="选择指标…">选择指标…</option>
+            </select>
+            <span id="chartUnit" style="color:var(--gray-500);font-size:.8rem;align-self:center"></span>
+          </div>
+          <div class="chart-block">
+            <div class="chart-head">
+              <span data-i18n="跨年趋势">跨年趋势</span>
+              <span class="chart-hint" data-i18n="勾选经济体叠加对比">勾选经济体叠加对比</span>
+            </div>
+            <div class="chart-dim-pick" id="chartDimPick"></div>
+            <div id="lineChart" class="chart-svg"></div>
+          </div>
+          <div class="chart-block">
+            <div class="chart-head">
+              <span data-i18n="分经济体排名">分经济体排名</span>
+              <select id="chartYear" class="query-input chart-year" onchange="renderCharts()"></select>
+            </div>
+            <div id="rankChart" class="chart-svg"></div>
+          </div>
         </div>
       </div>
     </div>

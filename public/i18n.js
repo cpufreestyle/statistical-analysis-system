@@ -276,6 +276,19 @@
     "全国": "National",
     "地区": "Region",
 
+    /* ── 图表（自绘 SVG） ── */
+    "📈 图表": "📈 Charts",
+    "选择指标…": "Select indicator…",
+    "跨年趋势": "Trend over Years",
+    "分经济体排名": "Ranking by Economy",
+    "勾选经济体叠加对比": "Tick economies to overlay",
+    "选择指标后可查看跨年趋势与分经济体排名（自绘 SVG，无图表库依赖）":
+      "Pick an indicator to see its trend over years and ranking across economies (hand-drawn SVG, no chart library).",
+    "请先选择指标": "Select an indicator first",
+    "需至少两个年份才能绘制趋势线": "At least two years are needed for a trend line",
+    "该指标在所选经济体无数据": "No data for this indicator in the selected economies",
+    "该指标在所选年份无数据": "No data for the selected year",
+
     /* ── 单位（对外统一用国际写法）── */
     "亿美元": "USD 100M",
     "美元": "USD",

@@ -284,9 +284,11 @@ def api_indicators():
     year = request.args.get("year", type=int)
     dimension_raw = (request.args.get("dimension") or "").strip()
     dimension = labels.key_of("dimension", dimension_raw) if dimension_raw else None
+    indicator_raw = (request.args.get("indicator") or "").strip()
+    indicator = labels.key_of("indicator", indicator_raw) if indicator_raw else None
     q = (request.args.get("q") or "").strip().lower()
     rows = query_indicators(year=year, category=_category_arg(),
-                            dimension=dimension)
+                            dimension=dimension, indicator=indicator)
     localized = labels.localize_indicators(rows, lang)
     if q:
         # 同时匹配「原始行 + 本地化行」的全部字段：中文词、英文词、

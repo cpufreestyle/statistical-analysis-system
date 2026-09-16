@@ -39,6 +39,7 @@ function langQ() { return 'lang=' + (isZh() ? 'zh' : 'en'); }
       if (!panel) return;
       panel.classList.add('active');
       if (btn.dataset.tab === 'indicators') loadIndicators();
+      if (btn.dataset.tab === 'charts') initCharts();
     });
   });
   loadOverview();
@@ -100,6 +101,7 @@ function switchTab(tabId) {
   document.querySelectorAll('.wb-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tabId));
   document.querySelectorAll('.wb-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tabId));
   if (tabId === 'indicators') loadIndicators();
+  if (tabId === 'charts') initCharts();
 }
 
 /* ───── 快捷查询（中英文按当前语言取词） ───── */
@@ -569,10 +571,219 @@ function refreshLang() {
     var cs = document.getElementById('customSelect');
     if (cs) { cs.value = window._lastCustom; runCustom(); }
   });
+  var pc = document.getElementById('panel-charts');
+  if (pc && pc.classList.contains('active')) initCharts();
 }
 
 /* ═══════ 侧边栏卡片折叠 ═══════ */
 function toggleSidebarCard(headerEl) {
   var card = headerEl.closest('.side-card');
   card.classList.toggle('collapsed');
+}
+
+/* ═══════ 图表（自绘 SVG，无图表库依赖） ═══════ */
+var CHART = { indicators: [], dimOptions: [], years: [], rows: [], currentKey: null, unit: '', selDims: [] };
+var CHART_COLORS = ['#2B6BDB','#14B8A6','#F59E0B','#EF4444','#8B5CF6','#0EA5E9','#22C55E','#EC4899','#A855F7','#F97316','#10B981','#6366F1','#84CC16','#E11D48'];
+
+/* 拉取指标列表 + 维度选项 + 年份；构建下拉与维度多选；已选指标则重新取数 */
+async function initCharts() {
+  try {
+    var rk = await fetch(API + '/api/indicator_keys?' + langQ());
+    var keys = await rk.json();
+    var seen = {};
+    CHART.indicators = [];
+    (keys || []).forEach(function (k) {
+      var ik = k.indicator_key || k.indicator;
+      if (ik && !seen[ik]) { seen[ik] = true; CHART.indicators.push({ key: ik, label: k.indicator }); }
+    });
+    var ro = await fetch(API + '/api/overview?year=' + enc(STATE.year) + '&dimension=' + enc(STATE.dimension) + '&' + langQ());
+    var ov = await ro.json();
+    CHART.dimOptions = (ov.dimension_options || []).map(function (o) { return { key: o.key, label: o.label }; });
+    CHART.years = (ov.years || []).slice().sort(function (a, b) { return a - b; });
+    if (!CHART.selDims.length) {
+      var def = ['中国','日本','韩国','印度','亚太'];
+      CHART.selDims = CHART.dimOptions.filter(function (d) { return def.indexOf(d.key) >= 0; }).map(function (d) { return d.key; });
+      if (!CHART.selDims.length && CHART.dimOptions.length) CHART.selDims = [CHART.dimOptions[0].key];
+    }
+  } catch (e) { /* 忽略 */ }
+  fillChartIndicator();
+  renderDimChips();
+  fillChartYear();
+  if (CHART.currentKey) loadChartSeries();
+  else renderCharts();
+}
+
+function fillChartIndicator() {
+  var sel = document.getElementById('chartIndicator');
+  if (!sel) return;
+  var prev = sel.value;
+  sel.innerHTML = '<option value="">' + h(tr('选择指标…')) + '</option>'
+    + CHART.indicators.map(function (it) { return '<option value="' + a(it.key) + '">' + h(it.label) + '</option>'; }).join('');
+  if (CHART.indicators.some(function (it) { return it.key === prev; })) sel.value = prev;
+}
+
+function renderDimChips() {
+  var box = document.getElementById('chartDimPick');
+  if (!box) return;
+  box.innerHTML = CHART.dimOptions.map(function (d) {
+    var on = CHART.selDims.indexOf(d.key) >= 0;
+    return '<label class="dim-chip' + (on ? ' on' : '') + '">'
+      + '<input type="checkbox" ' + (on ? 'checked' : '') + ' data-dim="' + a(d.key) + '" onchange="toggleDim(this)">'
+      + '<span>' + h(d.label) + '</span></label>';
+  }).join('');
+}
+
+function toggleDim(cb) {
+  var k = cb.dataset.dim;
+  var i = CHART.selDims.indexOf(k);
+  if (cb.checked) { if (i < 0) CHART.selDims.push(k); }
+  else { if (i >= 0) CHART.selDims.splice(i, 1); }
+  var chip = cb.closest('.dim-chip');
+  if (chip) chip.classList.toggle('on', cb.checked);
+  renderLine();
+}
+
+function fillChartYear() {
+  var sel = document.getElementById('chartYear');
+  if (!sel) return;
+  var prev = sel.value || (CHART.years.length ? String(CHART.years[CHART.years.length - 1]) : '');
+  sel.innerHTML = CHART.years.map(function (y) { return '<option value="' + a(y) + '">' + h(y + (isZh() ? '年' : '')) + '</option>'; }).join('');
+  if (CHART.years.some(function (y) { return String(y) === prev; })) sel.value = prev;
+}
+
+async function loadChartSeries() {
+  var sel = document.getElementById('chartIndicator');
+  if (!sel || !sel.value) {
+    CHART.currentKey = null; CHART.rows = []; CHART.unit = '';
+    var cu0 = document.getElementById('chartUnit'); if (cu0) cu0.textContent = '';
+    renderCharts(); return;
+  }
+  CHART.currentKey = sel.value;
+  try {
+    var r = await fetch(API + '/api/indicators?indicator=' + enc(sel.value) + '&' + langQ());
+    var rows = await r.json();
+    CHART.rows = rows || [];
+    var u = '';
+    for (var i = 0; i < CHART.rows.length; i++) { if (CHART.rows[i].unit) { u = CHART.rows[i].unit; break; } }
+    CHART.unit = u;
+    var cu = document.getElementById('chartUnit');
+    if (cu) cu.textContent = u ? (isZh() ? '单位：' : 'Unit: ') + u : '';
+  } catch (e) { CHART.rows = []; }
+  renderCharts();
+}
+
+function renderCharts() { renderLine(); renderRank(); }
+
+function dimLabel(key) {
+  for (var i = 0; i < CHART.dimOptions.length; i++) if (CHART.dimOptions[i].key === key) return CHART.dimOptions[i].label;
+  return key;
+}
+function dimColor(key) {
+  var idx = 0;
+  for (var i = 0; i < CHART.dimOptions.length; i++) { if (CHART.dimOptions[i].key === key) { idx = i; break; } }
+  return CHART_COLORS[idx % CHART_COLORS.length];
+}
+function fmtNum(v) {
+  if (v == null || v === '') return '—';
+  var n = Number(v);
+  if (!isFinite(n)) return '—';
+  return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+function chartEmpty(msg) { return '<div class="chart-empty">' + h(msg) + '</div>'; }
+function fontFamily() { return "'Roboto','Noto Sans SC',sans-serif"; }
+
+/* 折线图：所选经济体跨年趋势 */
+function renderLine() {
+  var box = document.getElementById('lineChart');
+  if (!box) return;
+  if (!CHART.currentKey) { box.innerHTML = chartEmpty(tr('请先选择指标')); return; }
+  var dims = CHART.selDims.slice();
+  var byDim = {};
+  CHART.rows.forEach(function (r) {
+    var dk = r.dimension_key || r.dimension;
+    if (dims.indexOf(dk) < 0) return;
+    if (r.value == null || r.value === '') return;
+    byDim[dk] = byDim[dk] || {};
+    byDim[dk][r.year] = Number(r.value);
+  });
+  var years = CHART.years.slice().sort(function (a, b) { return a - b; });
+  var active = dims.filter(function (d) { return byDim[d] && Object.keys(byDim[d]).length >= 1; });
+  if (years.length < 2) { box.innerHTML = chartEmpty(tr('需至少两个年份才能绘制趋势线')); return; }
+  if (!active.length) { box.innerHTML = chartEmpty(tr('该指标在所选经济体无数据')); return; }
+
+  var allV = [];
+  active.forEach(function (d) { for (var y in byDim[d]) allV.push(byDim[d][y]); });
+  var yMin = Math.min.apply(null, allV), yMax = Math.max.apply(null, allV);
+  if (yMin === yMax) { var pad = (Math.abs(yMin) * 0.1) || 1; yMin -= pad; yMax += pad; }
+
+  var W = 720, H = 340, mL = 60, mR = 16, mT = 16, mB = 34;
+  var pW = W - mL - mR, pH = H - mT - mB;
+  function xFor(i) { return mL + (years.length === 1 ? pW / 2 : (i / (years.length - 1)) * pW); }
+  function yFor(v) { return mT + pH - ((v - yMin) / (yMax - yMin)) * pH; }
+
+  var ff = fontFamily();
+  var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto">';
+  var ticks = 4;
+  for (var t = 0; t <= ticks; t++) {
+    var tv = yMin + (yMax - yMin) * t / ticks;
+    var ty = yFor(tv);
+    svg += '<line x1="' + mL + '" y1="' + ty + '" x2="' + (W - mR) + '" y2="' + ty + '" stroke="#EEF0F2" stroke-width="1"/>';
+    svg += '<text x="' + (mL - 8) + '" y="' + (ty + 4) + '" text-anchor="end" font-size="11" fill="#9CA3AF" font-family="' + ff + '">' + h(fmtNum(Math.round(tv * 100) / 100)) + '</text>';
+  }
+  years.forEach(function (y, i) {
+    svg += '<text x="' + xFor(i) + '" y="' + (H - 12) + '" text-anchor="middle" font-size="11" fill="#9CA3AF" font-family="' + ff + '">' + h(y) + '</text>';
+  });
+  active.forEach(function (d) {
+    var color = dimColor(d);
+    var pts = [];
+    years.forEach(function (y, i) { if (byDim[d][y] != null) pts.push(xFor(i) + ',' + yFor(byDim[d][y])); });
+    if (pts.length > 1) {
+      svg += '<polyline points="' + pts.join(' ') + '" fill="none" stroke="' + color + '" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>';
+    }
+    years.forEach(function (y, i) {
+      if (byDim[d][y] != null) {
+        svg += '<circle cx="' + xFor(i) + '" cy="' + yFor(byDim[d][y]) + '" r="3.2" fill="#fff" stroke="' + color + '" stroke-width="2"/>';
+      }
+    });
+  });
+  svg += '</svg>';
+  var legend = '<div class="chart-legend">' + active.map(function (d) {
+    return '<span class="lg-item"><i style="background:' + dimColor(d) + '"></i>' + h(dimLabel(d)) + '</span>';
+  }).join('') + '</div>';
+  box.innerHTML = svg + legend;
+}
+
+/* 排名条形图：所选年份分经济体排名 */
+function renderRank() {
+  var box = document.getElementById('rankChart');
+  if (!box) return;
+  if (!CHART.currentKey) { box.innerHTML = chartEmpty(tr('请先选择指标')); return; }
+  var yr = (document.getElementById('chartYear') || {}).value;
+  var rows = CHART.rows.filter(function (r) {
+    return String(r.year) === String(yr) && r.value != null && r.value !== '';
+  });
+  if (!rows.length) { box.innerHTML = chartEmpty(tr('该指标在所选年份无数据')); return; }
+  rows.sort(function (a, b) { return Number(b.value) - Number(a.value); });
+
+  var labelW = 96, barX = labelW + 10, valW = 74;
+  var rowH = 26, padT = 6;
+  var W = 720, H = padT * 2 + rows.length * rowH;
+  var max = Number(rows[0].value) || 1;
+  var chartW = W - barX - valW;
+  var ff = fontFamily();
+
+  var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto">';
+  rows.forEach(function (r, i) {
+    var dk = r.dimension_key || r.dimension;
+    var color = CHART_COLORS[i % CHART_COLORS.length];
+    var y = padT + i * rowH;
+    var bw = Math.max(2, (Number(r.value) / max) * chartW);
+    var label = dimLabel(dk);
+    if (label.length > 7) label = label.slice(0, 6) + '…';
+    svg += '<text x="' + (labelW - 8) + '" y="' + (y + 16) + '" text-anchor="end" font-size="12" fill="#4B5563" font-family="' + ff + '">' + h(label) + '</text>';
+    svg += '<rect x="' + barX + '" y="' + (y + 4) + '" width="' + bw + '" height="16" rx="3" fill="' + color + '"/>';
+    svg += '<text x="' + (barX + bw + 8) + '" y="' + (y + 16) + '" font-size="12" fill="#374151" font-family="' + ff + '" font-weight="600">' + h(fmtNum(r.value)) + '</text>';
+  });
+  svg += '</svg>';
+  box.innerHTML = svg;
 }
