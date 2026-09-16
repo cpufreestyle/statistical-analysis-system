@@ -6,7 +6,7 @@ invent them.
 
 - **Dashboard**: <https://qu-stat-system.vercel.app/app>
 - **Data**: World Bank Open Data · China National Bureau of Statistics (NBS) · China Customs
-- **AI**: InfiniSynapse Server API (`/api/ai/message` + `/api/ai/events` SSE), Bearer-token auth
+- **AI**: pluggable providers — InfiniSynapse Server API (`/api/ai/message` + `/api/ai/events` SSE, default) **or** any OpenAI-compatible `/chat/completions` endpoint (OpenAI / OpenRouter / Groq / DeepSeek / local Ollama · vLLM), Bearer-token auth
 - **中文文档**: [README.zh-CN.md](README.zh-CN.md)
 
 ---
@@ -117,6 +117,22 @@ export INFINISYNAPSE_SERVER="https://app.infinisynapse.cn"   # optional override
 `config.yaml` is tracked by git, so **never commit a real key into it** — put the secret in the
 environment and leave `infinisynapse.api_key` commented out.
 
+### Switching the AI provider
+
+Set `AI_PROVIDER` to choose a backend — `infinisynapse` (default) or `openai_compat`:
+
+```bash
+# Any OpenAI-compatible endpoint: OpenAI / OpenRouter / Groq / DeepSeek / local Ollama · vLLM
+export AI_PROVIDER="openai_compat"
+export OPENAI_API_KEY="sk-..."
+export OPENAI_BASE_URL="https://api.openai.com/v1"   # e.g. http://127.0.0.1:11434/v1 for Ollama
+export OPENAI_MODEL="gpt-4o-mini"
+```
+
+Both providers return the same `{task_id, done, result}` shape, so `/api/ask?cloud=1` and the
+statistical bulletin keep working unchanged. With no key configured the dashboard simply falls
+back to local statistics and shows a note — it never errors out.
+
 The frontend sends its current language as `lang`, which becomes the API `x-lang` header
 (`en_US` / `zh_CN`), so the AI answers in the language the user is reading.
 
@@ -177,7 +193,7 @@ src/stats/query.py        bilingual natural-language query engine (local rules)
 src/stats/custom.py       custom-analysis engine over custom_analysis.yaml
 src/knowledge.py          bilingual knowledge base + keyword retrieval (lightweight RAG)
 src/report.py             bulletin builder (structured data + text renderer)
-src/analyzer.py           InfiniSynapse Server API client (SSE streaming)
+src/analyzer.py           pluggable AI providers: InfiniSynapse (SSE) + OpenAI-compatible
 src/kv_store.py           optional Redis-compatible KV client (Upstash / Vercel KV)
 src/kv_sync.py            persist and restore the SQLite snapshot through that KV store
 src/pages.py              generated: frontend files inlined for serverless

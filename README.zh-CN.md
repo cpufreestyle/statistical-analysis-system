@@ -4,7 +4,7 @@
 
 - **在线看板**：<https://qu-stat-system.vercel.app/app>
 - **数据来源**：世界银行 Open Data · 国家统计局（NBS）· 海关总署
-- **AI 能力**：InfiniSynapse Server API（`/api/ai/message` + `/api/ai/events` SSE），Bearer Token 鉴权
+- **AI 能力**：可插拔 provider —— InfiniSynapse Server API（`/api/ai/message` + `/api/ai/events` SSE，默认）**或**任意 OpenAI 兼容 `/chat/completions` 端点（OpenAI / OpenRouter / Groq / DeepSeek / 本地 Ollama · vLLM），Bearer Token 鉴权
 - **English docs**: [README.md](README.md)
 
 ---
@@ -110,6 +110,21 @@ export INFINISYNAPSE_SERVER="https://app.infinisynapse.cn"   # 可选覆盖
 `config.yaml` 已被 git 跟踪，**切勿把真实 key 提交进去**——密钥放进环境变量，
 让 `infinisynapse.api_key` 保持注释状态。
 
+### 切换 AI provider
+
+用 `AI_PROVIDER` 选择后端：`infinisynapse`（默认）或 `openai_compat`：
+
+```bash
+# 任意 OpenAI 兼容端点：OpenAI / OpenRouter / Groq / DeepSeek / 本地 Ollama · vLLM
+export AI_PROVIDER="openai_compat"
+export OPENAI_API_KEY="sk-..."
+export OPENAI_BASE_URL="https://api.openai.com/v1"   # 接本地 Ollama 则填 http://127.0.0.1:11434/v1
+export OPENAI_MODEL="gpt-4o-mini"
+```
+
+两个 provider 返回相同的 `{task_id, done, result}` 结构，因此 `/api/ask?cloud=1` 与统计公报
+无需改动即可继续工作。未配置密钥时看板自动回退本地统计并给出说明，**不会报错**。
+
 前端会把当前语言作为 `lang` 参数发出，后端转成 API 的 `x-lang` 头
 （`en_US` / `zh_CN`），因此 AI 会以用户正在阅读的语言作答。
 
@@ -168,7 +183,7 @@ src/stats/query.py        双语自然语言查询引擎（本地规则）
 src/stats/custom.py       基于 custom_analysis.yaml 的自定义分析引擎
 src/knowledge.py          双语知识库 + 关键词召回（轻量 RAG）
 src/report.py             公报构建器（结构化数据 + 文本渲染）
-src/analyzer.py           InfiniSynapse Server API 客户端（SSE 流式）
+src/analyzer.py           可插拔 AI provider：InfiniSynapse（SSE）+ OpenAI 兼容端点
 src/kv_store.py           可选的 Redis 兼容 KV 客户端（Upstash / Vercel KV）
 src/kv_sync.py            通过该 KV 存储持久化与恢复 SQLite 快照
 src/pages.py              生成物：为 Serverless 内嵌的前端文件

@@ -175,7 +175,7 @@ python -m src.cli db info
    | ✅ P0 | **图表（已实现）** | 自绘 SVG 折线图（跨年趋势，多经济体叠加）+ 分经济体排名条形图，零图表库依赖；新增「📈 图表」Tab（`public/app.js` 的 `renderLine` / `renderRank`） |
    | ✅ P0 | **导出 + 分享链接（已实现）** | 后端 `GET /api/export.csv`（复用 `query_indicators` + `labels.localize_indicators`，utf-8-sig + `attachment` 下载头；`year`/`dimension` 缺省 = 全部，`indicator` 导出单指标跨年全序列）；前端指标面板「⬇ 导出 CSV」+ 图表面板「⬇ 导出当前指标」+ 顶栏「🔗 分享」；筛选状态经 `history.replaceState` 同步进地址栏，分享链接打开即还原同一视图（含图表指标） |
    | P1 | **时序只有 6 年** | 2019–2024，做不了趋势与周期分析。世界银行免费可取 1960 起 |
-   | P1 | **单一 LLM provider** | 只接 InfiniSynapse 一家国内服务，海外用户拿不到 key |
+   | ✅ P1 | **单一 LLM provider（已改为可插拔）** | `src/analyzer.py` 现支持两个 provider：`infinisynapse`（默认，比赛要求的 SSE 可审计链路）+ `openai_compat`（任意 OpenAI 兼容 `/chat/completions`：OpenAI / OpenRouter / Groq / DeepSeek / 本地 Ollama·vLLM）。用 `AI_PROVIDER` 选择，密钥走 `OPENAI_API_KEY` 等环境变量；两者 `analyze()` 返回同构 `{task_id, done, result}`，`/api/ask` 与公报无需改动。无 key 时仍降级本地统计 |
    | ✅ P1 | **SEO（已实现）** | 新增 `public/robots.txt` / `sitemap.xml` / `og-image.svg`，并内嵌进 `src/pages.py` 由 `/robots.txt` `/sitemap.xml` `/og-image.svg` 提供（`scripts/embed_pages.py` 的 `SEO_FILES`）；`index.html` 与 `app.html` 补 `og:image`，`<html lang>` 改为占位符 `__HTML_LANG__`，由 `_html_lang()` 按 `?lang=` / `Accept-Language` 输出——原先写死 `zh-CN` 与英文默认矛盾 |
    | P2 | 表格无分页；移动端仅 3 个断点 | 另缺 API 文档页、隐私政策 / 条款 |
 
@@ -224,6 +224,9 @@ python -m src.cli db info
 | --- | --- | --- |
 | `INFINISYNAPSE_API_KEY` | 云端 AI 解读 | 环境变量优先；`config.yaml` 的 `api_key` 仅作本地兜底（**该文件被跟踪，勿填真实 key**） |
 | `INFINISYNAPSE_SERVER` | 服务地址覆盖（可选） | 环境变量 |
+| `AI_PROVIDER` | 选择 AI provider：`infinisynapse`（默认）/ `openai_compat` | 环境变量（或 config.yaml 的 `ai.provider`） |
+| `OPENAI_API_KEY` | `openai_compat` 的密钥 | 环境变量（**勿写进被跟踪的 config.yaml**） |
+| `OPENAI_BASE_URL` / `OPENAI_MODEL` | OpenAI 兼容端点地址 / 模型名（接 OpenRouter · Groq · 本地 Ollama 即改这两项） | 环境变量（config 的 `ai.openai_compat.*` 为备选） |
 | `KV_REST_API_URL` / `KV_REST_API_TOKEN` | Vercel KV 持久化 | Vercel 项目环境变量 |
 | `UPSTASH_REDIS_REST_URL` / `_TOKEN` | 同上（Upstash 直连别名） | 环境变量 |
 | `QU_STAT_DB_DIR` | SQLite 目录覆盖 | `api/index.py` 在 Vercel 上设为 `/tmp/data` |

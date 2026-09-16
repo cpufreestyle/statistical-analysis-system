@@ -80,3 +80,25 @@ infinisynapse:
   # api_key: "sk-xxx"   # 在 https://app.infinisynapse.cn/ai/apikey 创建后填入
   # 前端会按界面语言传 x-lang（en_US / zh_CN），这里只是兜底默认值
   prefer_language: "zh_CN"
+
+# ── AI provider 选择（可插拔）──────────────────────────────────────
+# 用 AI_PROVIDER 环境变量（优先）或本文件的 ai.provider 切换：
+#   infinisynapse（默认） —— 国内 InfiniSynapse Server API，调用可审计（比赛要求）。
+#   openai_compat         —— 任意 OpenAI 兼容 /chat/completions 端点：
+#                            OpenAI / OpenRouter / Groq / DeepSeek / Moonshot /
+#                            本地 vLLM · Ollama · LM Studio。
+#                            海外用户拿不到 InfiniSynapse key 时也能用「AI 解读」。
+#
+# 环境变量（优先级高于本文件）：
+#   AI_PROVIDER      = infinisynapse | openai_compat
+#   OPENAI_API_KEY   = sk-...        （openai_compat 的密钥）
+#   OPENAI_BASE_URL  = https://api.openai.com/v1   # 换 OpenRouter/Groq/本地即改这里
+#   OPENAI_MODEL     = gpt-4o-mini
+#
+# 密钥一律走环境变量 —— config.yaml 是被 git 跟踪的，不要把真实 key 写进来。
+ai:
+  provider: infinisynapse
+  openai_compat:
+    base_url: "https://api.openai.com/v1"
+    model: "gpt-4o-mini"
+    # api_key 只从环境变量 OPENAI_API_KEY 读取，此处不填
