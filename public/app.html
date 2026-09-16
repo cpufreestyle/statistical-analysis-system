@@ -33,6 +33,7 @@
       <select id="globalYear" onchange="syncYear(this.value)"></select>
     </div>
     <button id="langToggle" class="lang-toggle" type="button" onclick="toggleLang()">EN</button>
+    <button id="shareBtn" class="lang-toggle" type="button" onclick="copyShareLink()" data-i18n="🔗 分享" title="复制当前筛选条件下的分享链接">🔗 分享</button>
   </div>
 </header>
 
@@ -89,6 +90,7 @@
             <input type="text" class="query-input" id="indSearch" data-i18n-ph="关键词搜索指标 / 说明 / 维度" placeholder="关键词搜索指标 / 说明 / 维度" onkeydown="if(event.key==='Enter')loadIndicators()" />
             <button class="btn btn-primary" data-i18n="🔍 查询" onclick="loadIndicators()">🔍 查询</button>
             <button class="btn btn-secondary" data-i18n="用所选指标创建分析" onclick="createFromSelected()">用所选指标创建分析</button>
+            <button class="btn btn-secondary" data-i18n="⬇ 导出 CSV" onclick="exportIndicatorsCsv()">⬇ 导出 CSV</button>
             <span id="indCount" style="color:var(--gray-500);font-size:.8rem;flex-shrink:0"></span>
           </div>
           <div class="data-table-wrap">
@@ -198,6 +200,7 @@
               <option value="" data-i18n="选择指标…">选择指标…</option>
             </select>
             <span id="chartUnit" style="color:var(--gray-500);font-size:.8rem;align-self:center"></span>
+            <button class="btn btn-secondary" style="margin-left:auto" data-i18n="⬇ 导出当前指标" onclick="exportChartCsv()">⬇ 导出当前指标</button>
           </div>
           <div class="chart-block">
             <div class="chart-head">

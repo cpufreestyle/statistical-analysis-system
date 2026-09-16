@@ -289,6 +289,14 @@
     "该指标在所选经济体无数据": "No data for this indicator in the selected economies",
     "该指标在所选年份无数据": "No data for the selected year",
 
+    /* ── 导出 + 分享链接 ── */
+    "🔗 分享": "🔗 Share",
+    "⬇ 导出 CSV": "⬇ Export CSV",
+    "⬇ 导出当前指标": "⬇ Export indicator",
+    "已导出 CSV": "CSV exported",
+    "分享链接已复制": "Share link copied",
+    "复制失败，请手动复制地址栏": "Copy failed — copy the address bar manually",
+
     /* ── 单位（对外统一用国际写法）── */
     "亿美元": "USD 100M",
     "美元": "USD",

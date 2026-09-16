@@ -18,7 +18,7 @@ if "127.0.0.1" not in _os.environ.get("no_proxy", ""):
 if "127.0.0.1" not in _os.environ.get("NO_PROXY", ""):
     _os.environ["NO_PROXY"] = (_os.environ.get("NO_PROXY", "") + ",127.0.0.1,localhost").strip(",")
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 
 from src import report
 from src.db import query_indicators, db_info, init_db
@@ -293,13 +293,63 @@ def api_indicators():
     if q:
         # 同时匹配「原始行 + 本地化行」的全部字段：中文词、英文词、
         # 规范键与 slug 都能命中（例如 q=retail 命中 Retail Sales of Consumer Goods）
-        localized = [
+            localized = [
             loc for raw, loc in zip(rows, localized)
             if q in " ".join(
                 str(v) for v in list(raw.values()) + list(loc.values())
             ).lower()
         ]
     return jsonify(localized)
+
+
+@app.route("/api/export.csv")
+def api_export_csv():
+    """导出当前筛选条件下的指标宽表为 CSV（按 lang 本地化）。
+
+    复用 ``query_indicators`` + ``labels.localize_indicators``；列定义与 CLI 的
+    ``report.export_csv`` 保持一致（year/category/indicator/dimension/value/unit/note），
+    便于第三方直接消费。
+
+    - ``year`` / ``dimension`` 缺省表示「全部」：年份不传 → 跨年全量；维度不传 → 全经济体。
+      图表面板的「导出当前指标」即利用此特性导出一个指标的完整跨年 × 全经济体序列。
+    - 文件名含年份（或 all）、维度 slug 与语言，内容带 BOM（utf-8-sig）以便 Excel 直接打开。
+    """
+    import csv as _csv
+    import io as _io
+
+    lang = _lang()
+    year = request.args.get("year", type=int)
+    dimension_raw = (request.args.get("dimension") or "").strip()
+    dimension = labels.key_of("dimension", dimension_raw) if dimension_raw else None
+    indicator_raw = (request.args.get("indicator") or "").strip()
+    indicator = labels.key_of("indicator", indicator_raw) if indicator_raw else None
+    q = (request.args.get("q") or "").strip().lower()
+
+    rows = query_indicators(year=year, category=_category_arg(),
+                            dimension=dimension, indicator=indicator)
+    localized = labels.localize_indicators(rows, lang)
+    if q:
+        localized = [
+            loc for raw, loc in zip(rows, localized)
+            if q in " ".join(str(v) for v in list(raw.values()) + list(loc.values())).lower()
+        ]
+
+    fieldnames = ["year", "category", "indicator", "dimension", "value", "unit", "note"]
+    buf = _io.StringIO()
+    w = _csv.DictWriter(buf, fieldnames=fieldnames, extrasaction="ignore")
+    w.writeheader()
+    for loc in localized:
+        w.writerow({k: loc.get(k, "") for k in fieldnames})
+    data = buf.getvalue().encode("utf-8-sig")
+
+    year_part = "all" if year is None else str(year)
+    dim_part = labels.slug("dimension", dimension) if dimension else "all"
+    fname = f"indicators_{year_part}_{dim_part}_{lang}.csv"
+    return Response(
+        data,
+        mimetype="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
 
 
 def _cloud_prompt(text: str, local: dict[str, object], lang: str) -> str:

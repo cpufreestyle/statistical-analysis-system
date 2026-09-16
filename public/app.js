@@ -28,8 +28,99 @@ function enc(s) { return encodeURIComponent(s == null ? '' : String(s)); }
    前端不再对数据做二次词条替换（i18n.js 只负责静态 UI 文案）。 */
 function langQ() { return 'lang=' + (isZh() ? 'zh' : 'en'); }
 
+/* ═══════ 分享链接 + 导出 CSV ═══════
+   分享链接：把当前筛选状态（年份 / 维度 / 语言，图表 Tab 下再加指标）同步到
+   URL 的查询串，复制给其他人打开即可还原同一视图（出海场景：海外用户无需读中文）。
+   导出 CSV：复用服务端 /api/export.csv，按当前语言与筛选条件下载。 */
+function initShareState() {
+  try {
+    var p = new URLSearchParams(window.location.search);
+    var year = p.get('year');
+    if (year && /^\d{4}$/.test(year)) STATE.year = year;
+    var dim = p.get('dimension');
+    if (dim) STATE.dimension = dim;          // 规范键或英文标签均可，服务端 key_of 会归一
+    var lang = p.get('lang');
+    if (lang === 'zh' || lang === 'en') window.CUR_LANG = lang;
+    var ind = p.get('indicator');
+    if (ind) window._pendingChartIndicator = ind;   // 图表初始化后再带入
+  } catch (e) { /* 解析失败不影响主流程 */ }
+}
+
+/* 用 history.replaceState 同步当前状态到地址栏（不产生历史记录，刷新/分享即用） */
+function updateShareUrl() {
+  try {
+    var p = new URLSearchParams();
+    p.set('year', STATE.year);
+    p.set('dimension', STATE.dimension);
+    p.set('lang', window.CUR_LANG === 'zh' ? 'zh' : 'en');
+    var pc = document.getElementById('panel-charts');
+    if (pc && pc.classList.contains('active') && CHART && CHART.currentKey) {
+      p.set('indicator', CHART.currentKey);
+    }
+    var qs = p.toString();
+    history.replaceState(null, '', qs ? '?' + qs : window.location.pathname);
+  } catch (e) { /* 不支持时静默 */ }
+}
+
+function copyShareLink() {
+  updateShareUrl();
+  var url = window.location.href;
+  var ok = function () { showToast(tr('分享链接已复制'), 'success'); };
+  var fail = function () { showToast(tr('复制失败，请手动复制地址栏'), 'error'); };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(ok, function () { legacyCopy(url); ok(); });
+  } else {
+    legacyCopy(url); ok();
+  }
+}
+
+function legacyCopy(text) {
+  try {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  } catch (e) { /* 忽略 */ }
+}
+
+/* 触发浏览器下载一个接口返回的 CSV（服务端已带 Content-Disposition: attachment） */
+function exportCsv(url) {
+  var a = document.createElement('a');
+  a.href = url;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+/* 指标总表：按当前年份 / 维度 / 专业 / 关键词导出 */
+function exportIndicatorsCsv() {
+  var cat = (document.getElementById('indCat') || {}).value || '';
+  var q = (document.getElementById('indSearch') || {}).value || '';
+  var u = API + '/api/export.csv?year=' + enc(STATE.year)
+    + '&dimension=' + enc(STATE.dimension)
+    + (cat ? '&category=' + enc(cat) : '')
+    + (q ? '&q=' + enc(q.trim()) : '')
+    + '&' + langQ();
+  exportCsv(u);
+  showToast(tr('已导出 CSV'), 'success');
+}
+
+/* 图表：导出当前选中指标的完整跨年 × 全经济体序列（不传 year/dimension = 全部） */
+function exportChartCsv() {
+  if (!CHART.currentKey) { showToast(tr('请先选择指标'), 'error'); return; }
+  var u = API + '/api/export.csv?indicator=' + enc(CHART.currentKey) + '&' + langQ();
+  exportCsv(u);
+  showToast(tr('已导出 CSV'), 'success');
+}
+
 /* ───── 页面入口 ───── */
 (function init() {
+  initShareState();   // 从 URL 还原分享状态（年份/维度/语言/图表指标）后再取数
   document.querySelectorAll('.wb-tab').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.wb-tab').forEach(b => b.classList.remove('active'));
@@ -84,6 +175,7 @@ function syncYear(y) {
   if (gy) gy.value = STATE.year;
   loadOverview();
   loadIndicators();
+  updateShareUrl();
   showToast(tr('年份已切换至') + ' ' + STATE.year + (isZh() ? '年' : ''), 'success');
 }
 
@@ -93,6 +185,7 @@ function syncDimension(d) {
   if (gd) gd.value = d;
   loadOverview();
   loadIndicators();
+  updateShareUrl();
   showToast(tr('维度已切换至') + ' ' + tr(d), 'success');
 }
 
@@ -102,6 +195,7 @@ function switchTab(tabId) {
   document.querySelectorAll('.wb-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tabId));
   if (tabId === 'indicators') loadIndicators();
   if (tabId === 'charts') initCharts();
+  updateShareUrl();
 }
 
 /* ───── 快捷查询（中英文按当前语言取词） ───── */
@@ -127,6 +221,8 @@ async function loadOverview() {
     const d = await r.json();
     if (d.dimension) STATE.dimension = d.dimension;
     if (d.year) STATE.year = String(d.year);
+
+    updateShareUrl();   // 状态已就绪，同步一次分享链接
 
     // 下拉框用服务端返回的 {label,key,slug} 选项：value 是规范键，label 已按 lang 本地化
     fillSelectOptions('globalDimension', d.dimension_options, STATE.dimension);
@@ -573,6 +669,7 @@ function refreshLang() {
   });
   var pc = document.getElementById('panel-charts');
   if (pc && pc.classList.contains('active')) initCharts();
+  updateShareUrl();
 }
 
 /* ═══════ 侧边栏卡片折叠 ═══════ */
@@ -607,6 +704,16 @@ async function initCharts() {
     }
   } catch (e) { /* 忽略 */ }
   fillChartIndicator();
+  // 分享链接带 indicator 时，下拉填充后带入并取数
+  if (window._pendingChartIndicator) {
+    var pk = window._pendingChartIndicator;
+    window._pendingChartIndicator = null;
+    if (CHART.indicators.some(function (it) { return it.key === pk; })) {
+      var sel = document.getElementById('chartIndicator');
+      if (sel) sel.value = pk;
+      CHART.currentKey = pk;
+    }
+  }
   renderDimChips();
   fillChartYear();
   if (CHART.currentKey) loadChartSeries();
@@ -659,6 +766,7 @@ async function loadChartSeries() {
     renderCharts(); return;
   }
   CHART.currentKey = sel.value;
+  updateShareUrl();
   try {
     var r = await fetch(API + '/api/indicators?indicator=' + enc(sel.value) + '&' + langQ());
     var rows = await r.json();

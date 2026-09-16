@@ -173,7 +173,7 @@ python -m src.cli db info
    | 优先级 | 缺口 | 说明 |
    | --- | --- | --- |
    | ✅ P0 | **图表（已实现）** | 自绘 SVG 折线图（跨年趋势，多经济体叠加）+ 分经济体排名条形图，零图表库依赖；新增「📈 图表」Tab（`public/app.js` 的 `renderLine` / `renderRank`） |
-   | P0 | **无导出、无分享链接** | 无导出路由、前端无下载；筛选状态不进地址栏 → 结论无法分享 |
+   | ✅ P0 | **导出 + 分享链接（已实现）** | 后端 `GET /api/export.csv`（复用 `query_indicators` + `labels.localize_indicators`，utf-8-sig + `attachment` 下载头；`year`/`dimension` 缺省 = 全部，`indicator` 导出单指标跨年全序列）；前端指标面板「⬇ 导出 CSV」+ 图表面板「⬇ 导出当前指标」+ 顶栏「🔗 分享」；筛选状态经 `history.replaceState` 同步进地址栏，分享链接打开即还原同一视图（含图表指标） |
    | P1 | **时序只有 6 年** | 2019–2024，做不了趋势与周期分析。世界银行免费可取 1960 起 |
    | P1 | **单一 LLM provider** | 只接 InfiniSynapse 一家国内服务，海外用户拿不到 key |
    | P1 | **SEO 不全** | 缺 `og:image` / `robots.txt` / `sitemap.xml`；`index.html` 写死 `<html lang="zh-CN">` 与英文默认矛盾 |
@@ -205,6 +205,7 @@ python -m src.cli db info
 | `GET /api/overview` | 首页卡片（含 `dimension_options` / `category_options`） |
 | `GET /api/indicators` | 指标宽表（支持 `q` 搜索、`category` / `dimension` 过滤） |
 | `GET /api/indicator_keys` | 可绑定指标键（供新增自定义分析） |
+| `GET /api/export.csv` | 导出指标宽表为 CSV（按 `lang` 本地化；`year`/`dimension` 缺省 = 全部；`indicator` 导出单指标跨年全序列） |
 | `GET /api/ask` | 自然语言查询（`cloud=1` 走云端解读） |
 | `GET /api/report` | 统计公报（`format=json` 出结构化数据） |
 | `GET/POST /api/custom` | 自定义分析：列表 / 运行 / 新增 |
