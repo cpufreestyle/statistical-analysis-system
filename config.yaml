@@ -67,12 +67,16 @@ collection:
         NV.IND.TOTL.CD: 工业增加值
 
 # 是否接入 InfiniSynapse 云端 AI 分析（需 API Key，默认关闭）
-# 启用后，CLI 的 ask --cloud / cloud 与 Web 看板的「云端解读」会直连
+# 启用后，CLI 的 ask --cloud / cloud 与 Web 看板的「AI 云端解读」会直连
 # InfiniSynapse Server API（/api/ai/message 发起 newTask + /api/ai/events 收 SSE），
 # 不依赖 agent_infini 二进制，调用记录可在服务端审计。
 # 注意：外部请求会经系统 HTTP(S)_PROXY（如 127.0.0.1:7897）联网。
+#
+# API Key 优先级：环境变量 INFINISYNAPSE_API_KEY > 本文件的 api_key。
+# 部署到 Vercel / 容器时**请用环境变量**，不要把真实 key 写进被跟踪的 config.yaml。
 infinisynapse:
-  enabled: false
+  enabled: true
   server: "https://app.infinisynapse.cn"
-  # api_key: "sk-xxx"            # 在 https://app.infinisynapse.cn/ai/apikey 创建
+  # api_key: "sk-xxx"   # 在 https://app.infinisynapse.cn/ai/apikey 创建后填入
+  # 前端会按界面语言传 x-lang（en_US / zh_CN），这里只是兜底默认值
   prefer_language: "zh_CN"

@@ -121,8 +121,12 @@ def _resolve_codes(specs: list[str] | None) -> list[str]:
 
 
 def _fetch_wb(indicator: str, iso: str, date: str) -> list[dict[str, Any]]:
-    kind = "region" if iso in WB_REGION_CODES else "country"
-    url = f"{WB_BASE}/{kind}/{iso}/indicator/{indicator}"
+    """抓取某经济体 / 地区聚合的指标年度值。
+
+    注意：世界银行 API v2 的**地区聚合（EAS/EAP/WLD…）同样走 `/country/` 端点**，
+    过去这里按 `/region/` 拼路径会稳定返回 404，导致「亚太」这类聚合永远采不到数据。
+    """
+    url = f"{WB_BASE}/country/{iso}/indicator/{indicator}"
     data = _http_get_json(url, {"format": "json", "date": date, "per_page": "100"})
     if isinstance(data, list) and len(data) >= 2 and isinstance(data[1], list):
         return [cast("dict[str, Any]", r) for r in data[1]]

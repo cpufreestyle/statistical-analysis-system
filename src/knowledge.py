@@ -109,15 +109,21 @@ def _extract_grams(text: str) -> list[str]:
     return [g for g in grams if g]
 
 
-def search_knowledge(query: str, limit: int = 20) -> list[KnowledgeRow]:
-    """关键词召回（中文友好）：在标题 / 标签 / 正文中命中任一词元即算相关，按相关度排序。
+def search_knowledge(query: str, limit: int = 20,
+                     lang: str | None = None) -> list[KnowledgeRow]:
+    """关键词召回（中英双语）：在标题 / 标签 / 正文中命中任一词元即算相关，按相关度排序。
 
     知识库规模小，采用「全量取出 + Python 侧打分」策略，避免 SQL LIKE 对中文失效。
+    `lang` 给定时（"zh" / "en"）只返回该语种的条目——英文条目的 tags 里带 `lang:en` 标记。
     """
     grams = _extract_grams(query)
     if not grams:
         return []
     rows = list_knowledge()
+    if lang:
+        want_en = lang.startswith("en")
+        rows = [r for r in rows
+                if ("lang:en" in r["tags"].lower()) == want_en]
     scored: list[tuple[int, KnowledgeRow]] = []
     for r in rows:
         hay = f"{r['title']} {r['tags']} {r['content']}".upper()
@@ -204,13 +210,74 @@ SEED_KNOWLEDGE: list[KnowledgeRow] = [
     ),
 ]
 
+# 英文条目：tags 里带 `lang:en` 标记，`search_knowledge(..., lang="en")` 只取这些。
+SEED_KNOWLEDGE_EN: list[KnowledgeRow] = [
+    KnowledgeRow(
+        id=0, title="World Bank Open Data (Asia-Pacific aggregates)",
+        category="Sources", tags="lang:en,worldbank,open data,source,caliber",
+        content=(
+            "Asia-Pacific figures are World Bank Open Data series for the "
+            "`East Asia & Pacific` (EAS) aggregate, retrieved from "
+            "api.worldbank.org and stored with the World Bank indicator code in "
+            "each row's note. Values are yearly, in current US dollars for "
+            "monetary series (converted to USD 100 million) and in the source "
+            "unit otherwise. Because the aggregate mixes economies of very "
+            "different size, always compare growth rates rather than levels."
+        ),
+        source="World Bank Open Data",
+    ),
+    KnowledgeRow(
+        id=0, title="China NBS and Customs data caliber",
+        category="Sources", tags="lang:en,nbs,customs,china,caliber",
+        content=(
+            "China rows are taken from the National Bureau of Statistics press "
+            "releases and the General Administration of Customs: GDP and its "
+            "three industry value-added components, total retail sales of "
+            "consumer goods, fixed asset investment (excluding rural "
+            "households), year-end resident population and per-capita "
+            "disposable income. Monetary series are in CNY 100 million. "
+            "Preliminary accounting figures may be revised, so treat the "
+            "official final release as authoritative."
+        ),
+        source="National Bureau of Statistics / Customs",
+    ),
+    KnowledgeRow(
+        id=0, title="YoY vs. contribution share",
+        category="Methods", tags="lang:en,yoy,share,method,caliber",
+        content=(
+            "Year-over-year (YoY) is the change against the same period of the "
+            "previous year; the system computes it from the previous year's row "
+            "of the same indicator and dimension. Contribution share expresses a "
+            "component as a percentage of its total (e.g. industry value added / "
+            "GDP). YoY answers 'how fast', share answers 'how much of the whole' "
+            "— do not read one as the other."
+        ),
+        source="Statistical methodology",
+    ),
+    KnowledgeRow(
+        id=0, title="Cross-economy comparison caveats",
+        category="Methods", tags="lang:en,comparison,ranking,method,caliber",
+        content=(
+            "Rankings compare economies on the same indicator, year and unit. "
+            "Population-weighted aggregates (e.g. the Asia-Pacific total) are "
+            "dominated by the largest member economies, and USD series move with "
+            "exchange rates as well as real output. Use per-capita or growth "
+            "series when the question is about living standards or momentum."
+        ),
+        source="Statistical methodology",
+    ),
+]
+
 
 def seed_default_knowledge() -> int:
-    """首次初始化时灌入种子知识；已存在同名条目则跳过。返回新增条数。"""
-    if count_knowledge() > 0:
-        return 0
+    """灌入种子知识（中英各一组）。按标题去重，已存在则跳过 —— 
+    因此**升级新增的条目会在下一次启动时自动补齐**。返回新增条数。
+    """
+    existing = {r["title"] for r in list_knowledge()}
     added = 0
-    for k in SEED_KNOWLEDGE:
+    for k in [*SEED_KNOWLEDGE, *SEED_KNOWLEDGE_EN]:
+        if k["title"] in existing:
+            continue
         add_knowledge(
             title=k["title"], category=k["category"],
             tags=k["tags"], content=k["content"], source=k["source"],
@@ -219,9 +286,9 @@ def seed_default_knowledge() -> int:
     return added
 
 
-def retrieve_context(query: str, limit: int = 5) -> str:
+def retrieve_context(query: str, limit: int = 5, lang: str | None = None) -> str:
     """把与查询相关的最多 limit 条知识拼为文本，供 AI 解读作为上下文。"""
-    rows = search_knowledge(query, limit=limit)
+    rows = search_knowledge(query, limit=limit, lang=lang)
     if not rows:
         return ""
     blocks = []

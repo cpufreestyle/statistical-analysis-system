@@ -46,7 +46,7 @@ def main():
     p = argparse.ArgumentParser(prog="qu-stat", description="统计分析系统")
     sub = p.add_subparsers(dest="cmd")
 
-    sub.add_parser("init", help="初始化数据库并生成示例数据")
+    sub.add_parser("init", help="初始化数据库并载入真实公开数据种子集")
     sp_load = sub.add_parser("load", help="导入 CSV/Excel")
     sp_load.add_argument("file")
     sp_ask = sub.add_parser("ask", help="自然语言查询")
@@ -171,7 +171,9 @@ def main():
                 print(json.dumps(cust.run_custom(a, args.year),
                                  ensure_ascii=False, indent=2))
     elif args.cmd == "web":
-        from src.web import app
+        from src.web import app, _ensure_data
+        # 本地启动同样保证有真实数据与知识库（幂等，不会覆盖已有数据）
+        _ensure_data()
         # debug=False 避免 Werkzeug 调试工具栏（依赖 getBoundingClientRect）在
         # 嵌入式 WebView / 云端预览环境中报 null 引用；host 默认 0.0.0.0 便于外部访问。
         app.run(host=args.host, port=args.port, debug=False)

@@ -1,53 +1,124 @@
-"""报表 / 统计公报文本生成，支持「本地统计 + 云端 AI 解读」混合模式。"""
+"""报表 / 统计公报文本生成，支持「本地统计 + 云端 AI 解读」混合模式。
+
+公报内容完全由库中的**真实公开数据**生成（世界银行 Open Data /
+国家统计局 / 海关总署），中英双语输出，便于对外展示。
+"""
 from __future__ import annotations
 
 import json
 from typing import cast
 
-from src.stats import indicators as ind
 from src.db import query_indicators
+from src.stats import indicators as ind
+from src.stats.core import yoy, fmt_pct
 from src import knowledge
 
+_L = {
+    "en": {
+        "title": "{dim} · Economic and Social Development Statistical Bulletin (Summary) — {year}",
+        "source": "Sources: World Bank Open Data · National Bureau of Statistics · General Administration of Customs (all public)",
+        "section": "Section",
+        "kb_head": "Annex: caliber notes from the local knowledge base",
+        "yoy": "YoY",
+        "dim": "Region",
+    },
+    "zh": {
+        "title": "{dim} · 国民经济和社会发展统计公报（摘要）— {year}年",
+        "source": "数据来源：世界银行 Open Data · 国家统计局 · 海关总署（均为公开数据）",
+        "section": "项目",
+        "kb_head": "附：相关统计口径（来自本地知识库）",
+        "yoy": "同比",
+        "dim": "维度",
+    },
+}
 
-def generate_bulletin(year: int) -> str:
-    gdp = ind.gdp_overview(year, year - 1)
-    indus = ind.industry_stats(year)
-    trade = ind.trade_stats(year)
-    inv = ind.investment_stats(year)
-    pop = ind.population_stats(year)
 
-    lines = [
-        f"{year}年{'亚太'}地区国民经济和社会发展统计公报（摘要）",
-        "=" * 40,
-        f"一、综合：地区生产总值 {gdp['数值(亿元)']} 亿元，同比 {gdp['同比']}。",
-        f"二、工业：规上工业总产值 {indus['规上工业总产值(亿元)']} 亿元，"
-        f"增加值 {indus['规上工业增加值(亿元)']} 亿元。",
-        f"三、贸易：社会消费品零售总额 {trade['社会消费品零售总额(亿元)']} 亿元，"
-        f"限上商品销售额 {trade['限额以上商品销售额(亿元)']} 亿元。",
-        f"四、投资：固定资产投资总额 {inv['固定资产投资总额(亿元)']} 亿元，"
-        f"工业投资占比 {inv['工业投资占比(%)']}%。",
-        f"五、人口：常住人口 {pop['常住人口(万人)']} 万人，"
-        f"居民人均可支配收入 {pop['居民人均可支配收入(元)']} 元。",
+def _fmt_num(v: float) -> str:
+    return f"{v:,.2f}" if abs(v) < 1e6 else f"{v:,.0f}"
+
+
+# 比率类单位不做「同比」（增长率的同比没有统计意义）
+_RATIO_UNITS = {"%", "岁"}
+
+
+def build_bulletin_data(year: int, dimension: str = "亚太",
+                        lang: str = "en") -> dict[str, object]:
+    """结构化公报数据（供前端按当前语言渲染，避免服务端硬编码文案）。
+
+    返回 sections[].rows[] 里的指标名 / 单位 / 专业都是中文原值，
+    前端用同一份 i18n 字典翻译，保证中英文都不漏译。
+    """
+    rows = query_indicators(year=year, dimension=dimension)
+    sections: list[dict[str, object]] = []
+    for category in ind.CATEGORY_PRIORITY:
+        cat_rows = [r for r in rows if r["category"] == category]
+        if not cat_rows:
+            continue
+        items: list[dict[str, object]] = []
+        for r in sorted(cat_rows, key=lambda x: x["indicator"]):
+            rate = None
+            if r["unit"] not in _RATIO_UNITS:
+                prev = ind.value_of(year - 1, r["category"], r["indicator"], dimension)
+                rate = yoy(r["value"], prev) if prev is not None else None
+            items.append({
+                "indicator": r["indicator"],
+                "value": _fmt_num(r["value"]),
+                "unit": r["unit"],
+                "yoy": fmt_pct(rate) if rate is not None else "",
+                "note": r["note"],
+            })
+        sections.append({"category": category, "rows": items})
+
+    kb_rows = knowledge.search_knowledge(
+        "GDP industry trade investment population statistics caliber",
+        limit=4, lang=lang)
+    return {
+        "year": year,
+        "dimension": dimension,
+        "sections": sections,
+        "knowledge": [{"title": k["title"], "source": k["source"],
+                       "content": k["content"]} for k in kb_rows],
+    }
+
+
+def _render_text(data: dict[str, object], year: int, dimension: str,
+                 lang: str) -> str:
+    """把结构化公报渲染成纯文本（CLI / 云端 prompt 上下文使用）。"""
+    t = _L["zh"] if lang.startswith("zh") else _L["en"]
+    lines: list[str] = [
+        t["title"].format(dim=dimension, year=year),
+        "=" * 64,
+        t["source"],
+        "",
     ]
-    # 附：本地知识库中与本年度口径相关的条目（离线可用，无需联网）
-    related = knowledge.search_knowledge(
-        "GDP 工业 贸易 投资 人口 消费品零售 固定资产", limit=3
-    )
-    if related:
+    idx = 0
+    for section in cast("list[dict[str, object]]", data["sections"]):
+        lines.append(f"[{section['category']}]")
+        for row in cast("list[dict[str, object]]", section["rows"]):
+            idx += 1
+            suffix = (f"  ({t['yoy']} {row['yoy']})" if row["yoy"] else "")
+            lines.append(f"{idx:>2}. {row['indicator']}: {row['value']} {row['unit']}{suffix}")
         lines.append("")
-        lines.append("附：相关统计口径（来自本地知识库）")
-        lines.append("-" * 40)
-        for k in related:
+    kb_rows = cast("list[dict[str, object]]", data["knowledge"])
+    if kb_rows:
+        lines.append(t["kb_head"])
+        lines.append("-" * 64)
+        for k in kb_rows:
             head = f"· {k['title']}"
             if k["source"]:
-                head += f"（{k['source']}）"
+                head += f" ({k['source']})"
             lines.append(head)
             lines.append(f"  {k['content']}")
     return "\n".join(lines)
 
 
+def generate_bulletin(year: int, dimension: str = "亚太", lang: str = "en") -> str:
+    """用真实数据生成统计公报摘要（纯文本，供 CLI / 导出使用）。"""
+    return _render_text(build_bulletin_data(year, dimension, lang), year, dimension, lang)
+
+
 def _extract_cloud_text(result: object) -> str:
-    """尽力从 agent_infini 的 task show 结果里抽取可读文本。"""
+    """尽力从云端返回结构里抽取可读文本。"""
     if isinstance(result, str):
         return result.strip()
     if isinstance(result, dict):
@@ -56,7 +127,6 @@ def _extract_cloud_text(result: object) -> str:
             v = mapped.get(key)
             if isinstance(v, str) and v.strip():
                 return v.strip()
-        # 尝试 messages/卷宗式结构
         for key in ("messages", "data"):
             v = mapped.get(key)
             if isinstance(v, list) and v:
@@ -70,33 +140,63 @@ def _extract_cloud_text(result: object) -> str:
     return json.dumps(result, ensure_ascii=False)
 
 
-def generate_report(year: int, use_cloud: bool = False) -> str:
-    """生成报告。use_cloud=True 时追加云端 AI 解读（失败自动回退仅本地）。"""
-    bulletin = generate_bulletin(year)
-    if not use_cloud:
-        return bulletin
-
+def _cloud_interpret(bulletin: str, lang: str) -> tuple[str, str]:
+    """调用 InfiniSynapse 对公报做解读。返回 (解读文本, 备注/错误)。"""
+    en = not lang.startswith("zh")
     from src.analyzer import get_analyzer, AgentInfiniError
     try:
-        az = get_analyzer()
+        az = get_analyzer(lang=lang)
         if az is None:
-            return bulletin + "\n\n[注] 云端分析未启用，仅输出本地统计公报。"
-        # 召回本地知识库作为上下文，让 AI 解读紧扣本区统计口径
-        kb_ctx = knowledge.retrieve_context(bulletin, limit=5)
-        knowledge_block = (
-            "\n\n【本地知识库参考口径】\n" + kb_ctx + "\n"
-            if kb_ctx else ""
-        )
-        prompt = (
-            "你是资深统计分析师。请基于以下亚太地区统计公报与统计口径说明，"
-            "提炼 3-5 条经济亮点，并指出 1-2 个需关注的结构性问题与建议：\n\n"
-            + bulletin + knowledge_block
-        )
+            return ("", "Cloud AI is not enabled; local bulletin only." if en
+                    else "云端分析未启用，仅输出本地统计公报。")
+        kb_ctx = knowledge.retrieve_context(bulletin, limit=5, lang=lang)
+        knowledge_block = (f"\n\n[Knowledge-base caliber notes]\n{kb_ctx}\n"
+                           if (kb_ctx and en) else
+                           (f"\n\n【本地知识库参考口径】\n{kb_ctx}\n" if kb_ctx else ""))
+        if en:
+            prompt = (
+                "You are a senior statistical analyst. Based only on the bulletin and "
+                "caliber notes below, write 3-5 highlights and 1-2 structural risks with "
+                "a brief recommendation. Reply in English with short Markdown bullets; "
+                "do not invent figures.\n\n" + bulletin + knowledge_block
+            )
+        else:
+            prompt = (
+                "你是资深统计分析师。请基于以下统计公报与统计口径说明，"
+                "提炼 3-5 条经济亮点，并指出 1-2 个需关注的结构性问题与建议：\n\n"
+                + bulletin + knowledge_block
+            )
         out = az.analyze(prompt)
-        interpretation = _extract_cloud_text(out.get("result"))
-        return bulletin + "\n\n" + "=" * 40 + "\n【AI 解读】\n" + interpretation
+        return (_extract_cloud_text(out.get("result")), "")
     except AgentInfiniError as e:
-        return bulletin + f"\n\n[注] 云端解读失败：{e}\n已仅输出本地统计公报。"
+        return ("", f"Cloud interpretation failed: {e}" if en
+                else f"云端解读失败：{e}")
+
+
+def build_report(year: int, use_cloud: bool = False, dimension: str = "亚太",
+                 lang: str = "en") -> dict[str, object]:
+    """结构化报告：公报数据 + 可选 AI 解读（前端按当前语言渲染）。"""
+    data = build_bulletin_data(year, dimension, lang)
+    data["ai"] = ""
+    data["ai_note"] = ""
+    if use_cloud:
+        text = _render_text(data, year, dimension, lang)
+        data["ai"], data["ai_note"] = _cloud_interpret(text, lang)
+    return data
+
+
+def generate_report(year: int, use_cloud: bool = False,
+                    dimension: str = "亚太", lang: str = "en") -> str:
+    """生成纯文本报告（CLI 用）。use_cloud=True 时追加云端 AI 解读。"""
+    bulletin = generate_bulletin(year, dimension=dimension, lang=lang)
+    if not use_cloud:
+        return bulletin
+    en = not lang.startswith("zh")
+    ai, note = _cloud_interpret(bulletin, lang)
+    if note:
+        return bulletin + ("\n\n[Note] " if en else "\n\n[注] ") + note
+    head = "\n[AI Interpretation]\n" if en else "\n【AI 解读】\n"
+    return bulletin + "\n" + "=" * 64 + head + ai
 
 
 def export_csv(year: int, path: str) -> None:

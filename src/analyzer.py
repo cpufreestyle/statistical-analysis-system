@@ -39,6 +39,15 @@ def _load_cfg() -> dict[str, object]:
         return cast("dict[str, object]", yaml.safe_load(f) or {})
 
 
+def _lang_header(lang: str | None) -> str:
+    """界面语言 -> InfiniSynapse `x-lang` 取值。"""
+    if lang and lang.lower().startswith("zh"):
+        return "zh_CN"
+    if lang and lang.lower().startswith("en"):
+        return "en_US"
+    return lang or "zh_CN"
+
+
 class InfiniSynapseAnalyzer:
     """直连 InfiniSynapse Server API 的分析器（SSE 流式收集结果）。"""
 
@@ -139,15 +148,25 @@ class InfiniSynapseAnalyzer:
         }
 
 
-def get_analyzer() -> InfiniSynapseAnalyzer | None:
-    """按 config.yaml 构造分析器；未启用或配置不全时返回 None。"""
+def get_analyzer(lang: str | None = None) -> InfiniSynapseAnalyzer | None:
+    """按配置构造分析器；未启用或配置不全时返回 None。
+
+    API Key 优先取环境变量 `INFINISYNAPSE_API_KEY`（Vercel / 容器部署推荐，
+    避免把密钥写进被跟踪的 config.yaml），其次取 config.yaml 的
+    `infinisynapse.api_key`。`lang` 决定 `x-lang` 与模型回复语言。
+    """
     cfg = cast("dict[str, object]", _load_cfg().get("infinisynapse", {}))
     if not cfg.get("enabled"):
         return None
-    api_key_obj = cfg.get("api_key")
+    api_key_obj = (os.environ.get("INFINISYNAPSE_API_KEY")
+                   or os.environ.get("QU_STAT_INFINI_KEY")
+                   or cfg.get("api_key"))
     if not api_key_obj:
-        raise AgentInfiniError("infinisynapse.enabled=true 但未配置 api_key")
+        raise AgentInfiniError(
+            "infinisynapse.enabled=true but no api_key configured "
+            "(set env INFINISYNAPSE_API_KEY, or fill config.yaml)")
     api_key = str(api_key_obj)
-    server = cast("str", cfg.get("server") or "https://app.infinisynapse.cn")
-    prefer = str(cfg.get("prefer_language", "zh_CN"))
+    server = str(os.environ.get("INFINISYNAPSE_SERVER")
+                 or cfg.get("server") or "https://app.infinisynapse.cn")
+    prefer = _lang_header(lang) if lang else str(cfg.get("prefer_language", "zh_CN"))
     return InfiniSynapseAnalyzer(api_key=api_key, server=server, prefer_language=prefer)

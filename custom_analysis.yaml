@@ -4,26 +4,37 @@
 #   name        分析名称（在命令行 / 网页中引用）
 #   unit        结果单位
 #   description 一句话说明
-#   variables   变量映射：变量名 -> [专业, 指标, 维度(可省略，默认"亚太")]
+#   variables   变量映射：变量名 -> [专业, 指标, 维度]
 #   expr        表达式，可用变量名及 min/max/abs/round/sum
 #   compare     是否计算同比(true/false)
 #
-# 变量里的「专业/指标/维度」必须与指标宽表中的值对应（见 data/sample_import.csv）。
+# 变量里的「专业 / 指标 / 维度」必须与指标宽表中的值对应
+# （见 data/ap_macro.csv 与 data/nbs_cn.csv，均为真实公开数据）。
 
 - name: 工业占GDP比重
   unit: "%"
-  description: 规上工业总产值 / 地区生产总值
+  description: 工业增加值 / 国内生产总值(GDP)
   variables:
-    industry: [工业, 规模以上工业总产值, 亚太]
-    gdp: [综合, 地区生产总值, 亚太]
+    industry: [工业, 工业增加值, 亚太]
+    gdp: [综合, 国内生产总值(GDP), 亚太]
   expr: "industry / gdp * 100"
   compare: true
 
-- name: 投资效果系数
-  unit: ""
-  description: 固定资产投资总额 / 地区生产总值
+- name: 贸易依存度
+  unit: "%"
+  description: (货物服务出口总额 + 进口总额) / 国内生产总值(GDP)
   variables:
-    inv: [投资, 固定资产投资总额, 亚太]
-    gdp: [综合, 地区生产总值, 亚太]
-  expr: "inv / gdp"
+    exp: [贸易, 货物服务出口总额, 亚太]
+    imp: [贸易, 货物服务进口总额, 亚太]
+    gdp: [综合, 国内生产总值(GDP), 亚太]
+  expr: "(exp + imp) / gdp * 100"
+  compare: true
+
+- name: 中国社零占GDP比重
+  unit: "%"
+  description: 社会消费品零售总额 / 地区生产总值（国家统计局口径）
+  variables:
+    retail: [贸易, 社会消费品零售总额, 中国]
+    gdp: [综合, 地区生产总值, 中国]
+  expr: "retail / gdp * 100"
   compare: false

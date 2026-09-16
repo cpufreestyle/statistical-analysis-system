@@ -22,11 +22,19 @@ Thumbs.db
 push_out.txt
 push*.txt
 .vercel
+_*.log
+_*.txt
+_*.json
+_*.md
+_*.csv
 
 # ---- Vercel 部署日志 / 生成图片（非源码，勿提交）----
 .vercel_deploy*.txt
 .vercel_result*.txt
 generated-images/
 
-# ---- IDE / CodeBuddy 应用数据（非源码，勿提交）----
+# ---- IDE / AI 助手工作目录（非源码，勿提交）----
 _app_data/
+.codebuddy/memory/
+.codebuddy/sandbox/history.json
+.qoder/

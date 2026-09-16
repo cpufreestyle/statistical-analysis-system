@@ -3,41 +3,36 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title data-i18n="page.title">全国统计分析系统</title>
-<link rel="stylesheet" href="/style.css?v=2">
+<title data-i18n="page.title">亚太统计分析系统</title>
+<meta name="description" content="Asia-Pacific Statistical Analysis System — official public data (World Bank Open Data, China NBS, China Customs) with AI-grounded interpretation.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css?v=3">
 </head>
 <body>
 
 <!-- ═══════ 顶部导航 ═══════ -->
 <header class="header">
   <div class="header-brand">
-    <div class="header-logo">统</div>
+    <div class="header-logo">AP</div>
     <div>
-      <span class="header-title" data-i18n="全国统计分析">全国统计分析</span>
-      <span class="header-title-en">China Stats</span>
+      <span class="header-title" data-i18n="全国统计分析">亚太统计分析</span>
+      <span class="header-title-en">Asia-Pacific</span>
     </div>
-  </div>
-
-  <div class="header-search">
-    <span class="search-icon">🔍</span>
-    <input type="text" data-i18n-ph="搜索指标、地区、分析主题…" placeholder="搜索指标、地区、分析主题…" />
-    <button class="search-btn" data-i18n="搜索">搜索</button>
   </div>
 
   <div class="header-right">
     <a href="/" data-i18n="home.link" style="font-size:12px;color:var(--gray-400);text-decoration:none;margin-right:12px;padding:4px 10px;border:1px solid var(--gray-200);border-radius:6px;transition:all 0.2s;" onmouseover="this.style.color='var(--blue-600)';this.style.borderColor='var(--blue-300)'" onmouseout="this.style.color='var(--gray-400)';this.style.borderColor='var(--gray-200)'">🏠 首页</a>
-    <button id="langToggle" class="lang-toggle" type="button" onclick="toggleLang()">EN</button>
+    <label class="header-select">
+      <span data-i18n="地区/经济体">地区/经济体</span>
+      <select id="globalDimension" onchange="syncDimension(this.value)"></select>
+    </label>
     <div class="header-year">
-      <span></span>
-      <select id="globalYear" onchange="syncYear(this.value)">
-        <option value="2026">2026年</option>
-        <option value="2025">2025年</option>
-        <option value="2024" selected>2024年</option>
-        <option value="2023">2023年</option>
-        <option value="2022">2022年</option>
-        <option value="2021">2021年</option>
-      </select>
+      <select id="globalYear" onchange="syncYear(this.value)"></select>
     </div>
+    <button id="langToggle" class="lang-toggle" type="button" onclick="toggleLang()">EN</button>
   </div>
 </header>
 
@@ -46,7 +41,7 @@
   <div class="content">
     <div class="page-header">
       <h1 class="page-title" data-i18n="数据概览">数据概览</h1>
-      <p class="page-subtitle"><span id="subtitleYear">2024</span><span data-i18n="subtitle.text">年度全国经济数据统计与分析</span> <span class="section-badge" style="background:var(--green-50);color:var(--green-600);font-weight:500" data-i18n="badge.public">仅使用公开数据</span></p>
+      <p class="page-subtitle"><span id="subtitleYear">2024</span><span data-i18n="subtitle.text">年度亚太经济数据统计与分析</span> <span class="section-badge" style="background:var(--green-50);color:var(--green-600);font-weight:500" data-i18n="badge.official">仅使用公开数据</span></p>
     </div>
 
     <!-- ═══════ 查询工作台 ═══════ -->
@@ -55,24 +50,30 @@
         <button class="wb-tab active" data-tab="nlq" data-i18n="🌟 智能查询">🌟 智能查询</button>
         <button class="wb-tab" data-tab="indicators" data-i18n="📊 指标总表">📊 指标总表</button>
         <button class="wb-tab" data-tab="custom" data-i18n="📋 自定义分析">📋 自定义分析</button>
+        <button class="wb-tab" data-tab="bulletin" data-i18n="📄 统计公报">📄 统计公报</button>
       </div>
       <div class="wb-body">
         <!-- 智能查询 -->
         <div class="wb-panel active" id="panel-nlq">
-          <p style="font-size:13px;color:var(--gray-500);margin-bottom:12px" data-i18n="输入你的分析问题，AI 将基于全国统计数据为你生成分析结果">输入你的分析问题，AI 将基于全国统计数据为你生成分析结果</p>
+          <p style="font-size:13px;color:var(--gray-500);margin-bottom:12px" data-i18n="输入你的分析问题，AI 将基于公开统计数据为你生成分析结果">输入你的分析问题，AI 将基于公开统计数据为你生成分析结果</p>
           <div class="query-row">
-            <input type="text" class="query-input" id="nlqInput" data-i18n-ph="例如：2024年社会消费品零售总额是多少？" placeholder="例如：2024年社会消费品零售总额是多少？" />
+            <input type="text" class="query-input" id="nlqInput" data-i18n-ph="例如：2024年GDP是多少？" placeholder="例如：2024年GDP是多少？" />
             <button class="btn btn-primary" id="btnAnalyze" onclick="runAnalyze()">
               <span class="spinner"></span>
               <span class="btn-label" data-i18n="📡 开始分析">📡 开始分析</span>
             </button>
           </div>
+          <label class="cloud-toggle">
+            <input type="checkbox" id="nlqCloud" checked>
+            <span data-i18n="AI 云端解读">AI 云端解读</span>
+            <span class="cloud-hint">InfiniSynapse</span>
+          </label>
           <div class="query-hint" data-i18n="💡 试试这些问题">💡 试试这些问题</div>
           <div class="query-suggestions">
-            <span class="suggestion-chip" data-i18n="chip.gdp" data-q="2024年地区生产总值（GDP）是多少？" onclick="fillQuery(this.dataset.q)">2024年GDP是多少？</span>
-            <span class="suggestion-chip" data-i18n="chip.retail" data-q="2024年社会消费品零售总额" onclick="fillQuery(this.dataset.q)">社会消费品零售总额</span>
-            <span class="suggestion-chip" data-i18n="chip.invest" data-q="2024年固定资产投资总额" onclick="fillQuery(this.dataset.q)">固定资产投资总额</span>
-            <span class="suggestion-chip" data-i18n="chip.pop" data-q="2024年常住人口数据" onclick="fillQuery(this.dataset.q)">常住人口数据</span>
+            <span class="suggestion-chip" data-i18n="chip.gdp" data-q-en="2024 GDP" data-q-zh="2024年GDP" onclick="fillQueryI18n(this)">2024年GDP是多少？</span>
+            <span class="suggestion-chip" data-i18n="chip.retail" data-q-en="retail sales" data-q-zh="社会消费品零售总额" onclick="fillQueryI18n(this)">社会消费品零售总额</span>
+            <span class="suggestion-chip" data-i18n="chip.invest" data-q-en="fixed asset investment" data-q-zh="固定资产投资总额" onclick="fillQueryI18n(this)">固定资产投资总额</span>
+            <span class="suggestion-chip" data-i18n="chip.pop" data-q-en="total population of Japan" data-q-zh="日本人口" onclick="fillQueryI18n(this)">常住人口数据</span>
           </div>
           <div id="nlqResult" class="ans-box"></div>
         </div>
@@ -81,15 +82,8 @@
         <div class="wb-panel" id="panel-indicators">
           <p style="font-size:.8rem;color:var(--gray-400);margin:0 0 .5rem" data-i18n="勾选指标后点「用所选建分析」可一键带入自定义分析；也可在上方自然语言框直接问具体指标名。">勾选指标后点「用所选建分析」可一键带入自定义分析；也可在上方自然语言框直接问具体指标名。</p>
           <div class="query-row" style="margin-bottom:10px">
-            <select class="query-input" style="flex:none;max-width:160px" id="indCat" onchange="loadIndicators()">
+            <select class="query-input" style="flex:none;max-width:180px" id="indCat" onchange="loadIndicators()">
               <option value="" data-i18n="全部专业">全部专业</option>
-              <option data-i18n="国民经济核算">国民经济核算</option>
-              <option data-i18n="工业">工业</option>
-              <option data-i18n="对外贸易">对外贸易</option>
-              <option data-i18n="金融">金融</option>
-              <option data-i18n="人口与就业">人口与就业</option>
-              <option data-i18n="服务业">服务业</option>
-              <option data-i18n="农业">农业</option>
             </select>
             <input type="text" class="query-input" id="indSearch" data-i18n-ph="关键词搜索指标 / 说明 / 维度" placeholder="关键词搜索指标 / 说明 / 维度" onkeydown="if(event.key==='Enter')loadIndicators()" />
             <button class="btn btn-primary" data-i18n="🔍 查询" onclick="loadIndicators()">🔍 查询</button>
@@ -174,6 +168,22 @@
             </div>
           </div>
         </div>
+
+        <!-- 统计公报 -->
+        <div class="wb-panel" id="panel-bulletin">
+          <p style="font-size:.8rem;color:var(--gray-400);margin:0 0 .6rem" data-i18n="点击「生成公报」按当前年份与维度输出真实数据公报">点击「生成公报」按当前年份与维度输出真实数据公报</p>
+          <div class="query-row">
+            <button class="btn btn-primary" id="btnBulletin" onclick="loadBulletin()">
+              <span class="spinner"></span>
+              <span class="btn-label" data-i18n="生成公报">生成公报</span>
+            </button>
+            <label class="cloud-toggle">
+              <input type="checkbox" id="bulletinCloud" checked>
+              <span data-i18n="含云端 AI 解读">含云端 AI 解读</span>
+            </label>
+          </div>
+          <div id="bulletinOut" class="bulletin-out"></div>
+        </div>
       </div>
     </div>
 
@@ -183,7 +193,7 @@
       <a class="section-link" data-i18n="查看全部指标 →" onclick="switchTab('indicators')">查看全部指标 →</a>
     </div>
     <div class="metrics-grid" id="metricsGrid">
-      <div class="metric-card"><div class="metric-header"><span class="metric-label">加载中…</span></div><div class="metric-value"><div class="skeleton skeleton-line" style="width:80px;height:24px"></div></div></div>
+      <div class="metric-card"><div class="metric-header"><span class="metric-label" data-i18n="加载中…">加载中…</span></div><div class="metric-value"><div class="skeleton skeleton-line" style="width:80px;height:24px"></div></div></div>
       <div class="metric-card"><div class="skeleton skeleton-line" style="height:24px"></div><div class="skeleton skeleton-line" style="width:50%;margin-top:8px"></div></div>
       <div class="metric-card"><div class="skeleton skeleton-line" style="height:24px"></div><div class="skeleton skeleton-line" style="width:50%;margin-top:8px"></div></div>
       <div class="metric-card"><div class="skeleton skeleton-line" style="height:24px"></div><div class="skeleton skeleton-line" style="width:50%;margin-top:8px"></div></div>
@@ -194,21 +204,21 @@
       <div class="section-title" data-i18n="快速开始">快速开始</div>
     </div>
     <div class="quick-grid">
-      <div class="quick-card" onclick="fillQuery('2024年GDP各产业构成分析')">
+      <div class="quick-card" data-q-en="2024 GDP" data-q-zh="2024年GDP" onclick="fillQueryI18n(this)">
         <div class="quick-title" data-i18n="GDP 构成分析">GDP 构成分析</div>
         <div class="quick-desc" data-i18n="查看三大产业增加值及占比">查看三大产业增加值及占比</div>
       </div>
-      <div class="quick-card" onclick="fillQuery('2024年规上工业关键指标')">
+      <div class="quick-card" data-q-en="industrial value added" data-q-zh="工业增加值" onclick="fillQueryI18n(this)">
         <div class="quick-title" data-i18n="工业运行">工业运行</div>
-        <div class="quick-desc" data-i18n="对比规上工业总产值与增加值">对比规上工业总产值与增加值</div>
+        <div class="quick-desc" data-i18n="对比各经济体工业增加值">对比各经济体工业增加值</div>
       </div>
-      <div class="quick-card" onclick="fillQuery('2024年贸易数据概览')">
+      <div class="quick-card" data-q-en="exports of goods" data-q-zh="货物服务出口总额" onclick="fillQueryI18n(this)">
         <div class="quick-title" data-i18n="贸易统计">贸易统计</div>
-        <div class="quick-desc" data-i18n="社会消费品零售总额等数据">社会消费品零售总额等数据</div>
+        <div class="quick-desc" data-i18n="进出口与消费数据">进出口与消费数据</div>
       </div>
-      <div class="quick-card" onclick="fillQuery('2024年投资与人口数据')">
+      <div class="quick-card" data-q-en="fixed asset investment" data-q-zh="固定资产投资总额" onclick="fillQueryI18n(this)">
         <div class="quick-title" data-i18n="投资与人口">投资与人口</div>
-        <div class="quick-desc" data-i18n="固定资产投资与常住人口">固定资产投资与常住人口</div>
+        <div class="quick-desc" data-i18n="固定资产投资与人口指标">固定资产投资与人口指标</div>
       </div>
     </div>
   </div>
@@ -242,70 +252,26 @@
         <span class="side-card-arrow"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
       </div>
       <div class="side-card-body">
-        <select class="query-input" style="width:100%;margin-bottom:8px;padding:8px 10px">
-          <option data-i18n="国家统计局">国家统计局</option>
-          <option data-i18n="海关总署">海关总署</option>
-          <option data-i18n="世界银行 Open Data">世界银行 Open Data</option>
+        <select class="query-input" id="collectSource" style="width:100%;margin-bottom:8px;padding:8px 10px">
+          <option value="worldbank" data-i18n="世界银行 Open Data">世界银行 Open Data</option>
         </select>
-        <input type="text" class="query-input" style="width:100%;margin-bottom:8px;padding:8px 10px" data-i18n-ph="指标名，如 GDP、CPI" placeholder="指标名，如 GDP、CPI" />
-        <button class="btn btn-secondary side-btn" data-i18n="从公开数据源采集" onclick="showToast(tr('开始采集公开数据…'), 'success')">从公开数据源采集</button>
+        <input type="text" class="query-input" id="collectInd" style="width:100%;margin-bottom:8px;padding:8px 10px" data-i18n-ph="指标名，如 GDP、CPI" placeholder="指标名，如 GDP、CPI" />
+        <button class="btn btn-secondary side-btn" id="btnCollect" data-i18n="从公开数据源采集" onclick="collectNow()">从公开数据源采集</button>
+        <p style="font-size:11px;color:var(--gray-400);margin-top:8px;line-height:1.5" data-i18n="采集说明：数据源为世界银行 Open Data（公开、无需鉴权）">采集说明：数据源为世界银行 Open Data（公开、无需鉴权）</p>
       </div>
     </div>
 
-    <!-- 统计公报 -->
+    <!-- 数据来源与规模（真实统计，非演示文案） -->
     <div class="side-card">
       <div class="side-card-header toggleable" onclick="toggleSidebarCard(this)">
-        <div class="side-card-title"><span class="icon">📄</span> <span data-i18n="统计公报">统计公报</span></div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <span class="side-card-more" data-i18n="更多" onclick="event.stopPropagation()">更多</span>
-          <span class="side-card-arrow"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
-        </div>
+        <div class="side-card-title"><span class="icon">🗄️</span> <span data-i18n="数据来源与规模">数据来源与规模</span></div>
+        <span class="side-card-arrow"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
       </div>
       <div class="side-card-body">
-        <div class="report-item">
-          <div class="report-file-icon pdf">📄</div>
-          <div class="report-info">
-            <div class="report-name" data-i18n="2024年国民经济和社会发展统计公报">2024年国民经济和社会发展统计公报</div>
-            <div class="report-date">2025-02-28</div>
-          </div>
-        </div>
-        <div class="report-item">
-          <div class="report-file-icon xlsx">📊</div>
-          <div class="report-info">
-            <div class="report-name" data-i18n="2024年全国统计年鉴">2024年全国统计年鉴</div>
-            <div class="report-date">2024-12-01</div>
-          </div>
-        </div>
-        <button class="btn btn-ghost side-btn" style="color:var(--blue-600);justify-content:center" data-i18n="查看全部公报">查看全部公报</button>
-      </div>
-    </div>
-
-    <!-- 今日动态 -->
-    <div class="side-card">
-      <div class="side-card-header">
-        <div class="side-card-title"><span class="icon">📡</span> <span data-i18n="今日动态">今日动态</span></div>
-      </div>
-      <div class="side-card-body">
-        <div class="activity-item">
-          <span class="activity-time">10:32</span>
-          <span class="activity-text" data-i18n="完成查询：2024年GDP构成分析">完成查询：2024年GDP构成分析</span>
-        </div>
-        <div class="activity-item">
-          <span class="activity-time">09:15</span>
-          <span class="activity-text" data-i18n="数据源「国家统计局」已更新">数据源「国家统计局」已更新</span>
-        </div>
-        <div class="activity-item">
-          <span class="activity-time">08:40</span>
-          <span class="activity-text" data-i18n="统计公报「2024年度全国经济概览」已发布">统计公报「2024年度全国经济概览」已发布</span>
-        </div>
-        <div class="activity-item">
-          <span class="activity-time">08:05</span>
-          <span class="activity-text" data-i18n="数据采集任务「海关月度数据」完成">数据采集任务「海关月度数据」完成</span>
-        </div>
-        <div class="activity-item">
-          <span class="activity-time">07:50</span>
-          <span class="activity-text" data-i18n="完成查询：固定资产投资对比">完成查询：固定资产投资对比</span>
-        </div>
+        <div class="stat-row"><span data-i18n="指标记录">指标记录</span><b id="dbIndicators">—</b></div>
+        <div class="stat-row"><span data-i18n="知识条目">知识条目</span><b id="dbKnowledge">—</b></div>
+        <div class="stat-row"><span data-i18n="覆盖经济体">覆盖经济体</span><b id="dbDimensions">—</b></div>
+        <div class="stat-row"><span data-i18n="覆盖年份">覆盖年份</span><b id="dbYears">—</b></div>
       </div>
     </div>
   </aside>
@@ -324,7 +290,7 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="/i18n.js?v=2"></script>
-<script src="/app.js?v=2"></script>
+<script src="/i18n.js?v=3"></script>
+<script src="/app.js?v=3"></script>
 </body>
 </html>
