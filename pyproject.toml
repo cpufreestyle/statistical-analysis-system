@@ -39,3 +39,10 @@ reportImplicitStringConcatenation = "none"
 reportAny = "none"
 reportDeprecated = "none"
 reportUnusedImport = "none"
+
+# ---- pytest（质量底线：单元测试 + 路由冒烟）----
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-q"
+

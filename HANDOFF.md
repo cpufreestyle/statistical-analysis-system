@@ -18,7 +18,7 @@
 | 仓库 | Gitee `cpufreestyle/statistical-analysis-system`（origin）· GitHub 同名（github） |
 | 分支 / 版本 | `master`；tag 仅 `v1.0.0`（**落后 HEAD，见 §6**） |
 | 线上 | Vercel 项目 `qu-stat-system`，生产别名 `https://qu-stat-system.vercel.app`（**本次未探活，见 §5**） |
-| 测试 / CI | **无**（`tests/` 为空目录，无 workflow）——见 §6 |
+| 测试 / CI | ✅ `tests/` 已有 66 项单元测试 + `.github/workflows/ci.yml`（pytest + 起服务跑 `check_i18n.py` + 可选 markdownlint）——见 §6.1 |
 | 许可证 | MIT |
 
 **唯一护城河**：AI 解读 + 每行数据可溯源到 `note` + 明确禁止编造数字。
@@ -136,7 +136,7 @@ python -m src.cli db info
 | **线上 Vercel 部署** | ❓ **未验证** | 本次环境无法出外网。域名来自 7–8 月部署日志，**可能已变更或项目已删**，请自行探活 |
 | **Vercel KV 持久化** | ❓ 未验证 | 依赖 `KV_REST_API_URL` / `KV_REST_API_TOKEN` 是否仍配置 |
 | **云端 AI 解读** | ❓ 未验证 | 需 `INFINISYNAPSE_API_KEY`；未配时自动降级为仅本地统计（不会报错） |
-| **Windows 之外的平台** | ❓ 未验证 | 无 CI，仅在 Windows 上跑过 |
+| **Windows 之外的平台** | ✅ 已配 CI（ubuntu-latest） | `.github/workflows/ci.yml` 在 push/PR 时跑 pytest + 起服务 i18n 冒烟；本地 Windows 亦 66 项单测全绿 |
 
 ---
 
@@ -144,10 +144,12 @@ python -m src.cli db info
 
 按影响排序。
 
-1. **零自动化测试、无 CI。** 仓库有 `tests/` 目录但**没有任何被跟踪的测试文件**
-   （历史上也从未提交过）。当前质量保障完全依赖 `scripts/check_i18n.py` 与手工验证。
-   这是接手后最该补的一环——建议至少给 `labels.py`、`stats/core.py`、
-   `report.build_bulletin_data()` 这些纯函数补单测，再挂 GitHub Actions。
+1. ~~**零自动化测试、无 CI。**~~ ✅ **已补质量底线**：`tests/` 下 5 个测试模块共 66 项单测
+   （`test_labels` i18n 契约、`test_analyzer` provider 派发与解析、`test_web` 路由冒烟
+   「html lang / CSV 导出 BOM 与列 / SEO 三件套」、`test_embed` embed 单遍合并回归、
+   `conftest` 测试库隔离到临时目录）。`.github/workflows/ci.yml` 在 push/PR 时：
+   `pytest` → 起本地服务跑 `scripts/check_i18n.py` → 可选 `markdownlint-cli2`（不阻塞）。
+   仍需补的纯函数：`src/stats/core.py`、`report.build_bulletin_data()`（不追覆盖率）。
 
 2. **版本号未维护。** tag 只有 `v1.0.0`（8 个提交之前），`pyproject.toml` version 是 `0.1.0`。
    发版前先对齐这两处，并确认 release notes 与 `README` / `README.zh-CN.md` 一致。
@@ -240,7 +242,7 @@ python -m src.cli db info
 
 ## 9. 下一步建议（按优先级）
 
-1. **补最小测试集 + CI**（质量底线，见 §6.1）。优先覆盖纯函数，不追覆盖率。
+1. ~~**补最小测试集 + CI**（质量底线，见 §6.1）~~ ✅ 已完成：`tests/`（66 项单测）+ `.github/workflows/ci.yml`（pytest + 起服务 i18n 冒烟 + 可选 markdownlint）。
 2. **图表**（P0）。项目是零构建栈，引重量级图表库会破坏这一点且内嵌后会撑大
    `src/pages.py` → 建议**自绘轻量 SVG**（折线 + 排名条形）。
 3. **导出 + 分享链接**（P0）。`/api/export.csv` 复用 CLI 的 `export` 逻辑 +
