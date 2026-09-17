@@ -133,6 +133,7 @@ python -m src.cli db info
 | CLI 双语（`ask` / `report` / `custom`） | ✅ 已验证 | 命令行实测 |
 | 本地服务 `/` `/app` 与全部 API | ✅ 已验证 | 交接时 200 |
 | README markdownlint | ✅ 已验证 | `markdownlint-cli2` 0 issues |
+| 亚太分类口径（移除美国/澳大利亚） | ✅ 已本地验证 | pytest 66 项全绿；`available_dimensions()` 维度列表无 United States/Australia 泄漏，待重部署后线上生效 |
 | **线上 Vercel 部署** | ❓ **未验证** | 本次环境无法出外网。域名来自 7–8 月部署日志，**可能已变更或项目已删**，请自行探活 |
 | **Vercel KV 持久化** | ❓ 未验证 | 依赖 `KV_REST_API_URL` / `KV_REST_API_TOKEN` 是否仍配置 |
 | **云端 AI 解读** | ❓ 未验证 | 需 `INFINISYNAPSE_API_KEY`；未配时自动降级为仅本地统计（不会报错） |
@@ -187,7 +188,7 @@ python -m src.cli db info
 
 ## 7. 数据口径与接口
 
-**数据规模**：`ap_macro.csv` 837 行 / 14 维度（2 聚合 + 12 经济体）/ 2019–2024 / 10 指标；
+**数据规模**：`ap_macro.csv` 720 行 / 12 维度（2 聚合 + 10 经济体）/ 2019–2024 / 10 指标；
 `nbs_cn.csv` 9 行中国国内明细（仅 2024）。
 
 **口径注意**（已在 README 的 Limitations 说明）：
