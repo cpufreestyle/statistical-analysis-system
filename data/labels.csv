@@ -73,8 +73,6 @@ dimension,越南,viet_nam,Viet Nam
 dimension,马来西亚,malaysia,Malaysia
 dimension,菲律宾,philippines,Philippines
 dimension,新加坡,singapore,Singapore
-dimension,澳大利亚,australia,Australia
-dimension,美国,united_states,United States
 
 # ---- 单位 ----
 unit,%,percent,%

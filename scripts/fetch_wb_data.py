@@ -67,8 +67,6 @@ ECONOMIES: dict[str, str] = {
     "MYS": "马来西亚",
     "PHL": "菲律宾",
     "SGP": "新加坡",
-    "AUS": "澳大利亚",
-    "USA": "美国",
 }
 
 DEFAULT_FROM, DEFAULT_TO = 2019, 2024

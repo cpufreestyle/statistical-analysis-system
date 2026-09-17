@@ -270,8 +270,6 @@
     "马来西亚": "Malaysia",
     "菲律宾": "Philippines",
     "新加坡": "Singapore",
-    "澳大利亚": "Australia",
-    "美国": "United States",
     "全区": "Whole Region",
     "全国": "National",
     "地区": "Region",

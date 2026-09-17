@@ -17,8 +17,7 @@ const STATE = {
 const DIM_ISO = {
   '亚太': 'EAS', '亚太(发展中)': 'EAP', '中国': 'CHN', '日本': 'JPN',
   '韩国': 'KOR', '印度': 'IND', '印度尼西亚': 'IDN', '泰国': 'THA',
-  '越南': 'VNM', '马来西亚': 'MYS', '菲律宾': 'PHL', '新加坡': 'SGP',
-  '澳大利亚': 'AUS', '美国': 'USA'
+  '越南': 'VNM', '马来西亚': 'MYS', '菲律宾': 'PHL',   '新加坡': 'SGP'
 };
 
 function isZh() { return window.CUR_LANG === 'zh'; }
