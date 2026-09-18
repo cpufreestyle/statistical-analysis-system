@@ -18,7 +18,7 @@
 | 仓库 | Gitee `cpufreestyle/statistical-analysis-system`（origin）· GitHub 同名（github） |
 | 分支 / 版本 | `master`；tag 仅 `v1.0.0`（**落后 HEAD，见 §6**） |
 | 线上 | Vercel 项目 `qu-stat-system`，生产别名 `https://qu-stat-system.vercel.app`（**本次未探活，见 §5**） |
-| 测试 / CI | ✅ `tests/` 5 个模块共 **85 项**单元测试 + `.github/workflows/ci.yml`（pytest + 起服务跑 `check_i18n.py` + 可选 markdownlint）——见 §6.1 |
+| 测试 / CI | ✅ `tests/` **111 项**单元测试 + `.github/workflows/ci.yml`（pytest + 起服务跑 `check_i18n.py` + 可选 markdownlint）——见 §6.1 |
 | 许可证 | MIT（见 `LICENSE`；`data/` 沿用来源方条款：World Bank Open Data CC BY 4.0） |
 | 开源配套 | `LICENSE` · `CONTRIBUTING.md`（+ 中文版）· `SECURITY.md` · `CHANGELOG.md` · `CITATION.cff` · `.github/` 的 PR 与 issue 模板 · `.markdownlint-cli2.jsonc` |
 
@@ -40,8 +40,9 @@
   4. `40e3784` 更新交接文档 —— 收口亚太分类口径与数据规模
   5. `d8915f2` 移除美国与澳大利亚维度，收口亚太分类口径
 - 本地服务可跑（`/` `/app` `/docs` `/privacy` 均 200）。
-- 待办：三个批次尚**未打 tag / 发 release**；`pyproject.toml` 版本号仍是 `0.1.0`，
-  git tag 仍只有 `v1.0.0`。发版前需先对齐这两处（见 §6）。
+- **已发版（2026-09-18）**：`v1.1.0`=`7d3faab`（性能·加固·体验·SEO）、
+  `v1.2.0`=`202f428`（可用性与质量）、`v1.3.0`=`130e793`+`c70ce1b`（开源配套+隐私页）；
+  `pyproject.toml` version 对齐为 `1.3.0`，CHANGELOG 批次已折入版本标题。
 
 ---
 
@@ -305,8 +306,8 @@ python -m src.cli db info
 
 1. **探活线上并核对 Vercel 项目设置**（见 §5、§6.3），清理 `builds` 残留警告。
    这是**唯一仍然未知**的关键项——本地全部能力已实测，线上只有本沙箱出不去网时才无法验证。
-2. **发布一次正式 release**，对齐 tag 与 `pyproject.toml` 版本号（见 §6.2），
-   并确认 release notes 与 `README` / `README.zh-CN.md` 一致。按约定：一个变更批次一个 tag，不合并。
+2. ~~**发布一次正式 release**~~ **已完成（2026-09-18）**：v1.1.0–v1.3.0 三个 tag 已打齐并推双远程。
+   此后维持约定：一个变更批次一个 tag，不合并；发版时同步 `pyproject.toml` 与 CHANGELOG 版本标题。
 3. **换自定义域名时必设 `QU_STAT_BASE_URL`**（否则 canonical / hreflang / `/docs` 示例
    仍指向 vercel.app）；线上若需重播种或抓数，配 `QU_STAT_ADMIN_TOKEN` 后用
    `X-Admin-Token` 调管理端点。

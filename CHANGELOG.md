@@ -2,10 +2,9 @@
 
 All notable changes are recorded here.
 
-The project does **not** yet keep a version number in sync with commits (`pyproject.toml` is
-still `0.1.0`, the only tag is `v1.0.0` — see `HANDOFF.md` §6), so entries are grouped by
-**date + batch** instead of by release. When a release is cut, its batch gets folded into a
-version heading.
+Versioning follows semver: `pyproject.toml` carries the latest released version and every
+independent batch gets its **own tag + release** (batches are never merged into one release).
+Older entries keep their original date + batch grouping.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`, `Changed`,
 `Fixed`, `Security` and `Docs`.
@@ -14,7 +13,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
 
 Nothing yet.
 
-## 2026-09-18 — Open-source readiness batch (`130e793`)
+## v1.3.0 — 2026-09-18 — Open-source readiness (`130e793`, `c70ce1b`)
 
 ### Added
 
@@ -47,7 +46,7 @@ Nothing yet.
   CITATION / privacy / docs.
 - `HANDOFF.md` §0, §5, §6.7 and §9 refreshed.
 
-## 2026-09-18 — Usability & quality batch (`202f428`)
+## v1.2.0 — 2026-09-18 — Usability & quality (`202f428`)
 
 ### Added
 
