@@ -878,7 +878,7 @@ function renderLine() {
            (f === l ? '' : ' → ' + l + ' ' + fmtNum(byDim[d][l]) + unit);
   }).filter(Boolean).join('; ');
 
-  var W = 720, H = 340, mL = 60, mR = 16, mT = 16, mB = 34;
+  var W = 760, H = 360, mL = 72, mR = 20, mT = 18, mB = 38;
   var pW = W - mL - mR, pH = H - mT - mB;
   function xFor(i) { return mL + (years.length === 1 ? pW / 2 : (i / (years.length - 1)) * pW); }
   function yFor(v) { return mT + pH - ((v - yMin) / (yMax - yMin)) * pH; }
@@ -890,25 +890,27 @@ function renderLine() {
     + '<title>' + h(a11yLabel) + '</title>'
     + '<desc>' + h(a11yDesc) + '</desc>';
   var ticks = 4;
+  /* 坐标轴与网格 */
+  svg += '<line x1="' + mL + '" y1="' + mT + '" x2="' + mL + '" y2="' + (H - mB) + '" stroke="var(--gray-200)" stroke-width="1"/>';
   for (var t = 0; t <= ticks; t++) {
     var tv = yMin + (yMax - yMin) * t / ticks;
     var ty = yFor(tv);
-    svg += '<line x1="' + mL + '" y1="' + ty + '" x2="' + (W - mR) + '" y2="' + ty + '" stroke="var(--gray-150)" stroke-width="1"/>';
-    svg += '<text x="' + (mL - 8) + '" y="' + (ty + 4) + '" text-anchor="end" font-size="11" fill="var(--gray-400)" font-family="' + ff + '">' + h(fmtNum(Math.round(tv * 100) / 100)) + '</text>';
+    svg += '<line x1="' + mL + '" y1="' + ty + '" x2="' + (W - mR) + '" y2="' + ty + '" stroke="var(--gray-200)" stroke-width="1"/>';
+    svg += '<text x="' + (mL - 10) + '" y="' + (ty + 4) + '" text-anchor="end" font-size="12" fill="var(--gray-400)" font-family="' + ff + '">' + h(fmtNum(Math.round(tv * 100) / 100)) + '</text>';
   }
   years.forEach(function (y, i) {
-    svg += '<text x="' + xFor(i) + '" y="' + (H - 12) + '" text-anchor="middle" font-size="11" fill="var(--gray-400)" font-family="' + ff + '">' + h(y) + '</text>';
+    svg += '<text x="' + xFor(i) + '" y="' + (H - 12) + '" text-anchor="middle" font-size="12" fill="var(--gray-400)" font-family="' + ff + '">' + h(y) + '</text>';
   });
   active.forEach(function (d) {
     var color = dimColor(d);
     var pts = [];
     years.forEach(function (y, i) { if (byDim[d][y] != null) pts.push(xFor(i) + ',' + yFor(byDim[d][y])); });
     if (pts.length > 1) {
-      svg += '<polyline points="' + pts.join(' ') + '" fill="none" stroke="' + color + '" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>';
+      svg += '<polyline points="' + pts.join(' ') + '" fill="none" stroke="' + color + '" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>';
     }
     years.forEach(function (y, i) {
       if (byDim[d][y] != null) {
-        svg += '<circle cx="' + xFor(i) + '" cy="' + yFor(byDim[d][y]) + '" r="3.2" fill="var(--surface)" stroke="' + color + '" stroke-width="2"/>';
+        svg += '<circle cx="' + xFor(i) + '" cy="' + yFor(byDim[d][y]) + '" r="3.5" fill="var(--surface)" stroke="' + color + '" stroke-width="2.5"/>';
       }
     });
   });
@@ -941,9 +943,9 @@ function renderRank() {
            (CHART.unit ? ' ' + CHART.unit : '');
   }).join('; ');
 
-  var labelW = 96, barX = labelW + 10, valW = 74;
-  var rowH = 26, padT = 6;
-  var W = 720, H = padT * 2 + rows.length * rowH;
+  var labelW = 108, barX = labelW + 12, valW = 80;
+  var rowH = 28, padT = 8;
+  var W = 760, H = padT * 2 + rows.length * rowH;
   var max = Number(rows[0].value) || 1;
   var chartW = W - barX - valW;
   var ff = fontFamily();
@@ -960,9 +962,9 @@ function renderRank() {
     var bw = Math.max(2, (Number(r.value) / max) * chartW);
     var label = dimLabel(dk);
     if (label.length > 7) label = label.slice(0, 6) + '…';
-    svg += '<text x="' + (labelW - 8) + '" y="' + (y + 16) + '" text-anchor="end" font-size="12" fill="var(--gray-600)" font-family="' + ff + '">' + h(label) + '</text>';
-    svg += '<rect x="' + barX + '" y="' + (y + 4) + '" width="' + bw + '" height="16" rx="3" fill="' + color + '"/>';
-    svg += '<text x="' + (barX + bw + 8) + '" y="' + (y + 16) + '" font-size="12" fill="var(--gray-700)" font-family="' + ff + '" font-weight="600">' + h(fmtNum(r.value)) + '</text>';
+    svg += '<text x="' + (labelW - 8) + '" y="' + (y + 17) + '" text-anchor="end" font-size="12" fill="var(--gray-600)" font-family="' + ff + '">' + h(label) + '</text>';
+    svg += '<rect x="' + barX + '" y="' + (y + 5) + '" width="' + bw + '" height="18" rx="4" fill="' + color + '"/>';
+    svg += '<text x="' + (barX + bw + 8) + '" y="' + (y + 17) + '" font-size="12" fill="var(--gray-700)" font-family="' + ff + '" font-weight="600">' + h(fmtNum(r.value)) + '</text>';
   });
   svg += '</svg>';
   box.innerHTML = svg;
