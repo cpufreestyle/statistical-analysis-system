@@ -30,8 +30,8 @@ Nothing yet.
   stored (the `qu_lang_v2` key in `localStorage`), under which licence the data is used
   (World Bank CC BY 4.0), and whether AI is on (off by default). Linked from the landing-page
   footer, `/docs` and the error pages; listed in `sitemap.xml`.
-- 6 tests for the privacy page (placeholder substitution, both languages, the three answers,
-  reachability, sitemap). Suite grows 85 → 111.
+- New tests for the privacy page (placeholder substitution, both languages, the three
+  answers, reachability, sitemap). Suite grows 106 → 111.
 
 ### Changed
 
@@ -60,7 +60,7 @@ Nothing yet.
 - Chart accessibility: chart SVGs carry `role="img"` + `aria-label` + a `<desc>` data summary,
   the legend is `aria-hidden`, containers are `aria-live="polite"`.
 - `tests/test_stats_core.py` — 17 tests for `yoy` / `share` / `rank_items` / `fmt_pct`
-  boundaries and for `report.build_bulletin_data()`. Suite grows 74 → 85.
+  boundaries and for `report.build_bulletin_data()`. Suite grows 74 → 106.
 - A test that compares `app.url_map` against `src/api_docs.py`'s `ENDPOINTS` in both
   directions, so a new route cannot ship without documentation.
 
