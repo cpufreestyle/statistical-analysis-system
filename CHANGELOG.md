@@ -13,6 +13,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
 
 Nothing yet.
 
+## v1.4.0 — 2026-09-18 — UI polish (`a9d2c37`)
+
+### Changed
+
+- 指标卡与 Quick Start 网格从固定 4 列改为 `repeat(auto-fit, minmax(220px/200px, 1fr))`，
+  解决 3 张或 5 张卡时右侧/下方出现空列的问题；响应式断点不再显式覆盖网格列数。
+- 顶栏品牌隐藏重复的英文副标题，标题更干净。
+- 工作台标签 active 状态加蓝色背景与 3px 下划线，标签图标放大，状态更醒目。
+- 图表容器升级为白底卡片 + 阴影 + 更大圆角/内边距；
+  折线图增大画布、左外边距与字号，新增 Y 轴线，网格线改用深色也可见的 `--gray-200`；
+  排名条图标签区与条形略放大、圆角加大。
+- 区块徽章由灰阶改为蓝色系，提高识别度。
+
 ## v1.3.0 — 2026-09-18 — Open-source readiness (`130e793`, `c70ce1b`)
 
 ### Added

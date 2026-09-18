@@ -1,6 +1,6 @@
 [project]
 name = "qu-stat-system"
-version = "1.3.0"
+version = "1.4.0"
 description = "Asia-Pacific Statistical Analysis System — official public data (World Bank Open Data, China NBS, China Customs) with AI-grounded interpretation"
 requires-python = ">=3.9"
 # 代码许可为 MIT（见仓库根 LICENSE 文件）；data/ 下的公开数据沿用各数据源自身的许可。
