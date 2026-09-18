@@ -8,21 +8,55 @@
 <meta property="og:type" content="website">
 <meta property="og:title" content="Asia-Pacific Statistical Analysis System">
 <meta property="og:description" content="Official public data (World Bank Open Data · China NBS · China Customs) + AI-grounded interpretation. Every figure traceable to its source.">
-<meta property="og:image" content="https://qu-stat-system.vercel.app/og-image.svg">
+<meta property="og:image" content="https://qu-stat-system.vercel.app/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Asia-Pacific Statistical Analysis System — official public data dashboard">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://qu-stat-system.vercel.app/og-image.svg">
+<meta name="twitter:image" content="https://qu-stat-system.vercel.app/og-image.png">
 <link rel="canonical" href="https://qu-stat-system.vercel.app/app">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css?v=3">
+<link rel="stylesheet" href="/style.css?v=__ASSET_VER__">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebApplication",
+      "name": "Asia-Pacific Statistical Analysis System",
+      "alternateName": "亚太统计分析系统",
+      "url": "https://qu-stat-system.vercel.app/app",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Any",
+      "inLanguage": ["en", "zh-CN"],
+      "isAccessibleForFree": true,
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+    },
+    {
+      "@type": "Dataset",
+      "name": "Asia-Pacific Macroeconomic Indicators",
+      "description": "GDP, GDP growth, per-capita GDP, population, unemployment, inflation (CPI), life expectancy and trade for Asia-Pacific economies and China. Public data from World Bank Open Data, China NBS and China Customs.",
+      "url": "https://qu-stat-system.vercel.app/app",
+      "isAccessibleForFree": true,
+      "license": "https://datacatalog.worldbank.org/public-licenses",
+      "creator": { "@type": "Organization", "name": "Asia-Pacific Statistical Analysis System" },
+      "spatialCoverage": { "@type": "Place", "name": "Asia-Pacific" },
+      "temporalCoverage": "2019/2024",
+      "variableMeasured": ["GDP", "GDP growth rate", "GDP per capita", "Population", "Unemployment rate", "Inflation (CPI)", "Life expectancy", "Trade"],
+      "distribution": [
+        { "@type": "DataDownload", "encodingFormat": "text/csv", "contentUrl": "https://qu-stat-system.vercel.app/api/export.csv" },
+        { "@type": "DataDownload", "encodingFormat": "application/json", "contentUrl": "https://qu-stat-system.vercel.app/api/indicators" }
+      ]
+    }
+  ]
+}
+</script>
 </head>
 <body>
+<a class="skip-link" href="#main" data-i18n="跳到主内容">跳到主内容</a>
 
 <!-- ═══════ 顶部导航 ═══════ -->
-<header class="header">
+<header class="header" aria-label="主导航">
   <div class="header-brand">
     <div class="header-logo">AP</div>
     <div>
@@ -40,14 +74,14 @@
     <div class="header-year">
       <select id="globalYear" onchange="syncYear(this.value)"></select>
     </div>
-    <button id="langToggle" class="lang-toggle" type="button" onclick="toggleLang()">EN</button>
-    <button id="shareBtn" class="lang-toggle" type="button" onclick="copyShareLink()" data-i18n="🔗 分享" title="复制当前筛选条件下的分享链接">🔗 分享</button>
+    <button id="langToggle" class="lang-toggle" type="button" onclick="toggleLang()" aria-label="切换语言 / Switch language">EN</button>
+    <button id="shareBtn" class="lang-toggle" type="button" onclick="copyShareLink()" data-i18n="🔗 分享" aria-label="复制分享链接 / Copy share link" title="复制当前筛选条件下的分享链接">🔗 分享</button>
   </div>
 </header>
 
 <!-- ═══════ 布局主体 ═══════ -->
 <div class="layout">
-  <div class="content">
+  <div class="content" id="main">
     <div class="page-header">
       <h1 class="page-title" data-i18n="数据概览">数据概览</h1>
       <p class="page-subtitle"><span id="subtitleYear">2024</span><span data-i18n="subtitle.text">年度亚太经济数据统计与分析</span> <span class="section-badge" style="background:var(--green-50);color:var(--green-600);font-weight:500" data-i18n="badge.official">仅使用公开数据</span></p>
@@ -55,12 +89,12 @@
 
     <!-- ═══════ 查询工作台 ═══════ -->
     <div class="workbench">
-      <div class="wb-tabs">
-        <button class="wb-tab active" data-tab="nlq" data-i18n="🌟 智能查询">🌟 智能查询</button>
-        <button class="wb-tab" data-tab="indicators" data-i18n="📊 指标总表">📊 指标总表</button>
-        <button class="wb-tab" data-tab="custom" data-i18n="📋 自定义分析">📋 自定义分析</button>
-        <button class="wb-tab" data-tab="bulletin" data-i18n="📄 统计公报">📄 统计公报</button>
-        <button class="wb-tab" data-tab="charts" data-i18n="📈 图表">📈 图表</button>
+      <div class="wb-tabs" role="tablist" aria-label="分析视图">
+        <button class="wb-tab active" data-tab="nlq" role="tab" aria-selected="true" data-i18n="🌟 智能查询">🌟 智能查询</button>
+        <button class="wb-tab" data-tab="indicators" role="tab" aria-selected="false" data-i18n="📊 指标总表">📊 指标总表</button>
+        <button class="wb-tab" data-tab="custom" role="tab" aria-selected="false" data-i18n="📋 自定义分析">📋 自定义分析</button>
+        <button class="wb-tab" data-tab="bulletin" role="tab" aria-selected="false" data-i18n="📄 统计公报">📄 统计公报</button>
+        <button class="wb-tab" data-tab="charts" role="tab" aria-selected="false" data-i18n="📈 图表">📈 图表</button>
       </div>
       <div class="wb-body">
         <!-- 智能查询 -->
@@ -332,7 +366,7 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="/i18n.js?v=3"></script>
-<script src="/app.js?v=3"></script>
+<script src="/i18n.js?v=__ASSET_VER__"></script>
+<script src="/app.js?v=__ASSET_VER__"></script>
 </body>
 </html>

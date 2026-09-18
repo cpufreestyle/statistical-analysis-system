@@ -38,6 +38,8 @@
     "搜索指标、地区、分析主题…": "Search indicators, regions, topics…",
     "仅使用公开数据": "Public Data Only",
     "badge.public": "Public Data Only",
+    "跳到主内容": "Skip to content",
+    "该维度暂无数据": "No data available for this region",
     "badge.official": "Official Public Data",
     "badge.api": "Powered by InfiniSynapse Server API",
 
@@ -241,7 +243,7 @@
     "arch.desc.4": "InfiniSynapse API<br>Grounded prompting<br>Streaming response",
     "技术栈详情": "Tech Stack",
     "前端": "Frontend",
-    "tech.desc.1": "Vanilla HTML5 + CSS3 + JavaScript<br>No framework, no CDN at runtime<br>Noto Sans SC + Roboto",
+    "tech.desc.1": "Vanilla HTML5 + CSS3 + JavaScript<br>No framework, no CDN at runtime<br>System font stack",
     "后端": "Backend",
     "tech.desc.2": "Python + Flask<br>RESTful JSON API<br>Local SQLite storage",
     "AI 模型": "AI Models",

@@ -4,7 +4,7 @@
 - ``/`` 与 ``/app`` 的 ``__HTML_LANG__`` 占位符按 ``?lang=`` 替换（SEO / 分享卡片语言）；
 - ``/api/export.csv`` 的 BOM（Excel 直接打开）、7 列定宽、Content-Disposition 文件名、
   以及 lang=en/zh 的本地化方向；
-- ``/robots.txt`` ``/sitemap.xml`` ``/og-image.svg`` 三大 SEO 资源存在且 Content-Type 正确。
+- ``/robots.txt`` ``/sitemap.xml`` ``/og-image.png`` 三大 SEO 资源存在且 Content-Type 正确。
 """
 from __future__ import annotations
 
@@ -99,8 +99,83 @@ def test_sitemap_xml(client):
     assert "<urlset" in resp.text
 
 
-def test_og_image_svg(client):
-    resp = client.get("/og-image.svg")
+def test_og_image_png(client):
+    resp = client.get("/og-image.png")
     assert resp.status_code == 200
-    assert resp.content_type.startswith("image/svg+xml")
-    assert "<svg" in resp.text
+    assert resp.content_type.startswith("image/png")
+    # PNG 魔数
+    assert resp.data[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+# ---------------------------------------------------------------------------
+# 生产加固：缓存策略 + 安全响应头 + 静态资源内容哈希版本号
+# ---------------------------------------------------------------------------
+def test_html_is_no_store(client):
+    resp = client.get("/")
+    assert "no-store" in resp.headers.get("Cache-Control", "")
+
+
+def test_static_asset_long_cache(client):
+    for path in ("/style.css", "/app.js", "/i18n.js"):
+        cc = client.get(path).headers.get("Cache-Control", "")
+        assert "max-age=31536000" in cc and "immutable" in cc, path
+
+
+def test_security_headers_present(client):
+    resp = client.get("/")
+    assert resp.headers.get("X-Content-Type-Options") == "nosniff"
+    assert resp.headers.get("X-Frame-Options") == "SAMEORIGIN"
+    assert "default-src 'self'" in resp.headers.get("Content-Security-Policy", "")
+    assert resp.headers.get("Referrer-Policy") == "strict-origin-when-cross-origin"
+
+
+def test_asset_version_placeholder_replaced(client):
+    """页面里的 ?v=__ASSET_VER__ 必须被替换，且不再残留占位符。"""
+    for path in ("/", "/app"):
+        data = client.get(path).data
+        assert b"__ASSET_VER__" not in data, path
+        assert b"?v=" in data, path
+
+
+def test_asset_version_is_content_hash(client):
+    """页面上出现的版本号应等于内容哈希 _ASSET_VER。"""
+    import re
+
+    from src import web
+
+    html = client.get("/app").get_data(as_text=True)
+    versions = set(re.findall(r"\?v=([0-9a-f]{6,})", html))
+    assert versions == {web._ASSET_VER}
+
+
+# ---------------------------------------------------------------------------
+# 管理端点鉴权（清库 / 抓数 / 读环境变量）
+# ---------------------------------------------------------------------------
+def test_admin_endpoint_allows_local(monkeypatch, client):
+    """本地（非 Vercel、未配 token）放行管理端点。"""
+    from src import web
+
+    monkeypatch.setattr(web, "_IS_SERVERLESS", False)
+    monkeypatch.setattr(web, "_ADMIN_TOKEN", "")
+    assert client.get("/api/db").status_code == 200
+
+
+def test_admin_disabled_in_production(monkeypatch, client):
+    """部署到 Vercel 且未配 token 时，管理端点一律 403（无副作用）。"""
+    from src import web
+
+    monkeypatch.setattr(web, "_IS_SERVERLESS", True)
+    monkeypatch.setattr(web, "_ADMIN_TOKEN", "")
+    assert client.get("/api/db").status_code == 403
+    assert client.post("/api/reseed").status_code == 403
+    assert client.get("/api/kv-status").status_code == 403
+    assert client.post("/api/collect").status_code == 403
+
+
+def test_admin_token_required_when_configured(monkeypatch, client):
+    from src import web
+
+    monkeypatch.setattr(web, "_IS_SERVERLESS", True)
+    monkeypatch.setattr(web, "_ADMIN_TOKEN", "s3cret")
+    assert client.get("/api/db").status_code == 403
+    assert client.get("/api/db", headers={"X-Admin-Token": "s3cret"}).status_code == 200

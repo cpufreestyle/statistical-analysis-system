@@ -11,6 +11,7 @@
 """
 from __future__ import annotations
 
+import base64
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -28,12 +29,16 @@ FILES = {
 }
 
 # SEO 静态资源（robots / sitemap / 分享卡片），同样内嵌进 pages.py 以保证
-# Vercel serverless 环境也能直接以 /robots.txt /sitemap.xml /og-image.svg 提供。
+# Vercel serverless 环境也能直接以 /robots.txt /sitemap.xml /og-image.png 提供。
 SEO_FILES = {
     "ROBOTS_TXT": "robots.txt",
     "SITEMAP_XML": "sitemap.xml",
-    "OG_IMAGE_SVG": "og-image.svg",
+    # 分享卡片是二进制 PNG，无法按 UTF-8 文本内嵌 → 以 base64 存储（键名带 _B64 提示）。
+    "OG_IMAGE_PNG_B64": "og-image.png",
 }
+
+#: 需要按二进制读取并按 base64 内嵌的文件（其余一律按 UTF-8 文本内嵌）
+BINARY_FILES = {"og-image.png"}
 
 # 真实公开数据种子集（由 scripts/fetch_wb_data.py / 官方公报整理而来）
 DATA_FILES = {
@@ -54,10 +59,15 @@ def _write_assets(out: Path, base: Path, mapping: dict[str, str], doc: str) -> N
         path = base / fname
         if not path.exists():
             raise SystemExit(f"缺失文件: {path}")
-        # utf-8-sig：带 BOM 的 UTF-8 会被剥掉 BOM，避免内嵌常量里带上 \ufeff
-        # （BOM 会污染 CSV 首行，让标签包静默失效——见 src/labels.py 的说明）。
-        content = path.read_text(encoding="utf-8-sig").lstrip("\ufeff")
-        lines.append(f"{name} = {content!r}")
+        if fname in BINARY_FILES:
+            # 二进制（如 og-image.png）：以 base64 字符串内嵌，运行期再 decode 回 bytes。
+            b64 = base64.b64encode(path.read_bytes()).decode("ascii")
+            lines.append(f"{name} = {b64!r}")
+        else:
+            # utf-8-sig：带 BOM 的 UTF-8 会被剥掉 BOM，避免内嵌常量里带上 \ufeff
+            # （BOM 会污染 CSV 首行，让标签包静默失效——见 src/labels.py 的说明）。
+            content = path.read_text(encoding="utf-8-sig").lstrip("\ufeff")
+            lines.append(f"{name} = {content!r}")
         lines.append("")
     out.write_text("\n".join(lines), encoding="utf-8")
     print(f"OK -> {out} ({out.stat().st_size} bytes)")

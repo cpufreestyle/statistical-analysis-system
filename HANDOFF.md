@@ -73,13 +73,14 @@ python -m src.cli db info
 
 | 路径 | 职责 | 注意 |
 | --- | --- | --- |
-| `public/` | 前端源码（`index.html` / `app.html` / `app.js` / `i18n.js` / `style.css`） | **改完必须跑内嵌脚本** |
+| `public/` | 前端源码（`index.html` / `app.html` / `app.js` / `i18n.js` / `style.css`）+ SEO（`robots.txt` / `sitemap.xml` / `og-image.png` / `favicon`） | **改完必须跑内嵌脚本**；字体走系统栈，无外部 CDN |
 | `data/ap_macro.csv` | 世界银行真实种子：837 行 / 14 维度 / 2019–2024 / 10 指标 | 脚本生成，已提交 |
 | `data/nbs_cn.csv` | 中国国内明细：9 行（仅 2024） | 带 BOM，读取处已处理 |
 | `data/labels.csv` | **标识符标签包**（`kind,key,slug,en`）：专业 7 / 指标 26 / 维度 14 / 单位 8 | i18n 唯一事实来源，加词条不用改代码 |
 | `data/qu_stats.db` | 运行时 SQLite | 已被 gitignore |
 | `scripts/fetch_wb_data.py` | 从世界银行抓数 | `--from 2019 --to 2024` |
-| `scripts/embed_pages.py` | 内嵌 `public/` → `src/pages.py`、`data/` → `src/seed_data.py` | 见 §4 约定 1 |
+| `scripts/embed_pages.py` | 内嵌 `public/` → `src/pages.py`、`data/` → `src/seed_data.py` | 见 §4 约定 1；二进制按 base64 |
+| `scripts/make_og_image.py` | 纯 Pillow 生成 `public/og-image.png`（1200×630 分享卡片） | 改完重跑并提交产物 |
 | `scripts/check_i18n.py` | 双语 API 契约检查 | 新增端点后建议同步加进 CHECKS |
 | `src/web.py` | Flask 应用：页面、REST API、冷启动播种 | 18 条路由，见 §7 |
 | `src/labels.py` | 标识符本地化：`label` / `slug` / `key_of` / `localize_payload` | i18n 核心 |
@@ -105,6 +106,8 @@ python -m src.cli db info
 1. **改完 `public/` 任何文件、或重新抓数后，必须跑 `scripts/embed_pages.py` 再重启服务。**
    Serverless 部署包读不到 `public/` 与 `data/`，运行期靠 `src/pages.py` / `src/seed_data.py`
    的内嵌副本。漏跑 → 你看到的是旧前端资源，会浪费大量时间排查"改了没生效"。
+   文本资源按 UTF-8 内嵌；二进制资源（`og-image.png`）按 **base64** 内嵌（常量名带 `_B64`，
+   运行期 `base64.b64decode` 后以 `image/png` 提供）——见 `scripts/embed_pages.py` 的 `BINARY_FILES`。
 
 2. **数据标识符以中文规范键入库；对外本地化只在 `data/labels.csv` + `src/labels.py` 一处发生。**
    入库用中文（数据文件可读、与官方口径逐字对齐），出接口前按语言本地化。
@@ -133,11 +136,16 @@ python -m src.cli db info
 | CLI 双语（`ask` / `report` / `custom`） | ✅ 已验证 | 命令行实测 |
 | 本地服务 `/` `/app` 与全部 API | ✅ 已验证 | 交接时 200 |
 | README markdownlint | ✅ 已验证 | `markdownlint-cli2` 0 issues |
-| 亚太分类口径（移除美国/澳大利亚） | ✅ 已本地验证 | pytest 66 项全绿；`available_dimensions()` 维度列表无 United States/Australia 泄漏，待重部署后线上生效 |
+| 亚太分类口径（移除美国/澳大利亚） | ✅ 已本地验证 | pytest 74 项全绿；`available_dimensions()` 无 United States/Australia |
+| 静态资源缓存（内容哈希长缓存 + HTML no-store） | ✅ 已验证 | 页面 URL 带 `?v=<sha256前12位>`；`/style.css` 等返回 `max-age=31536000, immutable`；pytest 覆盖 |
+| 安全响应头（nosniff / X-Frame-Options / Referrer-Policy / CSP / Permissions-Policy；HTTPS 下 HSTS） | ✅ 已验证 | curl 实测 + pytest |
+| 管理端点鉴权（`/api/db` `/api/reseed` `/api/kv-status` `/api/collect`） | ✅ 已验证 | 本地放行；Vercel 无 token → 403；配 `QU_STAT_ADMIN_TOKEN` 后校验；pytest 三态覆盖 |
+| 深色模式（`prefers-color-scheme`） | ✅ 已验证 | Chrome 实测：dashboard 明/暗均亮度 246 / 22，落地页暗色 computed style 断言通过，无 console 报错 |
+| 无外部 CDN 依赖（字体走系统字体栈） | ✅ 已验证 | `grep -r fonts.googleapis public/` = 0；JSON-LD 与 og PNG 均本地生成 |
 | **线上 Vercel 部署** | ❓ **未验证** | 本次环境无法出外网。域名来自 7–8 月部署日志，**可能已变更或项目已删**，请自行探活 |
-| **Vercel KV 持久化** | ❓ 未验证 | 依赖 `KV_REST_API_URL` / `KV_REST_API_TOKEN` 是否仍配置 |
+| **Vercel KV 持久化** | ❓ 未验证 | 依赖 `KV_REST_API_URL` / `KV_REST_API_TOKEN`。⚠️ **若 KV 里有旧快照，线上可能仍显示美国/澳大利亚**——重部署后若分类未变，清 KV key `qu_stat_ap:indicators` 或带 `X-Admin-Token` 调 `/api/reseed` |
 | **云端 AI 解读** | ❓ 未验证 | 需 `INFINISYNAPSE_API_KEY`；未配时自动降级为仅本地统计（不会报错） |
-| **Windows 之外的平台** | ✅ 已配 CI（ubuntu-latest） | `.github/workflows/ci.yml` 在 push/PR 时跑 pytest + 起服务 i18n 冒烟；本地 Windows 亦 66 项单测全绿 |
+| **Windows 之外的平台** | ✅ 已配 CI（ubuntu-latest） | `.github/workflows/ci.yml` 在 push/PR 时跑 pytest + 起服务 i18n 冒烟；本地 Windows 亦 74 项单测全绿 |
 
 ---
 
@@ -145,20 +153,21 @@ python -m src.cli db info
 
 按影响排序。
 
-1. ~~**零自动化测试、无 CI。**~~ ✅ **已补质量底线**：`tests/` 下 5 个测试模块共 66 项单测
+1. ~~**零自动化测试、无 CI。**~~ ✅ **已补质量底线**：`tests/` 下 5 个测试模块共 74 项单测
    （`test_labels` i18n 契约、`test_analyzer` provider 派发与解析、`test_web` 路由冒烟
-   「html lang / CSV 导出 BOM 与列 / SEO 三件套」、`test_embed` embed 单遍合并回归、
-   `conftest` 测试库隔离到临时目录）。`.github/workflows/ci.yml` 在 push/PR 时：
+   「html lang / CSV 导出 BOM 与列 / SEO 三件套 / 静态缓存与安全头 / 资源版本号 / 管理端点鉴权」、
+   `test_embed` embed 单遍合并回归、`conftest` 测试库隔离到临时目录）。`.github/workflows/ci.yml` 在 push/PR 时：
    `pytest` → 起本地服务跑 `scripts/check_i18n.py` → 可选 `markdownlint-cli2`（不阻塞）。
    仍需补的纯函数：`src/stats/core.py`、`report.build_bulletin_data()`（不追覆盖率）。
 
 2. **版本号未维护。** tag 只有 `v1.0.0`（8 个提交之前），`pyproject.toml` version 是 `0.1.0`。
    发版前先对齐这两处，并确认 release notes 与 `README` / `README.zh-CN.md` 一致。
 
-3. **线上部署状态未知。** 见 §5。另外 `vercel.json` 用的是 `routes` 全量转发到
-   `api/index.py`，而部署日志里有 `Due to builds existing in your configuration file,
-   the Build and Development Settings defined in your Project Settings will not apply` 警告——
-   说明 Vercel 项目设置里可能残留旧的 `builds` 配置，建议到控制台核对并清理。
+3. **线上部署状态未知。** 见 §5。`vercel.json` 已由旧版 `routes` 迁到 `rewrites`
+   （语义等价，消除 `Due to builds existing in your configuration file...` 警告），
+   **但本沙箱出不了外网，未实测部署**——首次部署后请确认路由仍全部转发到 `api/index.py`
+   （`/` `/app` `/api/*` `/robots.txt` `/sitemap.xml` `/og-image.png` 均应正常）。
+   另可到 Vercel 控制台清理可能残留的旧 `builds` 配置。
 
 4. **`config.yaml` 的 `infinisynapse.enabled: true` 但未配 key。**
    当前行为是"云端分析未启用 → 自动回退本地统计"（有提示，不报错），可用但语义绕。
@@ -179,7 +188,7 @@ python -m src.cli db info
    | ✅ P0 | **导出 + 分享链接（已实现）** | 后端 `GET /api/export.csv`（复用 `query_indicators` + `labels.localize_indicators`，utf-8-sig + `attachment` 下载头；`year`/`dimension` 缺省 = 全部，`indicator` 导出单指标跨年全序列）；前端指标面板「⬇ 导出 CSV」+ 图表面板「⬇ 导出当前指标」+ 顶栏「🔗 分享」；筛选状态经 `history.replaceState` 同步进地址栏，分享链接打开即还原同一视图（含图表指标） |
    | P1 | **时序只有 6 年** | 2019–2024，做不了趋势与周期分析。世界银行免费可取 1960 起 |
    | ✅ P1 | **单一 LLM provider（已改为可插拔）** | `src/analyzer.py` 现支持两个 provider：`infinisynapse`（默认，比赛要求的 SSE 可审计链路）+ `openai_compat`（任意 OpenAI 兼容 `/chat/completions`：OpenAI / OpenRouter / Groq / DeepSeek / 本地 Ollama·vLLM）。用 `AI_PROVIDER` 选择，密钥走 `OPENAI_API_KEY` 等环境变量；两者 `analyze()` 返回同构 `{task_id, done, result}`，`/api/ask` 与公报无需改动。无 key 时仍降级本地统计 |
-   | ✅ P1 | **SEO（已实现）** | 新增 `public/robots.txt` / `sitemap.xml` / `og-image.svg`，并内嵌进 `src/pages.py` 由 `/robots.txt` `/sitemap.xml` `/og-image.svg` 提供（`scripts/embed_pages.py` 的 `SEO_FILES`）；`index.html` 与 `app.html` 补 `og:image`，`<html lang>` 改为占位符 `__HTML_LANG__`，由 `_html_lang()` 按 `?lang=` / `Accept-Language` 输出——原先写死 `zh-CN` 与英文默认矛盾 |
+   | ✅ P1 | **SEO（已实现）** | `public/robots.txt` / `sitemap.xml`（含 `lastmod`）/ `og-image.png`（1200×630，由 `scripts/make_og_image.py` 纯 Pillow 生成；PNG 以 base64 内嵌进 `src/pages.py`），由 `/robots.txt` `/sitemap.xml` `/og-image.png` 提供（`scripts/embed_pages.py` 的 `SEO_FILES`）；两页补 `og:image`（含 `width`/`height`）+ `twitter:image` + **JSON-LD**（WebSite/WebApplication + Dataset，含 `distribution` 指向 CSV/JSON 接口）；`<html lang>` 由占位符 `__HTML_LANG__` 按 `?lang=` / `Accept-Language` 输出 |
    | P2 | 表格无分页；移动端仅 3 个断点 | 另缺 API 文档页、隐私政策 / 条款 |
 
    （数据层 i18n 这条 P0 已于 `f0d63b1` 完成，不再是缺口。）
@@ -251,8 +260,8 @@ python -m src.cli db info
 4. **探活线上并核对 Vercel 项目设置**（见 §5、§6.3），清理 `builds` 残留警告。
 5. ~~**补 SEO 与分享卡片**（P1）~~ ✅ 已完成：`og:image` / `robots.txt` / `sitemap.xml`
    均已落地，`<html lang>` 随 `?lang=` / `Accept-Language` 走。
-   遗留优化：`og-image.svg` 是 SVG，Facebook / X / LinkedIn 对 SVG 的 og:image 支持不稳，
-   正式投放前换成 **1200×630 PNG/JPG**（改 `/og-image.svg` 路由与 og 标签 URL 即可）。
+   分享卡片已由 SVG 换成 **1200×630 PNG**（`scripts/make_og_image.py` 生成 → `/og-image.png`，
+   base64 内嵌进 `src/pages.py`）；两页另加 JSON-LD 结构化数据。
 6. **时序扩到 1960+**（P1）。改 `fetch_wb_data.py` 的参数范围即可，世界银行免费无鉴权。
 7. **发布一次正式 release**，对齐 tag 与 `pyproject.toml` 版本号（见 §6.2）。
 

@@ -12,15 +12,14 @@
 <meta property="og:description" content="Official public data (World Bank Open Data · China NBS · China Customs) + AI-grounded interpretation. Every figure traceable to its source.">
 <meta property="og:locale" content="en_US">
 <meta property="og:locale:alternate" content="zh_CN">
-<meta property="og:image" content="https://qu-stat-system.vercel.app/og-image.svg">
+<meta property="og:image" content="https://qu-stat-system.vercel.app/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Asia-Pacific Statistical Analysis System — official public data dashboard">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://qu-stat-system.vercel.app/og-image.svg">
+<meta name="twitter:image" content="https://qu-stat-system.vercel.app/og-image.png">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="canonical" href="https://qu-stat-system.vercel.app/">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700;900&display=swap" rel="stylesheet">
 <style>
 /* =============================================
    全国统计分析系统 · Landing Page
@@ -50,8 +49,10 @@
   --gray-800: #1E293B;
   --gray-900: #0F172A;
 
-  --font: "Noto Sans SC", "Source Han Sans SC", -apple-system, "PingFang SC", sans-serif;
-  --num: "Roboto", -apple-system, sans-serif;
+  --surface: #ffffff;
+
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Source Han Sans SC", "Noto Sans SC", "Helvetica Neue", Arial, sans-serif;
+  --num: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
 
   --radius-sm: 6px;
   --radius-md: 10px;
@@ -66,7 +67,7 @@ html { scroll-behavior: smooth; }
 body {
   font-family: var(--font);
   color: var(--gray-700);
-  background: #fff;
+  background: var(--surface);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
 }
@@ -171,7 +172,7 @@ body {
 .lang-toggle {
   margin-left: 4px;
   padding: 7px 14px;
-  background: #fff;
+  background: var(--surface);
   color: var(--gray-600);
   font-size: 13px;
   font-weight: 500;
@@ -192,7 +193,7 @@ body {
   justify-content: center;
   text-align: center;
   padding: 120px 48px 80px;
-  background: linear-gradient(180deg, var(--blue-50) 0%, #fff 100%);
+  background: linear-gradient(180deg, var(--blue-50) 0%, var(--surface) 100%);
   position: relative;
   overflow: hidden;
 }
@@ -293,7 +294,7 @@ body {
   align-items: center;
   gap: 8px;
   padding: 14px 28px;
-  background: white;
+  background: var(--surface);
   color: var(--gray-700);
   font-size: 15px;
   font-weight: 500;
@@ -390,7 +391,7 @@ body {
 }
 
 .feature-card {
-  background: white;
+  background: var(--surface);
   border: 1px solid var(--gray-200);
   border-radius: var(--radius-lg);
   padding: 32px;
@@ -505,7 +506,7 @@ body {
 }
 
 .arch-card:hover {
-  background: white;
+  background: var(--surface);
   border-color: var(--blue-200);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
 }
@@ -583,7 +584,7 @@ body {
 .cta {
   text-align: center;
   padding: 120px 48px;
-  background: linear-gradient(180deg, #fff 0%, var(--blue-50) 100%);
+  background: linear-gradient(180deg, var(--surface) 0%, var(--blue-50) 100%);
 }
 
 .cta-title {
@@ -646,12 +647,85 @@ body {
   }
   .cta-title { font-size: 28px; }
 }
+
+/* ============ 可访问性（a11y） ============ */
+:focus-visible { outline: 2px solid var(--blue-600); outline-offset: 2px; border-radius: var(--radius-sm); }
+.skip-link {
+  position: absolute; left: 8px; top: -48px; z-index: 1000;
+  background: var(--blue-600); color: #fff; padding: 8px 14px;
+  border-radius: var(--radius-md); font-size: 13px; text-decoration: none;
+  transition: top .15s ease;
+}
+.skip-link:focus { top: 8px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    transition-duration: .001ms !important;
+  }
+}
+
+/* ============ 深色模式（跟随系统 prefers-color-scheme） ============ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --surface: #131A27;
+    --gray-50:  #0A0F18;
+    --gray-100: #161D2A;
+    --gray-150: #1B2331;
+    --gray-200: #28313F;
+    --gray-300: #3A4658;
+    --gray-400: #6C7A8F;
+    --gray-500: #8B97AA;
+    --gray-600: #AEB9C9;
+    --gray-700: #CBD3DF;
+    --gray-800: #E1E7EF;
+    --gray-900: #F3F6FA;
+    --blue-50:  #142138;
+    --blue-100: #17263F;
+    --blue-200: #1E3054;
+  }
+  /* 两个「深色带」在深色模式下仍保持深底白字（否则灰阶反相会让白字消失） */
+  .tech-stack, .footer { background: #060B14; }
+  /* 顶部固定导航的白色半透明底 → 深色半透明 */
+  .nav { background: rgba(10, 15, 24, 0.85); }
+}
 </style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "name": "Asia-Pacific Statistical Analysis System",
+      "alternateName": "亚太统计分析系统",
+      "url": "https://qu-stat-system.vercel.app/",
+      "inLanguage": ["en", "zh-CN"]
+    },
+    {
+      "@type": "Dataset",
+      "name": "Asia-Pacific Macroeconomic Indicators",
+      "description": "GDP, GDP growth, per-capita GDP, population, unemployment, inflation (CPI), life expectancy and trade for Asia-Pacific economies and China. Public data from World Bank Open Data, China NBS and China Customs.",
+      "url": "https://qu-stat-system.vercel.app/app",
+      "isAccessibleForFree": true,
+      "license": "https://datacatalog.worldbank.org/public-licenses",
+      "creator": { "@type": "Organization", "name": "Asia-Pacific Statistical Analysis System" },
+      "spatialCoverage": { "@type": "Place", "name": "Asia-Pacific" },
+      "temporalCoverage": "2019/2024",
+      "variableMeasured": ["GDP", "GDP growth rate", "GDP per capita", "Population", "Unemployment rate", "Inflation (CPI)", "Life expectancy", "Trade"],
+      "distribution": [
+        { "@type": "DataDownload", "encodingFormat": "text/csv", "contentUrl": "https://qu-stat-system.vercel.app/api/export.csv" },
+        { "@type": "DataDownload", "encodingFormat": "application/json", "contentUrl": "https://qu-stat-system.vercel.app/api/indicators" }
+      ]
+    }
+  ]
+}
+</script>
 </head>
 <body>
+<a class="skip-link" href="#main" data-i18n="跳到主内容">跳到主内容</a>
 
 <!-- Navigation -->
-<nav class="nav">
+<nav class="nav" aria-label="主导航">
   <div class="nav-inner">
   <div class="nav-brand">
     <div class="nav-logo">AP</div>
@@ -663,13 +737,13 @@ body {
     <li><a href="#architecture" data-i18n="系统架构">系统架构</a></li>
     <li><a href="#tech" data-i18n="技术栈">技术栈</a></li>
   </ul>
-  <button id="langToggle" class="lang-toggle" type="button" onclick="toggleLang()">EN</button>
+  <button id="langToggle" class="lang-toggle" type="button" onclick="toggleLang()" aria-label="切换语言 / Switch language">EN</button>
   <a href="/app" class="nav-cta" data-i18n="进入系统 →">进入系统 →</a>
   </div>
 </nav>
 
 <!-- Hero Section -->
-<section class="hero">
+<section class="hero" id="main">
   <div class="hero-badge" data-i18n="badge.api">
     InfiniSynapse Server API 驱动
   </div>
@@ -862,7 +936,7 @@ body {
         <div class="tech-card-desc" data-i18n-html="tech.desc.1">
           原生 HTML5 + CSS3 + JavaScript<br>
           零依赖，轻量高效<br>
-          思源黑体 + Roboto 字体
+          系统字体栈（无外部 CDN）
         </div>
       </div>
       <div class="tech-card">
@@ -918,7 +992,7 @@ body {
   </p>
 </footer>
 
-<script src="/i18n.js?v=3"></script>
+<script src="/i18n.js?v=__ASSET_VER__"></script>
 <script>
 // Smooth scroll for anchor links
 document.querySelectorAll('a[href^="#"]').forEach(anchor => {

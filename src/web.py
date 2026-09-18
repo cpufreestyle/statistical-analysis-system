@@ -6,6 +6,9 @@
 """
 from __future__ import annotations
 
+import base64
+import hashlib
+import hmac
 import json
 import os as _os
 
@@ -17,6 +20,8 @@ if "127.0.0.1" not in _os.environ.get("no_proxy", ""):
     _os.environ["no_proxy"] = (_os.environ.get("no_proxy", "") + ",127.0.0.1,localhost").strip(",")
 if "127.0.0.1" not in _os.environ.get("NO_PROXY", ""):
     _os.environ["NO_PROXY"] = (_os.environ.get("NO_PROXY", "") + ",127.0.0.1,localhost").strip(",")
+
+from functools import wraps
 
 from flask import Flask, request, jsonify, Response
 
@@ -35,15 +40,89 @@ app = Flask(__name__)
 DEFAULT_DIMENSION = "亚太"
 DEFAULT_YEAR = 2024
 
+#: 静态资源版本号 = 三份前端资源的内容哈希（前 12 位）。改了任一资源，哈希自动变，
+#: 页面里的 ``?v=`` 随之变，浏览器必然拉新文件——这样才能给静态资源上「一年 immutable」
+#: 的长缓存，同时 HTML / 接口保持 no-store（见 :func:`_apply_headers` 的说明）。
+_ASSET_VER = hashlib.sha256(
+    (pages.STYLE_CSS + pages.APP_JS + pages.I18N_JS).encode("utf-8")
+).hexdigest()[:12]
+
+#: 静态资源缓存（URL 已带内容哈希版本号，可安全长缓存）。
+_STATIC_CACHE = "public, max-age=31536000, immutable"
+
+#: 安全响应头。本项目无外部 CDN 依赖（字体已走系统字体栈），故 CSP 收敛到 'self'。
+_SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "SAMEORIGIN",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "geolocation=(), microphone=(), camera=(), payment=()",
+    "Content-Security-Policy": (
+        "default-src 'self'; "
+        "img-src 'self' data:; "
+        "style-src 'self' 'unsafe-inline'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "connect-src 'self'; "
+        "font-src 'self'; "
+        "base-uri 'self'; "
+        "form-action 'self'; "
+        "frame-ancestors 'self'"
+    ),
+}
+
+#: 管理端点令牌：配置后，请求头 ``X-Admin-Token`` 或查询参数 ``?token=`` 必须匹配。
+#: 未配置时——本地开发放行；一旦部署到 Vercel（``VERCEL`` 环境变量存在）则一律 403。
+_ADMIN_TOKEN = _os.environ.get("QU_STAT_ADMIN_TOKEN", "").strip()
+_IS_SERVERLESS = bool(_os.environ.get("VERCEL"))
+
+
+def _render_page(html: str) -> str:
+    """替换页面模板占位符：语言（``__HTML_LANG__``）+ 静态资源版本号（``__ASSET_VER__``）。"""
+    return (html.replace("__HTML_LANG__", _html_lang())
+                .replace("__ASSET_VER__", _ASSET_VER))
+
+
+def _admin_denied():
+    """管理端点鉴权：返回 ``(响应, 403)`` 表示拒绝，返回 ``None`` 表示放行。"""
+    if _ADMIN_TOKEN:
+        supplied = request.headers.get("X-Admin-Token") or request.args.get("token") or ""
+        if hmac.compare_digest(supplied, _ADMIN_TOKEN):
+            return None
+        return jsonify({"ok": False, "error": "admin token required"}), 403
+    if _IS_SERVERLESS:
+        return jsonify({"ok": False,
+                        "error": "admin endpoints are disabled in production"}), 403
+    return None
+
+
+def admin_required(fn):
+    """装饰器：给「清库 / 抓数 / 读环境变量」这类管理端点加鉴权。"""
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        denied = _admin_denied()
+        if denied is not None:
+            return denied
+        return fn(*args, **kwargs)
+    return wrapper
+
 
 @app.after_request
-def _no_cache(resp):
-    """页面与静态资源一律不缓存。
+def _apply_headers(resp):
+    """统一响应头：缓存策略 + 安全头。
 
-    曾出过问题：改完前端后浏览器仍用启发式缓存的旧 /i18n.js
-    （那版脚本抛 ReferenceError，导致 toggleLang 未定义、语言切换按钮失效）。
+    缓存：静态资源在各自路由里显式给了「一年 immutable」（URL 带内容哈希版本号，改资源即换
+    URL，故不会读到旧文件）；其余响应（HTML / JSON / CSV）保持 ``no-store``。
+    —— 取代原先「所有响应一律 no-store」的粗放做法：那会让 style.css / app.js / i18n.js
+    永远无法被浏览器与 CDN 缓存，每次访问都重下（也是当年为绕开旧 i18n.js 缓存 bug 的权宜之计）。
+
+    安全：nosniff / 防点击劫持 / Referrer 策略 / 权限策略 / CSP；HTTPS 下再加 HSTS。
     """
-    resp.headers["Cache-Control"] = "no-store, must-revalidate"
+    if "Cache-Control" not in resp.headers:
+        resp.headers["Cache-Control"] = "no-store, must-revalidate"
+    for key, value in _SECURITY_HEADERS.items():
+        resp.headers.setdefault(key, value)
+    if request.is_secure or request.headers.get("X-Forwarded-Proto") == "https":
+        resp.headers.setdefault("Strict-Transport-Security",
+                                "max-age=31536000; includeSubDomains")
     return resp
 
 
@@ -132,47 +211,56 @@ def _overview(year: int, dimension: str, lang: str) -> dict[str, object]:
 
 @app.route("/")
 def index():
-    return pages.PAGE_INDEX.replace("__HTML_LANG__", _html_lang())
+    return _render_page(pages.PAGE_INDEX)
 
 
 @app.route("/app")
 def app_page():
-    return pages.PAGE_APP.replace("__HTML_LANG__", _html_lang())
+    return _render_page(pages.PAGE_APP)
 
 
 @app.route("/robots.txt")
 def serve_robots():
-    return pages.ROBOTS_TXT, 200, {"Content-Type": "text/plain; charset=utf-8"}
+    return pages.ROBOTS_TXT, 200, {"Content-Type": "text/plain; charset=utf-8",
+                                  "Cache-Control": "public, max-age=3600"}
 
 
 @app.route("/sitemap.xml")
 def serve_sitemap():
-    return pages.SITEMAP_XML, 200, {"Content-Type": "application/xml; charset=utf-8"}
+    return pages.SITEMAP_XML, 200, {"Content-Type": "application/xml; charset=utf-8",
+                                    "Cache-Control": "public, max-age=3600"}
 
 
-@app.route("/og-image.svg")
+#: 分享卡片 PNG（内嵌为 base64），启动时解码一次。
+_OG_IMAGE_PNG = base64.b64decode(pages.OG_IMAGE_PNG_B64)
+
+
+@app.route("/og-image.png")
 def serve_og_image():
-    """社交分享卡片（og:image）。
+    """社交分享卡片（og:image）——1200×630 PNG，由 scripts/make_og_image.py 生成。
 
-    SVG 体积最小、零依赖；但 Facebook / X / LinkedIn 对 SVG 的 og:image 支持不稳，
-    正式投放前建议换成 1200×630 的 PNG/JPG（改本路由与 og:image 的 URL 即可）。
+    Facebook / X / LinkedIn 对 SVG 的 og:image 支持不稳定，故改用 PNG。
     """
-    return pages.OG_IMAGE_SVG, 200, {"Content-Type": "image/svg+xml; charset=utf-8"}
+    return Response(_OG_IMAGE_PNG, mimetype="image/png",
+                    headers={"Cache-Control": _STATIC_CACHE})
 
 
 @app.route("/style.css")
 def serve_css():
-    return pages.STYLE_CSS, 200, {"Content-Type": "text/css; charset=utf-8"}
+    return pages.STYLE_CSS, 200, {"Content-Type": "text/css; charset=utf-8",
+                                  "Cache-Control": _STATIC_CACHE}
 
 
 @app.route("/app.js")
 def serve_js():
-    return pages.APP_JS, 200, {"Content-Type": "application/javascript; charset=utf-8"}
+    return pages.APP_JS, 200, {"Content-Type": "application/javascript; charset=utf-8",
+                               "Cache-Control": _STATIC_CACHE}
 
 
 @app.route("/i18n.js")
 def serve_i18n():
-    return pages.I18N_JS, 200, {"Content-Type": "application/javascript; charset=utf-8"}
+    return pages.I18N_JS, 200, {"Content-Type": "application/javascript; charset=utf-8",
+                                "Cache-Control": _STATIC_CACHE}
 
 
 @app.route("/favicon.svg")
@@ -183,7 +271,8 @@ def serve_favicon():
         '<path d="M14 44V28h7v16zM28 44V20h7v24zM42 44V32h7v12z" fill="#fff"/>'
         "</svg>"
     )
-    return svg, 200, {"Content-Type": "image/svg+xml; charset=utf-8"}
+    return svg, 200, {"Content-Type": "image/svg+xml; charset=utf-8",
+                      "Cache-Control": _STATIC_CACHE}
 
 
 @app.route("/api/overview")
@@ -193,12 +282,14 @@ def api_overview():
 
 
 @app.route("/api/db")
+@admin_required
 def api_db():
     init_db()
     return jsonify(db_info())
 
 
 @app.route("/api/reseed", methods=["POST"])
+@admin_required
 def api_reseed():
     """一次性全量重播种：清空 indicators 表后重新载入真实公开数据种子集。
 
@@ -220,6 +311,7 @@ def api_reseed():
 
 
 @app.route("/api/kv-status")
+@admin_required
 def api_kv_status():
     """调试端点：检查 Redis 持久化连接状态。"""
     import os as _os2
@@ -274,6 +366,7 @@ def api_knowledge():
 
 
 @app.route("/api/collect", methods=["POST"])
+@admin_required
 def api_collect():
     init_db()
     d = request.get_json(force=True) or {}

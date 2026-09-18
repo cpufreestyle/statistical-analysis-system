@@ -122,9 +122,12 @@ function exportChartCsv() {
   initShareState();   // 从 URL 还原分享状态（年份/维度/语言/图表指标）后再取数
   document.querySelectorAll('.wb-tab').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.wb-tab').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.wb-tab').forEach(b => {
+        const on = b === btn;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
       document.querySelectorAll('.wb-panel').forEach(p => p.classList.remove('active'));
-      btn.classList.add('active');
       const panel = document.getElementById('panel-' + btn.dataset.tab);
       if (!panel) return;
       panel.classList.add('active');
@@ -190,7 +193,11 @@ function syncDimension(d) {
 
 /* ───── Tab 切换（来自快捷按钮） ───── */
 function switchTab(tabId) {
-  document.querySelectorAll('.wb-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tabId));
+  document.querySelectorAll('.wb-tab').forEach(b => {
+    const on = b.dataset.tab === tabId;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
   document.querySelectorAll('.wb-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tabId));
   if (tabId === 'indicators') loadIndicators();
   if (tabId === 'charts') initCharts();
@@ -212,9 +219,23 @@ function fillQuery(text) {
 function fillQueryI18n(el) { fillQuery(pickQ(el)); }
 
 /* ═══════ 关键指标卡片 ═══════ */
+/* 首屏骨架：数据到达前先占位，避免「白屏 → 内容突现」的跳动 */
+function metricsSkeleton(n) {
+  var one = '<div class="metric-card" aria-hidden="true">'
+    + '<div class="skeleton skeleton-line" style="width:52%"></div>'
+    + '<div class="skeleton skeleton-line" style="width:72%;height:22px;margin:10px 0"></div>'
+    + '<div class="skeleton skeleton-line" style="width:40%"></div>'
+    + '</div>';
+  return new Array(n || 8).fill(one).join('');
+}
+
 async function loadOverview() {
   const grid = document.getElementById('metricsGrid');
   if (!grid) return;
+  if (!grid.querySelector('.metric-card')) {
+    grid.setAttribute('aria-busy', 'true');
+    grid.innerHTML = metricsSkeleton(8);
+  }
   try {
     const r = await fetch(API + '/api/overview?year=' + enc(STATE.year) + '&dimension=' + enc(STATE.dimension) + '&' + langQ());
     const d = await r.json();
@@ -241,7 +262,12 @@ async function loadOverview() {
     const sy = document.getElementById('subtitleYear');
     if (sy) sy.textContent = STATE.year;
 
+    grid.removeAttribute('aria-busy');
     // 卡片字段全部来自服务端本地化结果，前端不再做数据词条替换
+    if (!(d.cards || []).length) {
+      grid.innerHTML = '<div class="metric-card" style="grid-column:1/-1;color:var(--gray-400);text-align:center">' + h(tr('该维度暂无数据')) + '</div>';
+      return;
+    }
     grid.innerHTML = (d.cards || []).map(c => `
       <div class="metric-card">
         <div class="metric-header">
@@ -255,6 +281,7 @@ async function loadOverview() {
         <div class="metric-src" title="${a(c.note || '')}">${h(c.note || '')}</div>
       </div>`).join('');
   } catch (e) {
+    grid.removeAttribute('aria-busy');
     grid.innerHTML = '<div class="metric-card" style="grid-column:1/-1;color:var(--gray-400)">' + tr('加载失败') + '</div>';
   }
 }
@@ -797,7 +824,7 @@ function fmtNum(v) {
   return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 function chartEmpty(msg) { return '<div class="chart-empty">' + h(msg) + '</div>'; }
-function fontFamily() { return "'Roboto','Noto Sans SC',sans-serif"; }
+function fontFamily() { return "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Microsoft YaHei',sans-serif"; }
 
 /* 折线图：所选经济体跨年趋势 */
 function renderLine() {
@@ -834,11 +861,11 @@ function renderLine() {
   for (var t = 0; t <= ticks; t++) {
     var tv = yMin + (yMax - yMin) * t / ticks;
     var ty = yFor(tv);
-    svg += '<line x1="' + mL + '" y1="' + ty + '" x2="' + (W - mR) + '" y2="' + ty + '" stroke="#EEF0F2" stroke-width="1"/>';
-    svg += '<text x="' + (mL - 8) + '" y="' + (ty + 4) + '" text-anchor="end" font-size="11" fill="#9CA3AF" font-family="' + ff + '">' + h(fmtNum(Math.round(tv * 100) / 100)) + '</text>';
+    svg += '<line x1="' + mL + '" y1="' + ty + '" x2="' + (W - mR) + '" y2="' + ty + '" stroke="var(--gray-150)" stroke-width="1"/>';
+    svg += '<text x="' + (mL - 8) + '" y="' + (ty + 4) + '" text-anchor="end" font-size="11" fill="var(--gray-400)" font-family="' + ff + '">' + h(fmtNum(Math.round(tv * 100) / 100)) + '</text>';
   }
   years.forEach(function (y, i) {
-    svg += '<text x="' + xFor(i) + '" y="' + (H - 12) + '" text-anchor="middle" font-size="11" fill="#9CA3AF" font-family="' + ff + '">' + h(y) + '</text>';
+    svg += '<text x="' + xFor(i) + '" y="' + (H - 12) + '" text-anchor="middle" font-size="11" fill="var(--gray-400)" font-family="' + ff + '">' + h(y) + '</text>';
   });
   active.forEach(function (d) {
     var color = dimColor(d);
@@ -849,7 +876,7 @@ function renderLine() {
     }
     years.forEach(function (y, i) {
       if (byDim[d][y] != null) {
-        svg += '<circle cx="' + xFor(i) + '" cy="' + yFor(byDim[d][y]) + '" r="3.2" fill="#fff" stroke="' + color + '" stroke-width="2"/>';
+        svg += '<circle cx="' + xFor(i) + '" cy="' + yFor(byDim[d][y]) + '" r="3.2" fill="var(--surface)" stroke="' + color + '" stroke-width="2"/>';
       }
     });
   });
@@ -887,9 +914,9 @@ function renderRank() {
     var bw = Math.max(2, (Number(r.value) / max) * chartW);
     var label = dimLabel(dk);
     if (label.length > 7) label = label.slice(0, 6) + '…';
-    svg += '<text x="' + (labelW - 8) + '" y="' + (y + 16) + '" text-anchor="end" font-size="12" fill="#4B5563" font-family="' + ff + '">' + h(label) + '</text>';
+    svg += '<text x="' + (labelW - 8) + '" y="' + (y + 16) + '" text-anchor="end" font-size="12" fill="var(--gray-600)" font-family="' + ff + '">' + h(label) + '</text>';
     svg += '<rect x="' + barX + '" y="' + (y + 4) + '" width="' + bw + '" height="16" rx="3" fill="' + color + '"/>';
-    svg += '<text x="' + (barX + bw + 8) + '" y="' + (y + 16) + '" font-size="12" fill="#374151" font-family="' + ff + '" font-weight="600">' + h(fmtNum(r.value)) + '</text>';
+    svg += '<text x="' + (barX + bw + 8) + '" y="' + (y + 16) + '" font-size="12" fill="var(--gray-700)" font-family="' + ff + '" font-weight="600">' + h(fmtNum(r.value)) + '</text>';
   });
   svg += '</svg>';
   box.innerHTML = svg;

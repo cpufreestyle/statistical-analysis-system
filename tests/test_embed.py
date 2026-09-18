@@ -28,7 +28,7 @@ def test_write_assets_single_pass_keeps_both_pages_and_seo(tmp_path):
     assert "PAGE_APP = " in content
     assert "ROBOTS_TXT = " in content
     assert "SITEMAP_XML = " in content
-    assert "OG_IMAGE_SVG = " in content
+    assert "OG_IMAGE_PNG_B64 = " in content
 
 
 def test_all_source_files_exist():
@@ -42,12 +42,15 @@ def test_pages_module_has_all_assets():
     import src.pages as pages
 
     for name in ("PAGE_INDEX", "PAGE_APP", "STYLE_CSS", "APP_JS", "I18N_JS",
-                 "ROBOTS_TXT", "SITEMAP_XML", "OG_IMAGE_SVG"):
+                 "ROBOTS_TXT", "SITEMAP_XML", "OG_IMAGE_PNG_B64"):
         assert hasattr(pages, name), f"src.pages 缺少 {name}"
     # SEO 内容真实可用
     assert "Sitemap:" in pages.ROBOTS_TXT
     assert "<urlset" in pages.SITEMAP_XML
-    assert "<svg" in pages.OG_IMAGE_SVG
+    # 分享卡片以 base64 内嵌，解码后应是合法 PNG
+    import base64
+
+    assert base64.b64decode(pages.OG_IMAGE_PNG_B64)[:8] == b"\x89PNG\r\n\x1a\n"
 
 
 def test_seed_data_labels_csv_valid():
