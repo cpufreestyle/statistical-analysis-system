@@ -14,6 +14,39 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
 
 Nothing yet.
 
+## 2026-09-18 — Open-source readiness batch (`130e793`)
+
+### Added
+
+- **`LICENSE` (MIT).** The READMEs claimed MIT while the repository contained no licence file,
+  which legally means “all rights reserved”. Fixed, and `pyproject.toml` now declares it.
+- `CONTRIBUTING.md` + `CONTRIBUTING.zh-CN.md` — the six hard rules, the “changing an endpoint
+  means touching four places” checklist, and the test/PR conventions.
+- `SECURITY.md` — private reporting channel, in/out of scope, admin-token and `/tmp` SQLite
+  notes, and an explicit “no third-party audit yet”.
+- `CHANGELOG.md` (this file) and `CITATION.cff` (CFF 1.2.0, points at the GitHub mirror).
+- `.github/PULL_REQUEST_TEMPLATE.md` and bug-report / feature-request issue templates.
+- `GET /privacy` — bilingual privacy & data statement rendered server-side (`src/privacy_page.py`,
+  reuses `api_docs.SHARED_CSS`). It answers the three questions people actually ask: what is
+  stored (the `qu_lang_v2` key in `localStorage`), under which licence the data is used
+  (World Bank CC BY 4.0), and whether AI is on (off by default). Linked from the landing-page
+  footer, `/docs` and the error pages; listed in `sitemap.xml`.
+- 6 tests for the privacy page (placeholder substitution, both languages, the three answers,
+  reachability, sitemap). Suite grows 85 → 111.
+
+### Changed
+
+- `.markdownlint-cli2.jsonc` now owns the ignore list (`data/`, `node_modules/`, `.venv/`,
+  assistant memory directories). Running `markdownlint-cli2 "**/*.md"` locally used to report
+  3083 issues, all of them outside the project; the CI job now reuses the same config.
+
+### Docs
+
+- Both READMEs: CI / licence / Python badges, the `## License` section now separates code
+  (MIT) from data terms, and a navigation table for CONTRIBUTING / SECURITY / CHANGELOG /
+  CITATION / privacy / docs.
+- `HANDOFF.md` §0, §5, §6.7 and §9 refreshed.
+
 ## 2026-09-18 — Usability & quality batch (`202f428`)
 
 ### Added
