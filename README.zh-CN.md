@@ -1,5 +1,9 @@
 # 亚太统计分析系统
 
+[![CI](https://github.com/cpufreestyle/statistical-analysis-system/actions/workflows/ci.yml/badge.svg)](https://github.com/cpufreestyle/statistical-analysis-system/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/downloads/)
+
 面向亚太地区的开放经济统计工作台：**每一个数字都来自官方公开数据**，AI 只被允许解读这些数字——绝不允许凭空生成。
 
 - **在线看板**：<https://qu-stat-system.vercel.app/app>
@@ -244,4 +248,16 @@ Vercel Serverless 函数无法从部署包中读取 `public/` 或 `data/`，因�
 
 ## 许可
 
-MIT
+代码采用 **MIT**，见 [LICENSE](LICENSE)。
+
+`data/` 下的数据集为公开数据，沿用来源方各自的条款：世界银行 Open Data（CC BY 4.0）
+与国家统计局、海关总署的公开发布物。仓库中**不包含任何内部、涉密或未公开数据**。
+
+| 你想找 | 在哪 |
+| --- | --- |
+| 参与贡献 | [CONTRIBUTING.zh-CN.md](CONTRIBUTING.zh-CN.md) · English: [CONTRIBUTING.md](CONTRIBUTING.md) |
+| 报告安全漏洞 | [SECURITY.md](SECURITY.md) |
+| 变更记录 | [CHANGELOG.md](CHANGELOG.md) |
+| 引用本项目 | [CITATION.cff](CITATION.cff) |
+| 本站点收集什么 | <https://qu-stat-system.vercel.app/privacy> |
+| 应用内接口文档 | <https://qu-stat-system.vercel.app/docs> |

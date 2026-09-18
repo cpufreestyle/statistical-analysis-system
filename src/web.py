@@ -32,6 +32,7 @@ from src import collect as collector
 from src import labels
 from src import api_docs
 from src import error_pages
+from src import privacy_page
 from src.stats import indicators as ind
 from src.stats import query as nlq
 from src.stats import custom as cust
@@ -233,6 +234,16 @@ def docs_page():
     防止新增路由后文档静默过期。
     """
     return _render_page(api_docs.render(_lang(), _BASE_URL))
+
+
+@app.route("/privacy")
+def privacy():
+    """隐私与数据声明页（服务端按请求语言渲染，零 JS）。
+
+    对外分发后被问得最多的就是「收集什么 / 数据从哪来 / AI 会不会把问题发出去」，
+    答案固定在这一页，见 :mod:`src.privacy_page`。
+    """
+    return _render_page(privacy_page.render(_lang(), _BASE_URL))
 
 
 @app.errorhandler(404)

@@ -326,3 +326,42 @@ def test_hreflang_per_page_urls(client):
 
 def test_sitemap_lists_docs(client):
     assert "/docs" in client.get("/sitemap.xml").get_data(as_text=True)
+
+
+# ---------------------------------------------------------------------------
+# /privacy —— 隐私与数据声明页（对外分发的合规入口）
+# ---------------------------------------------------------------------------
+def test_privacy_page_renders_without_placeholders(client):
+    resp = client.get("/privacy")
+    assert resp.status_code == 200
+    assert resp.content_type.startswith("text/html")
+    assert b"__ASSET_VER__" not in resp.data
+    assert b"__HTML_LANG__" not in resp.data
+
+
+def test_privacy_page_is_bilingual(client):
+    zh = client.get("/privacy?lang=zh").get_data(as_text=True)
+    en = client.get("/privacy?lang=en").get_data(as_text=True)
+    assert 'lang="zh-CN"' in zh and "我们不设账号" in zh
+    assert 'lang="en"' in en and "No accounts, no login" in en
+    assert "No accounts, no login" not in zh
+
+
+def test_privacy_page_answers_the_faq(client):
+    """对外三问必须都有答案：收集什么 / 数据从哪来 / AI 是否外发。"""
+    en = client.get("/privacy?lang=en").get_data(as_text=True)
+    assert "qu_lang_v2" in en          # 浏览器里存了什么
+    assert "CC BY 4.0" in en           # 数据许可
+    assert "off by default" in en      # 云端 AI 默认关闭
+    assert "/tmp" in en                # 托管与存储
+
+
+def test_privacy_page_reachable_from_docs_and_landing(client):
+    """入口不能只存在于路由表里：落地页页脚与 /docs 导航都要能看到。"""
+    assert "/privacy" in client.get("/").get_data(as_text=True)
+    assert "/privacy" in client.get("/docs?lang=en").get_data(as_text=True)
+    assert "/privacy" in client.get("/no-such-page").get_data(as_text=True)
+
+
+def test_sitemap_lists_privacy(client):
+    assert "/privacy" in client.get("/sitemap.xml").get_data(as_text=True)

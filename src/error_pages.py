@@ -73,6 +73,7 @@ def render(code: int, lang: str, base_url: str) -> str:
     other = "zh" if lang == "en" else "en"
     other_label = "中文" if lang == "en" else "EN"
     doc_label = "API 参考" if zh else "API reference"
+    privacy_label = "隐私与数据声明" if zh else "Privacy & data statement"
     home_label = "返回落地页" if zh else "Back to landing page"
     app_label = "进入数据看板" if zh else "Open the dashboard"
     skip = "跳到主内容" if zh else "Skip to content"
@@ -101,6 +102,7 @@ def render(code: int, lang: str, base_url: str) -> str:
   </div>
   <p class="err-links">
     <a href="/docs">{doc_label}</a> ·
+    <a href="/privacy">{privacy_label}</a> ·
     <a href="/docs?lang={other}">{other_label}</a>
   </p>
 </main>

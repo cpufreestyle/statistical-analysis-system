@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+title: "Asia-Pacific Statistical Analysis System"
+message: "If you use this software, please cite it using the metadata from this file."
+type: software
+version: 0.1.0
+date-released: "2026-09-18"
+license: MIT
+repository-code: "https://github.com/cpufreestyle/statistical-analysis-system"
+url: "https://qu-stat-system.vercel.app"
+abstract: >-
+  An open economic-statistics workbench for the Asia-Pacific region. Every figure comes from
+  official public data (World Bank Open Data, China National Bureau of Statistics, China
+  Customs); the AI layer may only interpret those figures and is explicitly forbidden from
+  inventing any. Identifiers are localized server-side, so the REST API is bilingual rather
+  than only the dashboard.
+keywords:
+  - asia-pacific
+  - statistics
+  - world-bank-open-data
+  - gdp
+  - data-visualization
+  - bilingual
+  - flask
+  - ai-interpretation
+authors:
+  - name: "cpufreestyle"
+    website: "https://github.com/cpufreestyle"

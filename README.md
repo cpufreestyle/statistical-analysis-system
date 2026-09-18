@@ -1,5 +1,9 @@
 # Asia-Pacific Statistical Analysis System
 
+[![CI](https://github.com/cpufreestyle/statistical-analysis-system/actions/workflows/ci.yml/badge.svg)](https://github.com/cpufreestyle/statistical-analysis-system/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/downloads/)
+
 An open economic-statistics workbench for the Asia-Pacific region: **every figure comes from
 official public data**, and the AI layer is only allowed to interpret those figures — never to
 invent them.
@@ -254,4 +258,17 @@ These bit us, so they are documented rather than solved:
 
 ## License
 
-MIT
+Code is **MIT** — see [LICENSE](LICENSE).
+
+The datasets under `data/` are public and keep their upstream terms: World Bank Open Data
+(CC BY 4.0) and public releases from China NBS / China Customs. No internal or restricted
+data is included anywhere in this repository.
+
+| Looking for | Where |
+| --- | --- |
+| How to contribute | [CONTRIBUTING.md](CONTRIBUTING.md) · 中文：[CONTRIBUTING.zh-CN.md](CONTRIBUTING.zh-CN.md) |
+| Reporting a vulnerability | [SECURITY.md](SECURITY.md) |
+| What changed when | [CHANGELOG.md](CHANGELOG.md) |
+| Citing this project | [CITATION.cff](CITATION.cff) |
+| What the site collects | <https://qu-stat-system.vercel.app/privacy> |
+| In-app API reference | <https://qu-stat-system.vercel.app/docs> |

@@ -46,6 +46,7 @@
     /* 导航 / 其它 */
     "API 文档": "API Reference",
     "📖 API 文档": "📖 API Reference",
+    "隐私与数据声明": "Privacy & data",
     "线上版本已关闭实时采集（本地运行可用）":
       "Live collection is disabled on the hosted build (run locally to collect)",
 

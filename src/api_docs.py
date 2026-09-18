@@ -56,6 +56,20 @@ ENDPOINTS: list[dict[str, object]] = [
         "example": "curl -s \"$BASE/docs?lang=en\" | less",
     },
     {
+        "group": "pages", "method": "GET", "path": "/privacy", "auth": False,
+        "title": ("隐私与数据声明", "Privacy & data statement"),
+        "desc": ("对外分发后最常被问的三件事（收集什么 / 数据从哪来 / AI 会不会把问题发出去）"
+                 "的固定答案。同样服务端渲染、零 JS。",
+                 "The standing answer to the three questions asked most often after going "
+                 "public: what is collected, where the data comes from, and whether the AI "
+                 "sends your question anywhere. Also server-rendered, zero JS."),
+        "params": [
+            {"name": "lang", "type": "en | zh", "required": False,
+             "d": ("声明语言。", "Statement language.")},
+        ],
+        "example": "curl -s \"$BASE/privacy?lang=en\"",
+    },
+    {
         "group": "pages", "method": "GET", "path": "/style.css · /app.js · /i18n.js",
         "auth": False,
         "title": ("前端资源", "Frontend assets"),
@@ -445,6 +459,7 @@ _ZH = {
     "footer": "亚太统计分析系统 · 仅使用官方公开数据",
     "back.home": "返回落地页",
     "back.app": "进入数据看板",
+    "privacy.link": "隐私与数据声明",
 }
 
 _EN = {
@@ -510,6 +525,7 @@ _EN = {
     "footer": "Asia-Pacific Statistical Analysis System · official public data only",
     "back.home": "Back to landing page",
     "back.app": "Open the dashboard",
+    "privacy.link": "Privacy & data",
 }
 
 _CSS = """
@@ -573,6 +589,10 @@ pre.doc-pre { margin: 0; padding: 12px 14px; border-radius: var(--radius-md); ba
   .docs-nav-links { gap: 10px; font-size: 12px; }
 }
 """
+
+
+#: ``/privacy`` 等同类页面直接复用这套排版样式，避免各自维护一份（外观天然一致）。
+SHARED_CSS = _CSS
 
 
 def _esc(s: str) -> str:
@@ -716,6 +736,7 @@ def render(lang: str, base_url: str) -> str:
   <div class="docs-nav-links">
     <a href="/">{_esc(s["back.home"])}</a>
     <a href="/app">{_esc(s["back.app"])}</a>
+    <a href="/privacy">{_esc(s["privacy.link"])}</a>
     <a id="docsLangToggle" class="lang-toggle" href="/docs?lang={other}">{_esc(other_label)}</a>
   </div>
 </nav>
@@ -738,7 +759,8 @@ def render(lang: str, base_url: str) -> str:
   {admin_note}
   <div class="docs-foot">
     <span>{_esc(s["footer"])}</span>
-    <span>GET /docs?lang={other} · <code>{_esc(base_url)}/sitemap.xml</code></span>
+    <span><a href="/privacy">{_esc(s["privacy.link"])}</a> ·
+      GET /docs?lang={other} · <code>{_esc(base_url)}/sitemap.xml</code></span>
   </div>
 </main>
 </body>

@@ -19,7 +19,8 @@
 | 分支 / 版本 | `master`；tag 仅 `v1.0.0`（**落后 HEAD，见 §6**） |
 | 线上 | Vercel 项目 `qu-stat-system`，生产别名 `https://qu-stat-system.vercel.app`（**本次未探活，见 §5**） |
 | 测试 / CI | ✅ `tests/` 5 个模块共 **85 项**单元测试 + `.github/workflows/ci.yml`（pytest + 起服务跑 `check_i18n.py` + 可选 markdownlint）——见 §6.1 |
-| 许可证 | MIT |
+| 许可证 | MIT（见 `LICENSE`；`data/` 沿用来源方条款：World Bank Open Data CC BY 4.0） |
+| 开源配套 | `LICENSE` · `CONTRIBUTING.md`（+ 中文版）· `SECURITY.md` · `CHANGELOG.md` · `CITATION.cff` · `.github/` 的 PR 与 issue 模板 · `.markdownlint-cli2.jsonc` |
 
 **唯一护城河**：AI 解读 + 每行数据可溯源到 `note` + 明确禁止编造数字。
 对标 Our World in Data 没有 AI 层，而海外用户对 AI 幻觉极敏感——这是对外主卖点。
@@ -30,9 +31,11 @@
 
 - 工作区**干净**，无未提交改动（`HANDOFF.md` 本身除外）。
 - 最近几批工作（时间倒序）：
-  1. 未提交批次 —— **可用性与质量**：`/docs` API 参考页（服务端渲染双语）、图表可访问性
-     （`role=img` + 数据摘要 `desc`、主题感知色板）、自定义错误页、hreflang、
-     `/api/stats` 公开统计端点（修线上 403 导致的数字缺失）
+  1. 未提交批次 —— **开源项目配套 + 隐私声明页**：补 `LICENSE`(MIT，此前只在文档里声称 MIT
+     却没有该文件)、`CONTRIBUTING`(中英双版)、`CHANGELOG`、`SECURITY`、`CITATION.cff`、
+     PR/issue 模板、`.markdownlint-cli2.jsonc`；新增应用内 `/privacy` 双语声明页
+  2. 未推送批次 `202f428` —— **可用性与质量**：`/docs` API 参考页、图表可访问性、
+     自定义错误页、hreflang、`/api/stats` 公开统计端点（修线上 403 导致的数字缺失）
   2. `7d3faab` 终极优化：性能加载 · 生产加固 · 体验可访问性 · SEO 结构化数据
   3. `40e3784` 更新交接文档 —— 收口亚太分类口径与数据规模
   4. `d8915f2` 移除美国与澳大利亚维度，收口亚太分类口径
@@ -88,6 +91,15 @@ python -m src.cli db info
 | `src/web.py` | Flask 应用：页面、REST API、错误页、冷启动播种 | 23 条路由，见 §7 |
 | `src/api_docs.py` | `/docs` API 参考页（服务端渲染双语，端点清单是唯一事实来源） | 改路由必须同步 `ENDPOINTS`，测试会校验一致性 |
 | `src/error_pages.py` | 品牌一致的 404 / 405 / 500 页（双语，复用 style.css 令牌） | 接口路径仍返回 JSON |
+| `src/privacy_page.py` | `/privacy` 隐私与数据声明页（双语、零 JS，复用 `api_docs.SHARED_CSS`） | 回答对外三问：收集什么 / 数据从哪来 / AI 是否外发 |
+| `api/index.py` | Vercel Serverless 入口 | 见 §6 的部署注意 |
+| `LICENSE` | MIT（仅覆盖代码）；`data/` 沿用来源方条款 | 2026-09 前**一直缺失**，只在文档里声称 MIT |
+| `CONTRIBUTING.md` + `CONTRIBUTING.zh-CN.md` | 贡献指南：六条硬约定、改端点要同步四处、测试与 PR 规范 | 中英双版，与 README 双版一致 |
+| `CHANGELOG.md` | 按「日期 + 批次」记录（版本号尚未与提交对齐，见 §6.2） | 发版时再归并为版本小节 |
+| `SECURITY.md` | 漏洞报告渠道 + 在/不在范围内的说明 | 写明「未做第三方安全审计」 |
+| `CITATION.cff` | 引用元数据（CFF 1.2.0） | 作者用 GitHub 用户名，不含邮箱 |
+| `.github/` | `PULL_REQUEST_TEMPLATE.md` + `ISSUE_TEMPLATE/{bug_report,feature_request}.md` | 模板带项目专属检查项（内嵌 / 测试 / i18n / 文档） |
+| `.markdownlint-cli2.jsonc` | lint 忽略项（含助手工作目录） | 否则本地跑 lint 会被几百条无关记录淹没 |
 | `src/labels.py` | 标识符本地化：`label` / `slug` / `key_of` / `localize_payload` | i18n 核心 |
 | `src/cli.py` | 命令行入口（11 个子命令） | 多数支持 `--lang` |
 | `src/db.py` | SQLAlchemy Core over SQLite（指标宽表 + 知识库表） | |
@@ -158,6 +170,8 @@ python -m src.cli db info
 | 自定义错误页（404 / 405 / 500，双语） | ✅ 已验证 | `/no-such-page` 返回品牌页（含返回落地页 / 看板 / 文档入口）；`/api/*` 的 404 仍回 JSON |
 | `/api/stats` 公开统计端点（生产可用） | ✅ 已验证 | 本地与 `VERCEL` 模拟下均 200，且不含 `url` / `path` / `engine` 等环境细节；pytest 覆盖 |
 | hreflang 语言标注（en / zh-CN / x-default，逐页） | ✅ 已验证 | 三页各 3 条 alternate；pytest 校验各页指向自身 URL（不互串） |
+| `/privacy` 隐私与数据声明页（双语、零 JS） | ✅ 已验证 | curl 双语内容正确、占位符已替换；落地页页脚 / `/docs` 导航 / 错误页**三处入口**均在；pytest 覆盖 |
+| 开源配套文件齐全 | ✅ 已验证 | `LICENSE`(MIT) / `CONTRIBUTING`(中英) / `SECURITY` / `CHANGELOG` / `CITATION.cff` / PR 与 issue 模板；`markdownlint-cli2` 全量 **0 issues** |
 | **线上 Vercel 部署** | ❓ **未验证** | 本次环境无法出外网。域名来自 7–8 月部署日志，**可能已变更或项目已删**，请自行探活 |
 | **Vercel KV 持久化** | ❓ 未验证 | 依赖 `KV_REST_API_URL` / `KV_REST_API_TOKEN`。⚠️ **若 KV 里有旧快照，线上可能仍显示美国/澳大利亚**——重部署后若分类未变，清 KV key `qu_stat_ap:indicators` 或带 `X-Admin-Token` 调 `/api/reseed` |
 | **云端 AI 解读** | ❓ 未验证 | 需 `INFINISYNAPSE_API_KEY`；未配时自动降级为仅本地统计（不会报错） |
@@ -210,7 +224,9 @@ python -m src.cli db info
    | ✅ P1 | **单一 LLM provider（已改为可插拔）** | `src/analyzer.py` 现支持两个 provider：`infinisynapse`（默认，比赛要求的 SSE 可审计链路）+ `openai_compat`（任意 OpenAI 兼容 `/chat/completions`：OpenAI / OpenRouter / Groq / DeepSeek / 本地 Ollama·vLLM）。用 `AI_PROVIDER` 选择，密钥走 `OPENAI_API_KEY` 等环境变量；两者 `analyze()` 返回同构 `{task_id, done, result}`，`/api/ask` 与公报无需改动。无 key 时仍降级本地统计 |
    | ✅ P1 | **SEO（已实现）** | `public/robots.txt` / `sitemap.xml`（含 `lastmod`）/ `og-image.png`（1200×630，由 `scripts/make_og_image.py` 纯 Pillow 生成；PNG 以 base64 内嵌进 `src/pages.py`），由 `/robots.txt` `/sitemap.xml` `/og-image.png` 提供（`scripts/embed_pages.py` 的 `SEO_FILES`）；两页补 `og:image`（含 `width`/`height`）+ `twitter:image` + **JSON-LD**（WebSite/WebApplication + Dataset，含 `distribution` 指向 CSV/JSON 接口）；`<html lang>` 由占位符 `__HTML_LANG__` 按 `?lang=` / `Accept-Language` 输出 |
    | ✅ P1 | **API 文档页（已实现）** | `GET /docs` 服务端渲染双语参考（22 个端点分组卡片 + 参数表 + curl 示例 + 通用约定），零 JS 依赖、无外部 CDN；`src/api_docs.py` 的 `ENDPOINTS` 是与路由表互为镜像的唯一事实来源，pytest 双向校验一致性 |
-   | P2 | 表格无分页；移动端仅 3 个断点 | 另缺隐私政策 / 条款；错误页与可访问性已补（见 §5） |
+   | ✅ P2 | **隐私与数据声明页（已实现）** | `GET /privacy` 双语、零 JS，固定回答对外三问（收集什么 / 数据从哪来 / AI 是否外发）；落地页页脚、`/docs` 导航、错误页三处入口，sitemap 已收录 |
+   | ✅ P2 | **开源配套（已补齐）** | 此前**没有 LICENSE 文件**（README 与本文档都写 MIT，法律上却等于保留全部权利）→ 已补 MIT；另加 `CONTRIBUTING`(中英双版)、`SECURITY`、`CHANGELOG`、`CITATION.cff`、PR/issue 模板 |
+   | P2 | 表格无分页；移动端仅 3 个断点 | 合规与协作文件已齐，剩余是交互细节 |
 
    （数据层 i18n 这条 P0 已于 `f0d63b1` 完成，不再是缺口。）
 

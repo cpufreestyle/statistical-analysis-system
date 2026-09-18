@@ -1,0 +1,13 @@
+{
+  // 只 lint 仓库内的 Markdown：本地助手工作目录（已被 .gitignore 忽略）不参与检查，
+  // 否则本地跑 lint 会被几百条与项目无关的记录淹没。
+  "ignores": [
+    "node_modules",
+    ".venv",
+    "venv",
+    "data",
+    ".workbuddy",
+    ".codebuddy",
+    ".qoder"
+  ]
+}
