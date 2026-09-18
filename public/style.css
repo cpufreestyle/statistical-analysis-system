@@ -65,6 +65,24 @@
   --num: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 
+  /* 图表序列色板（app.js 的 CHART_COLORS 按序引用）。
+     浅色模式取 600 级（白底对比度 ≥ 3:1，满足 WCAG 1.4.11 非文本对比）；
+     深色模式在下方 @media 里换成 300/400 级亮色，避免深底上"糊成一团"。 */
+  --ch-1:  #2563EB;
+  --ch-2:  #0D9488;
+  --ch-3:  #D97706;
+  --ch-4:  #DC2626;
+  --ch-5:  #7C3AED;
+  --ch-6:  #0284C7;
+  --ch-7:  #16A34A;
+  --ch-8:  #DB2777;
+  --ch-9:  #9333EA;
+  --ch-10: #EA580C;
+  --ch-11: #059669;
+  --ch-12: #4F46E5;
+  --ch-13: #65A30D;
+  --ch-14: #E11D48;
+
   /* 布局 */
   --sidebar-w: 280px;
   --header-h: 52px;
@@ -1438,5 +1456,21 @@ select.query-input:focus {
     --shadow-xs: 0 1px 2px rgba(0,0,0,0.45);
     --shadow-sm: 0 1px 3px rgba(0,0,0,0.55), 0 1px 2px rgba(0,0,0,0.45);
     --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.6), 0 2px 4px -2px rgba(0,0,0,0.45);
+
+    /* 图表色板：深底上改用 300/400 级亮色（600 级在深色背景上对比不足） */
+    --ch-1:  #60A5FA;
+    --ch-2:  #2DD4BF;
+    --ch-3:  #FBBF24;
+    --ch-4:  #F87171;
+    --ch-5:  #A78BFA;
+    --ch-6:  #38BDF8;
+    --ch-7:  #4ADE80;
+    --ch-8:  #F472B6;
+    --ch-9:  #C084FC;
+    --ch-10: #FB923C;
+    --ch-11: #34D399;
+    --ch-12: #818CF8;
+    --ch-13: #A3E635;
+    --ch-14: #FB7185;
   }
 }

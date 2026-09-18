@@ -1,7 +1,9 @@
 /* ============================================
    亚太统计分析系统 · 前端逻辑
    对接真实 Flask API（/api/overview, /api/ask, /api/indicators,
-   /api/custom, /api/report, /api/collect, /api/db）
+   /api/custom, /api/report, /api/collect, /api/stats）
+   注意：/api/db、/api/reseed、/api/kv-status、/api/collect 是**管理端点**，
+   生产环境需令牌（无令牌一律 403），前端展示类数据一律走公开端点 /api/stats。
    数据全部来自公开官方数据源（世界银行 Open Data / 国家统计局 / 海关总署）。
    ============================================ */
 
@@ -618,6 +620,11 @@ async function collectNow() {
       })
     });
     var d = await r.json();
+    if (r.status === 403) {
+      /* 管理端点在生产环境被禁用（无持久盘，抓取也无处落库）→ 给明确提示而非静默失败 */
+      showToast(tr('线上版本已关闭实时采集（本地运行可用）'), 'error');
+      return;
+    }
     if (d.ok) {
       showToast(tr('已从公开数据源采集：新增') + ' ' + d.count + ' ' + tr('条记录'), 'success');
       loadOverview();
@@ -635,16 +642,15 @@ async function collectNow() {
 }
 
 /* ═══════ 数据来源与规模（真实库统计） ═══════ */
+/* 用公开的 /api/stats，而非管理端点 /api/db —— 后者线上 403，会让整块显示「—」。 */
 async function loadDbStats() {
   try {
-    var r = await fetch(API + '/api/db');
+    var r = await fetch(API + '/api/stats');
     var db = await r.json();
     setText('dbIndicators', db.indicator_rows);
     setText('dbKnowledge', db.knowledge_rows);
-    var r2 = await fetch(API + '/api/overview?year=' + enc(STATE.year) + '&dimension=' + enc(STATE.dimension));
-    var d = await r2.json();
-    setText('dbDimensions', (d.dimensions || []).length);
-    setText('dbYears', (d.years || []).join(' · '));
+    setText('dbDimensions', db.dimension_count);
+    setText('dbYears', (db.years || []).join(' · '));
   } catch (e) { /* 忽略 */ }
 }
 function setText(id, v) { var el = document.getElementById(id); if (el) el.textContent = v; }
@@ -706,7 +712,10 @@ function toggleSidebarCard(headerEl) {
 
 /* ═══════ 图表（自绘 SVG，无图表库依赖） ═══════ */
 var CHART = { indicators: [], dimOptions: [], years: [], rows: [], currentKey: null, unit: '', selDims: [] };
-var CHART_COLORS = ['#2B6BDB','#14B8A6','#F59E0B','#EF4444','#8B5CF6','#0EA5E9','#22C55E','#EC4899','#A855F7','#F97316','#10B981','#6366F1','#84CC16','#E11D48'];
+/* 图表序列色板：引用 style.css 的 --ch-* 令牌，深色模式自动换成亮色（保证对比度），
+   不再写死十六进制值。 */
+var CHART_COLORS = [];
+for (var _ci = 1; _ci <= 14; _ci++) CHART_COLORS.push('var(--ch-' + _ci + ')');
 
 /* 拉取指标列表 + 维度选项 + 年份；构建下拉与维度多选；已选指标则重新取数 */
 async function initCharts() {
@@ -823,7 +832,14 @@ function fmtNum(v) {
   if (!isFinite(n)) return '—';
   return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
-function chartEmpty(msg) { return '<div class="chart-empty">' + h(msg) + '</div>'; }
+function chartEmpty(msg) { return '<div class="chart-empty" role="status">' + h(msg) + '</div>'; }
+/* 当前所选指标的展示名（用于图表 aria-label / title 的无障碍文案） */
+function chartIndicatorLabel() {
+  for (var i = 0; i < CHART.indicators.length; i++) {
+    if (CHART.indicators[i].key === CHART.currentKey) return CHART.indicators[i].label;
+  }
+  return CHART.currentKey || '';
+}
 function fontFamily() { return "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Microsoft YaHei',sans-serif"; }
 
 /* 折线图：所选经济体跨年趋势 */
@@ -850,13 +866,29 @@ function renderLine() {
   var yMin = Math.min.apply(null, allV), yMax = Math.max.apply(null, allV);
   if (yMin === yMax) { var pad = (Math.abs(yMin) * 0.1) || 1; yMin -= pad; yMax += pad; }
 
+  /* 无障碍：SVG 加 role=img 后子树被视为一张图，故必须自带等价文字描述。
+     desc 逐经济体给出「首年值 → 末年值」，颜色因此不再是唯一的信息载体。 */
+  var a11yLabel = tr('跨年趋势') + ': ' + chartIndicatorLabel() +
+                  ' (' + years[0] + '–' + years[years.length - 1] + ')';
+  var a11yDesc = active.map(function (d) {
+    var ys = years.filter(function (y) { return byDim[d][y] != null; });
+    if (!ys.length) return '';
+    var f = ys[0], l = ys[ys.length - 1], unit = CHART.unit ? ' ' + CHART.unit : '';
+    return dimLabel(d) + ': ' + f + ' ' + fmtNum(byDim[d][f]) + unit +
+           (f === l ? '' : ' → ' + l + ' ' + fmtNum(byDim[d][l]) + unit);
+  }).filter(Boolean).join('; ');
+
   var W = 720, H = 340, mL = 60, mR = 16, mT = 16, mB = 34;
   var pW = W - mL - mR, pH = H - mT - mB;
   function xFor(i) { return mL + (years.length === 1 ? pW / 2 : (i / (years.length - 1)) * pW); }
   function yFor(v) { return mT + pH - ((v - yMin) / (yMax - yMin)) * pH; }
 
   var ff = fontFamily();
-  var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto">';
+  var svg = '<svg role="img" aria-label="' + a(a11yLabel) + '" '
+    + 'viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet" '
+    + 'style="width:100%;height:auto">'
+    + '<title>' + h(a11yLabel) + '</title>'
+    + '<desc>' + h(a11yDesc) + '</desc>';
   var ticks = 4;
   for (var t = 0; t <= ticks; t++) {
     var tv = yMin + (yMax - yMin) * t / ticks;
@@ -881,7 +913,9 @@ function renderLine() {
     });
   });
   svg += '</svg>';
-  var legend = '<div class="chart-legend">' + active.map(function (d) {
+  /* 图例对屏幕阅读器隐藏：经济体与数值的对应关系已写进上面的 <desc>，
+     重复播报只会增加噪音（视觉用户仍可正常看到色块）。 */
+  var legend = '<div class="chart-legend" aria-hidden="true">' + active.map(function (d) {
     return '<span class="lg-item"><i style="background:' + dimColor(d) + '"></i>' + h(dimLabel(d)) + '</span>';
   }).join('') + '</div>';
   box.innerHTML = svg + legend;
@@ -899,6 +933,14 @@ function renderRank() {
   if (!rows.length) { box.innerHTML = chartEmpty(tr('该指标在所选年份无数据')); return; }
   rows.sort(function (a, b) { return Number(b.value) - Number(a.value); });
 
+  /* 无障碍：同折线图，role=img 需要等价的文字描述（按降序给出名次 + 数值） */
+  var a11yLabel = tr('分经济体排名') + ': ' + chartIndicatorLabel() + ' (' + yr + ')';
+  var a11yDesc = rows.map(function (r, i) {
+    var dk = r.dimension_key || r.dimension;
+    return (i + 1) + '. ' + dimLabel(dk) + ' ' + fmtNum(r.value) +
+           (CHART.unit ? ' ' + CHART.unit : '');
+  }).join('; ');
+
   var labelW = 96, barX = labelW + 10, valW = 74;
   var rowH = 26, padT = 6;
   var W = 720, H = padT * 2 + rows.length * rowH;
@@ -906,7 +948,11 @@ function renderRank() {
   var chartW = W - barX - valW;
   var ff = fontFamily();
 
-  var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto">';
+  var svg = '<svg role="img" aria-label="' + a(a11yLabel) + '" '
+    + 'viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet" '
+    + 'style="width:100%;height:auto">'
+    + '<title>' + h(a11yLabel) + '</title>'
+    + '<desc>' + h(a11yDesc) + '</desc>';
   rows.forEach(function (r, i) {
     var dk = r.dimension_key || r.dimension;
     var color = CHART_COLORS[i % CHART_COLORS.length];

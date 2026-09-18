@@ -43,6 +43,12 @@
     "badge.official": "Official Public Data",
     "badge.api": "Powered by InfiniSynapse Server API",
 
+    /* 导航 / 其它 */
+    "API 文档": "API Reference",
+    "📖 API 文档": "📖 API Reference",
+    "线上版本已关闭实时采集（本地运行可用）":
+      "Live collection is disabled on the hosted build (run locally to collect)",
+
     /* 应用页头 */
     "数据概览": "Data Overview",
     "subtitle.text": " Asia-Pacific Economic Data — Statistics & Analysis",

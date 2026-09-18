@@ -2,8 +2,12 @@
 __pycache__/
 *.pyc
 .venv/
+venv/
 *.egg-info/
 .pytest_cache/
+.python-version
+.ruff_cache/
+.mypy_cache/
 
 # ---- 生成的数据 / 运行时产物（非源码，勿提交）----
 data/*.db

@@ -30,6 +30,8 @@ from src.db import query_indicators, db_info, init_db
 from src import knowledge as kb
 from src import collect as collector
 from src import labels
+from src import api_docs
+from src import error_pages
 from src.stats import indicators as ind
 from src.stats import query as nlq
 from src.stats import custom as cust
@@ -39,6 +41,10 @@ app = Flask(__name__)
 
 DEFAULT_DIMENSION = "亚太"
 DEFAULT_YEAR = 2024
+
+#: 对外公开站点基址（canonical / hreflang / 文档示例用）。自定义域名时用环境变量覆盖，
+#: 避免把 vercel.app 写死在索引与分享元数据里。
+_BASE_URL = _os.environ.get("QU_STAT_BASE_URL", "https://qu-stat-system.vercel.app").rstrip("/")
 
 #: 静态资源版本号 = 三份前端资源的内容哈希（前 12 位）。改了任一资源，哈希自动变，
 #: 页面里的 ``?v=`` 随之变，浏览器必然拉新文件——这样才能给静态资源上「一年 immutable」
@@ -219,6 +225,46 @@ def app_page():
     return _render_page(pages.PAGE_APP)
 
 
+@app.route("/docs")
+def docs_page():
+    """API 参考页（服务端按请求语言渲染，不依赖前端 JS）。
+
+    端点清单与实现的一致性由 ``tests/test_web.py`` 对照 ``app.url_map`` 校验，
+    防止新增路由后文档静默过期。
+    """
+    return _render_page(api_docs.render(_lang(), _BASE_URL))
+
+
+@app.errorhandler(404)
+def handle_404(err):
+    """品牌一致的 404 页（而非 Flask 默认的英文白页）。JSON 请求仍回 JSON。"""
+    if _wants_json():
+        return jsonify({"ok": False, "error": "not found"}), 404
+    return _render_page(error_pages.render(404, _lang(), _BASE_URL)), 404
+
+
+@app.errorhandler(500)
+def handle_500(err):  # pragma: no cover - 需要人为触发内部错误
+    if _wants_json():
+        return jsonify({"ok": False, "error": "internal server error"}), 500
+    return _render_page(error_pages.render(500, _lang(), _BASE_URL)), 500
+
+
+@app.errorhandler(405)
+def handle_405(err):
+    if _wants_json():
+        return jsonify({"ok": False, "error": "method not allowed"}), 405
+    return _render_page(error_pages.render(405, _lang(), _BASE_URL)), 405
+
+
+def _wants_json() -> bool:
+    """接口路径或显式 Accept: application/json 时回 JSON，否则回 HTML 错误页。"""
+    if request.path.startswith("/api/"):
+        return True
+    accept = request.headers.get("Accept", "")
+    return "application/json" in accept and "text/html" not in accept
+
+
 @app.route("/robots.txt")
 def serve_robots():
     return pages.ROBOTS_TXT, 200, {"Content-Type": "text/plain; charset=utf-8",
@@ -279,6 +325,30 @@ def serve_favicon():
 def api_overview():
     year = request.args.get("year", type=int) or DEFAULT_YEAR
     return jsonify(_overview(year, _dimension_arg(), _lang()))
+
+
+@app.route("/api/stats")
+def api_stats():
+    """公开只读的「数据规模」统计——落地页首屏与看板侧栏用它填数字。
+
+    与 ``/api/db`` 的分工：后者是**管理端点**，含库文件路径、引擎等环境细节，
+    部署到 Vercel 后一律 403（见 :func:`_admin_denied`）；本端点只暴露可对外公开的
+    聚合计数与覆盖范围，故保持公开。
+
+    —— 前端若误用被鉴权端点，线上页面会整片显示「—」且不报错（静默功能缺失），
+    这正是本端点存在的理由。
+    """
+    info = db_info()          # 内部已 init_db()
+    dims = ind.available_dimensions()
+    years = ind.available_years()
+    return jsonify({
+        "indicator_rows": int(info["indicator_rows"]),
+        "knowledge_rows": int(info["knowledge_rows"]),
+        "dimension_count": len(dims),
+        "year_count": len(years),
+        "years": years,
+        "dimensions": dims,
+    })
 
 
 @app.route("/api/db")

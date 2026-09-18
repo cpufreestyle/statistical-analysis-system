@@ -5,6 +5,7 @@ official public data**, and the AI layer is only allowed to interpret those figu
 invent them.
 
 - **Dashboard**: <https://qu-stat-system.vercel.app/app>
+- **API reference**: <https://qu-stat-system.vercel.app/docs> (bilingual, server-rendered — 22 endpoint cards with parameters and `curl` examples)
 - **Data**: World Bank Open Data · China National Bureau of Statistics (NBS) · China Customs
 - **AI**: pluggable providers — InfiniSynapse Server API (`/api/ai/message` + `/api/ai/events` SSE, default) **or** any OpenAI-compatible `/chat/completions` endpoint (OpenAI / OpenRouter / Groq / DeepSeek / local Ollama · vLLM), Bearer-token auth
 - **中文文档**: [README.zh-CN.md](README.zh-CN.md)
@@ -25,21 +26,23 @@ Most "AI + data" demos let the model guess. This one is built the other way roun
 
 ## Screens
 
-Four panels — three workbenches plus a bulletin generator:
+Five workbench tabs:
 
 1. **AI Query** — ask in English or Chinese ("2024 GDP", "retail sales", "population of Japan").
    The engine resolves region / indicator / year, returns the real figures, and optionally hands
    them to the cloud AI for interpretation.
 2. **Indicator Catalog** — searchable table of every stored series, filterable by region and
-   category, with one-click hand-off to Custom Analysis.
+   category, with one-click hand-off to Custom Analysis and CSV export.
 3. **Custom Analysis** — bind variables to any category / indicator / region, use
    `share` / `diff` / `ratio` / `sum` presets, and compute YoY. Expressions are evaluated in a
    restricted namespace (no arbitrary code execution).
 4. **Bulletin** — generates a statistical bulletin for the selected year and region from real
    data, with an optional AI interpretation section.
-5. **Cross-economy ranking** — industry answers append a ranking of the 12 non-aggregate
-   economies by industrial value added (top 10 shown), which replaced the previous fabricated
-   town ranking.
+5. **Charts** — hand-drawn SVG (no chart library): a multi-economy time-series line chart and a
+   per-economy ranking bar chart, both carrying `role="img"` plus a text summary of the data for
+   screen readers. Export the current indicator as CSV in one click.
+
+The API itself is documented in-app at `/docs` (bilingual, server-rendered, no JavaScript).
 
 ## Data sources and caliber
 
@@ -47,7 +50,7 @@ Four panels — three workbenches plus a bulletin generator:
 | --- | --- | --- |
 | Asia-Pacific (`EAS`) | World Bank Open Data | East Asia & Pacific, all income levels |
 | Asia-Pacific, developing (`EAP`) | World Bank Open Data | East Asia & Pacific, excluding high income |
-| China, Japan, Korea, India, Indonesia, Thailand, Viet Nam, Malaysia, Philippines, Singapore, Australia, United States | World Bank Open Data | One dimension per economy for comparison |
+| China, Japan, Korea, India, Indonesia, Thailand, Viet Nam, Malaysia, Philippines, Singapore | World Bank Open Data | One dimension per economy for comparison (10 economies) |
 | China, domestic detail | China NBS / China Customs (2024) | GDP and industry value added, retail sales, fixed asset investment, merchandise trade, resident population, per-capita disposable income |
 
 Covered series per economy (World Bank codes):
@@ -156,7 +159,15 @@ Language resolution order: `?lang=` → `Accept-Language` header → `en`.
 ```bash
 curl -s "http://127.0.0.1:5000/api/indicators?year=2024&dimension=China&lang=en"
 curl -s "http://127.0.0.1:5000/api/report?format=json&year=2024&dimension=%E4%BA%9A%E5%A4%AA&lang=zh"
+curl -s "http://127.0.0.1:5000/api/stats"        # public dataset-size counters
+curl -s "http://127.0.0.1:5000/docs?lang=en"     # full reference
 ```
+
+Admin endpoints (`/api/db`, `/api/reseed`, `/api/kv-status`, `/api/collect`) expose environment
+details or mutate the store, so they require `X-Admin-Token` (or `?token=`) when
+`QU_STAT_ADMIN_TOKEN` is set, and return **403 in production** when it is not. Everything a
+visitor's page needs is served by public endpoints — `/api/stats` in particular exists so the
+dashboard never depends on an admin route.
 
 Input accepts all three layers, so `?dimension=China`, `?dimension=china` and `?dimension=中国`
 are equivalent. Unregistered terms are returned as-is — never translated by guesswork, never
@@ -181,8 +192,10 @@ data/labels.csv           identifier label pack: kind,key,slug,en (single source
 scripts/fetch_wb_data.py  fetch the World Bank dataset
 scripts/embed_pages.py    embed public/ -> src/pages.py and data/ -> src/seed_data.py
 scripts/check_i18n.py     contract check: no CJK leaks in English API responses
-src/web.py                Flask app: pages, REST API, cold-start seeding
+src/web.py                Flask app: pages, REST API, error pages, cold-start seeding
 src/cli.py                argparse entry (ask / report / collect / custom / knowledge / db / web)
+src/api_docs.py           /docs API reference (server-rendered, bilingual; endpoint registry)
+src/error_pages.py        branded 404 / 405 / 500 pages (bilingual; JSON for /api/*)
 src/loader.py             seed loading + user CSV/Excel import
 src/collect.py            collection pipeline (pluggable sources, rate limited)
 src/db.py                 SQLAlchemy Core over SQLite (indicators wide table + knowledge table)
@@ -215,6 +228,9 @@ re-run that script and restart the server** — otherwise you will be looking at
 3. `vercel.json` routes every request to `api/index.py`; the SQLite database lives in `/tmp` and
    is rebuilt on cold start, optionally restored from a Redis-compatible KV store when the
    `KV_REST_API_URL` / `KV_REST_API_TOKEN` variables are present.
+4. Optional: set `QU_STAT_BASE_URL` to your custom domain (it feeds `canonical`, `hreflang` and
+   the `/docs` examples), and `QU_STAT_ADMIN_TOKEN` if you need to call the admin endpoints
+   (re-seed / collect) in production.
 
 ## Windows / encoding pitfalls
 

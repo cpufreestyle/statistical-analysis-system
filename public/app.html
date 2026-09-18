@@ -15,6 +15,9 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://qu-stat-system.vercel.app/og-image.png">
 <link rel="canonical" href="https://qu-stat-system.vercel.app/app">
+<link rel="alternate" hreflang="en" href="https://qu-stat-system.vercel.app/app?lang=en">
+<link rel="alternate" hreflang="zh-CN" href="https://qu-stat-system.vercel.app/app?lang=zh">
+<link rel="alternate" hreflang="x-default" href="https://qu-stat-system.vercel.app/app">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/style.css?v=__ASSET_VER__">
 <script type="application/ld+json">
@@ -66,7 +69,8 @@
   </div>
 
   <div class="header-right">
-    <a href="/" data-i18n="home.link" style="font-size:12px;color:var(--gray-400);text-decoration:none;margin-right:12px;padding:4px 10px;border:1px solid var(--gray-200);border-radius:6px;transition:all 0.2s;" onmouseover="this.style.color='var(--blue-600)';this.style.borderColor='var(--blue-300)'" onmouseout="this.style.color='var(--gray-400)';this.style.borderColor='var(--gray-200)'">🏠 首页</a>
+    <a href="/" data-i18n="home.link" style="font-size:12px;color:var(--gray-400);text-decoration:none;margin-right:8px;padding:4px 10px;border:1px solid var(--gray-200);border-radius:6px;transition:all 0.2s;" onmouseover="this.style.color='var(--blue-600)';this.style.borderColor='var(--blue-300)'" onmouseout="this.style.color='var(--gray-400)';this.style.borderColor='var(--gray-200)'">🏠 首页</a>
+    <a href="/docs" data-i18n="📖 API 文档" style="font-size:12px;color:var(--gray-400);text-decoration:none;margin-right:12px;padding:4px 10px;border:1px solid var(--gray-200);border-radius:6px;transition:all 0.2s;" onmouseover="this.style.color='var(--blue-600)';this.style.borderColor='var(--blue-300)'" onmouseout="this.style.color='var(--gray-400)';this.style.borderColor='var(--gray-200)'">📖 API 文档</a>
     <label class="header-select">
       <span data-i18n="地区/经济体">地区/经济体</span>
       <select id="globalDimension" onchange="syncDimension(this.value)"></select>
@@ -250,14 +254,14 @@
               <span class="chart-hint" data-i18n="勾选经济体叠加对比">勾选经济体叠加对比</span>
             </div>
             <div class="chart-dim-pick" id="chartDimPick"></div>
-            <div id="lineChart" class="chart-svg"></div>
+            <div id="lineChart" class="chart-svg" aria-live="polite"></div>
           </div>
           <div class="chart-block">
             <div class="chart-head">
               <span data-i18n="分经济体排名">分经济体排名</span>
               <select id="chartYear" class="query-input chart-year" onchange="renderCharts()"></select>
             </div>
-            <div id="rankChart" class="chart-svg"></div>
+            <div id="rankChart" class="chart-svg" aria-live="polite"></div>
           </div>
         </div>
       </div>

@@ -20,6 +20,9 @@
 <meta name="twitter:image" content="https://qu-stat-system.vercel.app/og-image.png">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="canonical" href="https://qu-stat-system.vercel.app/">
+<link rel="alternate" hreflang="en" href="https://qu-stat-system.vercel.app/?lang=en">
+<link rel="alternate" hreflang="zh-CN" href="https://qu-stat-system.vercel.app/?lang=zh">
+<link rel="alternate" hreflang="x-default" href="https://qu-stat-system.vercel.app/">
 <style>
 /* =============================================
    全国统计分析系统 · Landing Page
@@ -736,6 +739,7 @@ body {
     <li><a href="#process" data-i18n="工作流程">工作流程</a></li>
     <li><a href="#architecture" data-i18n="系统架构">系统架构</a></li>
     <li><a href="#tech" data-i18n="技术栈">技术栈</a></li>
+    <li><a href="/docs" data-i18n="API 文档">API 文档</a></li>
   </ul>
   <button id="langToggle" class="lang-toggle" type="button" onclick="toggleLang()" aria-label="切换语言 / Switch language">EN</button>
   <a href="/app" class="nav-cta" data-i18n="进入系统 →">进入系统 →</a>
@@ -988,7 +992,8 @@ body {
   <p>
     <a href="/app" data-i18n="footer.enter">进入系统</a> ·
     <a href="#features" data-i18n="footer.features">功能特性</a> ·
-    <a href="#architecture" data-i18n="footer.arch">系统架构</a>
+    <a href="#architecture" data-i18n="footer.arch">系统架构</a> ·
+    <a href="/docs" data-i18n="API 文档">API 文档</a>
   </p>
 </footer>
 
@@ -1016,17 +1021,13 @@ window.addEventListener('scroll', () => {
 });
 
 // 首页统计用真实库数据填充（不写死数字）
-fetch('/api/overview')
+// 注意用公开的 /api/stats —— /api/db 是管理端点，线上返回 403，会导致数字恒为「—」。
+fetch('/api/stats')
   .then(r => r.json())
   .then(d => {
     const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-    set('statEco', (d.dimensions || []).length);
-    set('statYears', (d.years || []).length);
-  })
-  .catch(() => {});
-fetch('/api/db')
-  .then(r => r.json())
-  .then(d => {
+    set('statEco', d.dimension_count);
+    set('statYears', d.year_count);
     const el = document.getElementById('statInd');
     if (el) el.textContent = Number(d.indicator_rows || 0).toLocaleString();
   })
