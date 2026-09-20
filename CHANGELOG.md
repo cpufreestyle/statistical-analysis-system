@@ -11,6 +11,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
 
 ## [Unreleased]
 
+Nothing yet.
+
+## v1.5.0 — 2026-09-20 — Overseas launch fixes (`bf444ab`)
+
 ### Fixed
 
 - **旧快照防线改为特征判别。** 冷启动丢弃旧 KV 快照的判据从「行数 < 30」改为「缺『亚太』聚合维度」——
