@@ -365,3 +365,19 @@ def test_privacy_page_reachable_from_docs_and_landing(client):
 
 def test_sitemap_lists_privacy(client):
     assert "/privacy" in client.get("/sitemap.xml").get_data(as_text=True)
+
+
+# ---------------------------------------------------------------------------
+# 区级旧快照判别（线上冷启动防线：旧数据混入会让英文首页变空看板并漏出「全区」）
+# ---------------------------------------------------------------------------
+def test_legacy_snapshot_detected_without_apac_aggregate():
+    from src.web import _is_legacy_dataset
+
+    assert _is_legacy_dataset({"全区", "中国", "全国"})
+    assert _is_legacy_dataset(set())
+
+
+def test_real_apac_dataset_is_not_legacy():
+    from src.web import _is_legacy_dataset
+
+    assert not _is_legacy_dataset({"亚太", "亚太(发展中)", "中国"})

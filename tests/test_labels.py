@@ -56,8 +56,8 @@ def test_label_zh_returns_canonical_key():
 
 def test_label_en_localizes():
     assert labels.label("dimension", "中国", "en") == "China"
-    assert labels.label("indicator", "GDP增长率", "en") == "GDP Growth"
-    assert labels.label("category", "综合", "en") == "National Accounts"
+    assert labels.label("indicator", "GDP增长率", "en") == "GDP growth"
+    assert labels.label("category", "综合", "en") == "National accounts"
 
 
 def test_label_unregistered_passthrough():
@@ -76,7 +76,7 @@ def test_slug_registered_and_fallback():
 
 def test_term_triple():
     t = labels.term("indicator", "GDP增长率", "en")
-    assert t == {"label": "GDP Growth", "key": "GDP增长率", "slug": "gdp_growth"}
+    assert t == {"label": "GDP growth", "key": "GDP增长率", "slug": "gdp_growth"}
 
 
 # ---------------------------------------------------------------------------
@@ -108,8 +108,8 @@ def test_localize_indicator_parallel_keys_en():
         "note": "来源：世界银行OpenData(NY.GDP.MKTP.KD.ZG)",
     }
     out = labels.localize_indicator(row, "en")
-    assert out["category"] == "National Accounts"
-    assert out["indicator"] == "GDP Growth"
+    assert out["category"] == "National accounts"
+    assert out["indicator"] == "GDP growth"
     assert out["dimension"] == "China"
     # 规范键原样保留（跨语言稳定连接键）
     assert out["indicator_key"] == "GDP增长率"
@@ -140,7 +140,7 @@ def test_localize_indicators_list():
          "dimension": "中国", "value": 1.0, "unit": "亿美元", "note": ""},
     ]
     out = labels.localize_indicators(rows, "en")
-    assert [r["indicator"] for r in out] == ["GDP Growth", "Exports of Goods & Services"]
+    assert [r["indicator"] for r in out] == ["GDP growth", "Exports of goods and services"]
     assert all(r["indicator_key"] for r in out)
 
 
@@ -179,7 +179,7 @@ def test_localize_payload_renames_keys_en():
     out = labels.localize_payload(payload, "en")
     assert "year" in out and out["year"] == 2024
     assert out["dimension"] == "China"
-    assert out["matched_indicators"][0]["indicator"] == "GDP Growth"
+    assert out["matched_indicators"][0]["indicator"] == "GDP growth"
     assert out["matched_indicators"][0]["value"] == 5.0
 
 

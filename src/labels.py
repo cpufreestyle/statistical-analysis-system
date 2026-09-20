@@ -400,7 +400,7 @@ def localize_payload(payload: Any, lang: str = DEFAULT_LANG) -> Any:
     """把「UI 状」载荷（``/api/ask`` 结果、统计公报 JSON）整体转为目标语言。
 
     ``lang=en``：结构键重命名为 ASCII（``年份`` → ``year``），
-    值按词条翻译（``GDP增长率`` → ``GDP Growth``），来源说明走 :func:`localize_note`。
+    值按词条翻译（``GDP增长率`` → ``GDP growth``），来源说明走 :func:`localize_note`。
     ``lang=zh``：原样返回——中文键本身就是规范键。
 
     键重命名只作用于中文键；已经是 ASCII 的键（``category`` / ``indicator``）原样保留。

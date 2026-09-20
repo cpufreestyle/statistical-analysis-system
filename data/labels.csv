@@ -2,7 +2,7 @@
 #
 # 为什么需要这个文件：
 #   指标宽表（data/ap_macro.csv、data/nbs_cn.csv）里的 category / indicator /
-#   dimension / unit 存的是中文规范键，这样数据文件本身可读、可与官方统计口径对齐。
+#   dimension / unit 存的是中文规范键，这样数据文件本身可读、可与官方口径逐字对齐。
 #   但中文键不能直接给非中文消费方——REST API 一出去就露馅。
 #   因此在这里集中维护「中文规范键 → ASCII slug + 英文标签」的映射，
 #   由 src/labels.py 在服务端按 lang 本地化。
@@ -18,11 +18,13 @@
 #   - 新增指标时，先在数据文件里落中文键，再来这里补一行 slug + en。
 #   - 未在此登记的键不会被翻译，原样返回（不会报错），保证向前兼容。
 #   - 以 # 开头的行是注释，加载时跳过。
+#   - 英文标签用国际统计机构口径、句式大小写（sentence case）：
+#     指标名对齐 World Bank / 国家局官方英译，不用 Title Case。
 #
 kind,key,slug,en
 
 # ---- 专业分类 ----
-category,综合,national_accounts,National Accounts
+category,综合,national_accounts,National accounts
 category,工业,industry,Industry
 category,贸易,trade,Trade
 category,人口,population,Population
@@ -33,32 +35,32 @@ category,服务业,services,Services
 category,农业,agriculture,Agriculture
 
 # ---- 指标 ----
-indicator,GDP增长率,gdp_growth,GDP Growth
-indicator,人均GDP,gdp_per_capita,GDP per Capita
+indicator,GDP增长率,gdp_growth,GDP growth
+indicator,人均GDP,gdp_per_capita,GDP per capita
 indicator,国内生产总值(GDP),gdp_current_usd,GDP (current US$)
-indicator,地区生产总值,gdp_nbs,GDP (NBS)
-indicator,地区生产总值(GDP),gdp_nbs,GDP (NBS)
-indicator,第一产业增加值,primary_industry_value_added,Primary Industry Value Added
-indicator,第二产业增加值,secondary_industry_value_added,Secondary Industry Value Added
-indicator,第三产业增加值,tertiary_industry_value_added,Tertiary Industry Value Added
-indicator,工业增加值,industry_value_added,Industry Value Added
-indicator,规模以上工业增加值,above_scale_industry_value_added,Above-Scale Industry Value Added
-indicator,规上工业增加值,above_scale_industry_value_added,Above-Scale Industry Value Added
-indicator,规模以上工业总产值,above_scale_industry_gross_output,Above-Scale Industry Gross Output
-indicator,规模以上服务业营业收入,above_scale_services_revenue,Above-Scale Services Revenue
-indicator,限额以上商品销售额,above_quota_retail_sales,Above-Quota Retail Sales
-indicator,农业总产值,gross_output_agriculture,Gross Output Value of Agriculture
-indicator,货物服务出口总额,exports_goods_services,Exports of Goods & Services
-indicator,货物服务进口总额,imports_goods_services,Imports of Goods & Services
-indicator,货物进出口总额,total_imports_exports,Total Imports & Exports
-indicator,社会消费品零售总额,retail_sales_consumer_goods,Retail Sales of Consumer Goods
-indicator,固定资产投资总额,fixed_asset_investment,Fixed Asset Investment
-indicator,居民人均可支配收入,per_capita_disposable_income,Per Capita Disposable Income
-indicator,总人口,total_population,Total Population
-indicator,常住人口,resident_population,Resident Population
-indicator,失业率,unemployment_rate,Unemployment Rate
+indicator,地区生产总值,gdp_nbs,Regional GDP
+indicator,地区生产总值(GDP),gdp_nbs,Regional GDP
+indicator,第一产业增加值,primary_industry_value_added,Primary industry value added
+indicator,第二产业增加值,secondary_industry_value_added,Secondary industry value added
+indicator,第三产业增加值,tertiary_industry_value_added,Tertiary industry value added
+indicator,工业增加值,industry_value_added,Industry value added
+indicator,规模以上工业增加值,above_scale_industry_value_added,Above-scale industrial value added
+indicator,规上工业增加值,above_scale_industry_value_added,Above-scale industrial value added
+indicator,规模以上工业总产值,above_scale_industry_gross_output,Above-scale industrial gross output
+indicator,规模以上服务业营业收入,above_scale_services_revenue,Above-scale services operating revenue
+indicator,限额以上商品销售额,above_quota_retail_sales,Above-quota commodity sales
+indicator,农业总产值,gross_output_agriculture,Gross agricultural output
+indicator,货物服务出口总额,exports_goods_services,Exports of goods and services
+indicator,货物服务进口总额,imports_goods_services,Imports of goods and services
+indicator,货物进出口总额,total_imports_exports,Total imports and exports of goods
+indicator,社会消费品零售总额,retail_sales_consumer_goods,Retail sales of consumer goods
+indicator,固定资产投资总额,fixed_asset_investment,Fixed asset investment
+indicator,居民人均可支配收入,per_capita_disposable_income,Per capita disposable income of residents
+indicator,总人口,total_population,Total population
+indicator,常住人口,resident_population,Resident population
+indicator,失业率,unemployment_rate,Unemployment rate
 indicator,通货膨胀率(CPI),inflation_cpi,Inflation (CPI)
-indicator,预期寿命,life_expectancy,Life Expectancy
+indicator,预期寿命,life_expectancy,Life expectancy
 
 # ---- 维度（经济体 / 区域聚合）----
 dimension,亚太,asia_pacific,Asia-Pacific
@@ -73,6 +75,10 @@ dimension,越南,viet_nam,Viet Nam
 dimension,马来西亚,malaysia,Malaysia
 dimension,菲律宾,philippines,Philippines
 dimension,新加坡,singapore,Singapore
+# 区级旧口径：不在亚太种子里，但用户导入示例 CSV（data/sample_import.csv）时会出现。
+# 不登记的话英文界面直漏中文（约定 3「未登记原样返回」的代价就体现在界面上）。
+dimension,全国,national,National
+dimension,全区,entire_region,Entire region
 
 # ---- 单位 ----
 unit,%,percent,%

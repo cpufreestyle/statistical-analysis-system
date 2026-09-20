@@ -267,7 +267,14 @@ async function loadOverview() {
     grid.removeAttribute('aria-busy');
     // 卡片字段全部来自服务端本地化结果，前端不再做数据词条替换
     if (!(d.cards || []).length) {
-      grid.innerHTML = '<div class="metric-card" style="grid-column:1/-1;color:var(--gray-400);text-align:center">' + h(tr('该维度暂无数据')) + '</div>';
+      /* 空视图不能是死路：给出切回亚太聚合口径的出口（旧分享链接 / 无数据维度）。
+         判重用 dimension_key——STATE.dimension 存的是本地化标签，跨语言不可靠。 */
+      var back = (d.dimension_key || STATE.dimension) !== '亚太'
+        ? ' <button type="button" class="btn btn-secondary" onclick="syncDimension(\'亚太\')">'
+          + h(tr('切换到亚太')) + '</button>'
+        : '';
+      grid.innerHTML = '<div class="metric-card" style="grid-column:1/-1;color:var(--gray-400);text-align:center">'
+        + h(tr('该维度暂无数据')) + back + '</div>';
       return;
     }
     grid.innerHTML = (d.cards || []).map(c => `

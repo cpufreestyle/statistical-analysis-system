@@ -676,6 +676,15 @@ def api_custom():
     return jsonify(labels.localize_payload(cust.run_custom(a, year, lang), lang))
 
 
+def _is_legacy_dataset(dims: set[str]) -> bool:
+    """判别区级旧快照：真实亚太种子必含「亚太」聚合维度，旧数据必缺。
+
+    早先按行数判别（<30 行视为旧合成数据）拦不住 51 行的区级 demo 快照——
+    它混进线上后，英文首页维度下拉直漏中文「全区」且默认视图为空看板。
+    """
+    return "亚太" not in dims
+
+
 def _ensure_data() -> None:
     """首次启动保证有内容（真实公开数据）。优先从 KV 恢复，避免重复写入（加速冷启动）。"""
     from src.db import init_db, count_indicators
@@ -690,8 +699,8 @@ def _ensure_data() -> None:
         from src.kv_sync import restore_from_kv
         try:
             if restore_from_kv():
-                if count_indicators() < 30:
-                    # 旧版 KV 里是已废弃的合成示例数据 → 清掉重灌真实数据
+                if _is_legacy_dataset({str(r["dimension"]) for r in query_indicators()}):
+                    # 旧版 KV 里是已废弃的区级/合成快照 → 清掉重灌真实亚太数据
                     from src.db import INDICATORS, engine
                     with engine.begin() as conn:
                         conn.execute(INDICATORS.delete())

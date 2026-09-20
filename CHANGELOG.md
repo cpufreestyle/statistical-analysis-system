@@ -11,7 +11,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
 
 ## [Unreleased]
 
-Nothing yet.
+### Fixed
+
+- **旧快照防线改为特征判别。** 冷启动丢弃旧 KV 快照的判据从「行数 < 30」改为「缺『亚太』聚合维度」——
+  51 行的区级 demo 快照不再漏网；线上部署新代码后首次冷启动自动清 KV 重灌真实亚太数据。
+- **`data/labels.csv` 补登记「全国 / 全区」**，英文接口与界面不再直漏中文（`National` / `Entire region`）。
+- **空看板不再是死路**：所选维度无数据时提供「View Asia-Pacific / 切换到亚太」按钮回退聚合口径。
+
+### Changed
+
+- **英文文案通改为国际统计机构口径**（sentence case、IMF/World Bank 术语）：`Overview`、`Ask the AI`、
+  `Run analysis`、`GDP by industry`、`National Bureau of Statistics of China`、指标名对齐官方英译等，
+  覆盖 `public/i18n.js` 全量字典与 `data/labels.csv`（两处逐字一致）。
+- 侧栏「知识库与数据源」排序改为 世界银行 Open Data 优先（亚太产品的主数据源）。
 
 ## v1.4.0 — 2026-09-18 — UI polish (`a9d2c37`)
 
