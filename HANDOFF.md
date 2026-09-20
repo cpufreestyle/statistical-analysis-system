@@ -16,7 +16,7 @@
 | 数据来源 | 世界银行 Open Data · 中国国家统计局 · 海关总署（全部公开、无需鉴权） |
 | 技术栈 | Python 3.12 + Flask + SQLAlchemy Core + SQLite；前端原生 HTML/CSS/JS，**零构建** |
 | 仓库 | Gitee `cpufreestyle/statistical-analysis-system`（origin）· GitHub 同名（github） |
-| 分支 / 版本 | `master`；tag 仅 `v1.0.0`（**落后 HEAD，见 §6**） |
+| 分支 / 版本 | `master`；已发版至 `v1.4.0`（5 个 tag 全部推送 Gitee `origin` + GitHub `github`，详见 §1） |
 | 线上 | Vercel 项目 `qu-stat-system`，生产别名 `https://qu-stat-system.vercel.app`（**本次未探活，见 §5**） |
 | 测试 / CI | ✅ `tests/` **111 项**单元测试 + `.github/workflows/ci.yml`（pytest + 起服务跑 `check_i18n.py` + 可选 markdownlint）——见 §6.1 |
 | 许可证 | MIT（见 `LICENSE`；`data/` 沿用来源方条款：World Bank Open Data CC BY 4.0） |
@@ -181,7 +181,7 @@ python -m src.cli db info
 | **线上 Vercel 部署** | ❓ **未验证** | 本次环境无法出外网。域名来自 7–8 月部署日志，**可能已变更或项目已删**，请自行探活 |
 | **Vercel KV 持久化** | ❓ 未验证 | 依赖 `KV_REST_API_URL` / `KV_REST_API_TOKEN`。⚠️ **若 KV 里有旧快照，线上可能仍显示美国/澳大利亚**——重部署后若分类未变，清 KV key `qu_stat_ap:indicators` 或带 `X-Admin-Token` 调 `/api/reseed` |
 | **云端 AI 解读** | ❓ 未验证 | 需 `INFINISYNAPSE_API_KEY`；未配时自动降级为仅本地统计（不会报错） |
-| **Windows 之外的平台** | ✅ 已配 CI（ubuntu-latest） | `.github/workflows/ci.yml` 在 push/PR 时跑 pytest + 起服务 i18n 冒烟；本地 Windows 亦 85 项单测全绿 |
+| **Windows 之外的平台** | ✅ 已配 CI（ubuntu-latest） | `.github/workflows/ci.yml` 在 push/PR 时跑 pytest + 起服务 i18n 冒烟；本地 Windows 亦 111 项单测全绿 |
 
 ---
 
@@ -189,7 +189,7 @@ python -m src.cli db info
 
 按影响排序。
 
-1. ~~**零自动化测试、无 CI。**~~ ✅ **已补质量底线**：`tests/` 下 5 个模块共 **85 项**单测
+1. ~~**零自动化测试、无 CI。**~~ ✅ **已补质量底线**：`tests/` 下 5 个模块共 **111 项**单测
    （`test_labels` i18n 契约、`test_analyzer` provider 派发与解析、`test_web` 路由冒烟
    「html lang / CSV 导出 BOM 与列 / SEO 三件套 / 静态缓存与安全头 / 资源版本号 / 管理端点鉴权 /
    `/docs` 与路由表一致性 / 错误页 / hreflang」、`test_embed` embed 单遍合并回归、
@@ -199,8 +199,9 @@ python -m src.cli db info
    纯函数补齐已完成（`src/stats/core.py` 的 `yoy`/`share`/`rank_items`/`fmt_pct`，
    以及 `report.build_bulletin_data()` 的结构与边界），仍**不追覆盖率**。
 
-2. **版本号未维护。** tag 只有 `v1.0.0`（8 个提交之前），`pyproject.toml` version 是 `0.1.0`。
-   发版前先对齐这两处，并确认 release notes 与 `README` / `README.zh-CN.md` 一致。
+2. ~~**版本号未维护。**~~ ✅ **已对齐（2026-09-18）**：`pyproject.toml` version = `1.4.0`，
+   tag `v1.0.0`→`v1.4.0` 共五个全部推送双远程，GitHub 已建 4 个 release（v1.1.0–v1.4.0）。
+   后续发版维持约定：**一个变更批次一个 tag，不合并**（见 §4 约定 5）。
 
 3. **线上部署状态未知。** 见 §5。`vercel.json` 已由旧版 `routes` 迁到 `rewrites`
    （语义等价，消除 `Due to builds existing in your configuration file...` 警告），
@@ -309,6 +310,8 @@ python -m src.cli db info
 
 1. **探活线上并核对 Vercel 项目设置**（见 §5、§6.3），清理 `builds` 残留警告。
    这是**唯一仍然未知**的关键项——本地全部能力已实测，线上只有本沙箱出不去网时才无法验证。
+1.5. **Gitee 侧只推了 tag、未建 release**（GitHub 已建 v1.1.0–v1.4.0 四个 release）。
+   若需在 Gitee 镜像仓库也建 release，需 Gitee 私有 token，走 Gitee OpenAPI 或网页后台手动建。
 2. ~~**发布一次正式 release**~~ **已完成（2026-09-18）**：v1.1.0–v1.3.0 三个 tag 已打齐并推双远程。
    此后维持约定：一个变更批次一个 tag，不合并；发版时同步 `pyproject.toml` 与 CHANGELOG 版本标题。
 3. **换自定义域名时必设 `QU_STAT_BASE_URL`**（否则 canonical / hreflang / `/docs` 示例
