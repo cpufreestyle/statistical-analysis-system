@@ -7,12 +7,20 @@ localize_payload 结构键重命名。
 
 词条取自 data/labels.csv（被跟踪，CI 可用）。未登记键一律原样返回、绝不抛异常
 ——这是「向前兼容」的硬约定，单独测了。
+
+文件末尾一段把关的是**双层英文口径**：前端 public/i18n.js 的 ZH2EN 字典与
+labels.csv 的英文列，同名词条必须逐字一致（约定见 i18n.js 头部与 HANDOFF §4）。
 """
 from __future__ import annotations
+
+import re
+from pathlib import Path
 
 import pytest
 
 from src import labels
+
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 # ---------------------------------------------------------------------------
@@ -186,3 +194,75 @@ def test_localize_payload_renames_keys_en():
 def test_localize_payload_zh_unchanged():
     payload = {"年份": 2024, "维度": "中国"}
     assert labels.localize_payload(payload, "zh") == payload
+
+
+# ---------------------------------------------------------------------------
+# 前端字典 ↔ labels.csv 的逐字一致
+# public/i18n.js 头部与本文件所在的服务端标签层都声明「英文口径逐字一致」，
+# 此前只是散文约定：任一侧改措辞都不会被发现，接口英文与界面英文会静默分叉。
+# ---------------------------------------------------------------------------
+I18N_PATH = BASE_DIR / "public" / "i18n.js"
+
+_DICT_RE = re.compile(r"var ZH2EN = \{(.*?)\n  \};", re.S)
+_COMMENT_RE = re.compile(r"/\*.*?\*/", re.S)
+_PAIR_RE = re.compile(
+    r'"((?:[^"\\]|\\.)*)"\s*:\s*(?:"((?:[^"\\]|\\.)*)"|\'((?:[^\'\\]|\\.)*)\')',
+    re.S,
+)
+
+
+def _js_string(raw: str) -> str:
+    return (raw.replace('\\"', '"').replace("\\'", "'")
+               .replace("\\\\", "\\").replace("\\n", "\n"))
+
+
+def _frontend_dict() -> dict[str, str]:
+    """取出 public/i18n.js 的 ZH2EN 字典（中文键 → 英文文案）。"""
+    text = I18N_PATH.read_text(encoding="utf-8")
+    block = _DICT_RE.search(text)
+    assert block, "未能在 public/i18n.js 中定位 ZH2EN 字典，本检查已失效"
+    entries = {
+        _js_string(key): _js_string(dv or sv)
+        for key, dv, sv in _PAIR_RE.findall(_COMMENT_RE.sub("", block.group(1)))
+    }
+    assert len(entries) > 200, f"ZH2EN 解析结果异常（仅 {len(entries)} 条）"
+    return entries
+
+
+def _registered_terms() -> dict[str, set[str]]:
+    """labels.csv 已登记的 (中文规范键 -> 该键全部英文标签)。
+
+    同一中文键可能在多个 kind 下登记（如指标与单位重名），因此取值集合：
+    前端写法只要与其中任一条逐字相等即视为一致。
+    """
+    out: dict[str, set[str]] = {}
+    for (_kind, key), entry in labels._table().items():
+        out.setdefault(key, set()).add(entry["en"])
+    return out
+
+
+def test_frontend_dictionary_matches_labels_csv_verbatim():
+    zh2en = _frontend_dict()
+    terms = _registered_terms()
+    shared = {key: en for key, en in terms.items() if key in zh2en}
+
+    # 交集过小意味着某一侧的词条被批量改名/删除，比对就失去意义了
+    assert len(shared) >= 40, f"前端字典与 labels.csv 只重合 {len(shared)} 条，请检查两侧词条"
+    drift = {key: (sorted(candidates), zh2en[key])
+             for key, candidates in shared.items() if zh2en[key] not in candidates}
+    assert not drift, f"同名词条两侧不一致（labels.csv vs i18n.js）：{drift}"
+
+
+def test_frontend_dictionary_has_no_conflicting_duplicate_keys():
+    """JS 对象字面量里重复键会静默覆盖——同一中文键两个英文写法正是双层漂移的典型形态。"""
+    text = I18N_PATH.read_text(encoding="utf-8")
+    block = _DICT_RE.search(text)
+    assert block
+    seen: dict[str, str] = {}
+    clashes: list[tuple[str, str, str]] = []
+    for key, dv, sv in _PAIR_RE.findall(_COMMENT_RE.sub("", block.group(1))):
+        k, v = _js_string(key), _js_string(dv or sv)
+        if k in seen and seen[k] != v:
+            clashes.append((k, seen[k], v))
+        seen[k] = v
+    assert not clashes, f"ZH2EN 中同名键给出不同英文：{clashes}"

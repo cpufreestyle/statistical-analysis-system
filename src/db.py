@@ -11,7 +11,7 @@ from sqlalchemy import (
     create_engine, Column, String, Float, Integer, MetaData, Table, Text,
     func, select,
 )
-from typing import TypedDict
+from typing import Any, TypedDict
 
 
 class IndicatorRow(TypedDict):
@@ -25,6 +25,19 @@ class IndicatorRow(TypedDict):
     note: str
 
 
+class DbInfo(TypedDict):
+    """:func:`db_info` 的返回结构。字段类型各异，用精确类型而非 ``dict[str, object]``，
+    好让 ``int(info["indicator_rows"])`` 这类消费点在类型层面可查。"""
+    url: str
+    path: str
+    exists: bool
+    size_bytes: int
+    engine: str
+    tables: list[str]
+    indicator_rows: int
+    knowledge_rows: int
+
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 CONFIG_PATH = BASE_DIR / "config.yaml"
 
@@ -34,7 +47,7 @@ if _VERCEL_DB_DIR:
     _vercel_data = Path(_VERCEL_DB_DIR)
     _vercel_data.mkdir(parents=True, exist_ok=True)
     DB_URL = "sqlite:///" + str(_vercel_data / "qu_stats.db")
-    CONFIG: dict[str, object] = {}  # Vercel 环境无 config.yaml，用空字典兜底
+    CONFIG: dict[str, Any] = {}  # Vercel 环境无 config.yaml，用空字典兜底
 else:
     with CONFIG_PATH.open(encoding="utf-8") as f:
         CONFIG = yaml.safe_load(f)
@@ -149,7 +162,7 @@ def count_indicators() -> int:
         return int(conn.execute(select(func.count()).select_from(INDICATORS)).scalar() or 0)
 
 
-def db_info() -> dict[str, object]:
+def db_info() -> DbInfo:
     """返回数据库运行状态概览（路径、引擎、大小、各表行数）。"""
     init_db()
     # 解析 sqlite 文件路径（相对 url 已在前处理为绝对）

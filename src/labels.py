@@ -25,7 +25,7 @@ from __future__ import annotations
 import csv
 import io
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -193,12 +193,14 @@ def _reverse(kind: str) -> dict[str, str]:
     return out
 
 
-def key_of(kind: str, value: str | None) -> str | None:
+def key_of(kind: str, value: str) -> str:
     """把「英文标签 / slug / 中文规范键」统一解析为规范键。
 
     海外消费方很自然会写 ``?dimension=China`` 或 ``?dimension=china``，
     这里让它们与 ``?dimension=中国`` 等价。无法识别时**原样返回**，
     既不做猜测，也不把未知维度悄悄换成默认值。
+    入参为必填 ``str``（空串原样返回）；调用方若可能拿到 ``None``，
+    在入口处自行判空，不要传进来。
     """
     if not value:
         return value
@@ -280,7 +282,7 @@ def localize_indicator(row: Mapping[str, Any], lang: str = DEFAULT_LANG) -> dict
     return out
 
 
-def localize_indicators(rows: list[Mapping[str, Any]],
+def localize_indicators(rows: Sequence[Mapping[str, Any]],
                         lang: str = DEFAULT_LANG) -> list[dict[str, Any]]:
     return [localize_indicator(r, lang) for r in rows]
 

@@ -61,7 +61,12 @@ Four places move together — miss one and CI or the docs will tell you:
 .venv/Scripts/python.exe -m pytest -q            # unit tests
 .venv/Scripts/python.exe scripts/embed_pages.py  # regenerate inlined assets
 python scripts/check_i18n.py                     # bilingual contract (server must be running)
+.venv/Scripts/basedpyright.exe                   # type check over src/
 ```
+
+Type checking is a blocking CI gate (`basedpyright`, configuration in `pyproject.toml`,
+`typeCheckingMode = "standard"` with the unavoidable third-party noise silenced). It only covers
+`src/`; run it locally before pushing so CI does not fail on a typing regression.
 
 Markdown is linted with `markdownlint-cli2` in CI (non-blocking); configuration lives in
 `.markdownlint.json`.

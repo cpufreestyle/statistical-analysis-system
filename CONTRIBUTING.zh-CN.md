@@ -57,7 +57,11 @@ python -m venv .venv
 .venv/Scripts/python.exe -m pytest -q            # 单元测试
 .venv/Scripts/python.exe scripts/embed_pages.py  # 重新生成内嵌资源
 python scripts/check_i18n.py                     # 双语契约（需服务在跑）
+.venv/Scripts/basedpyright.exe                   # src/ 类型检查
 ```
+
+类型检查是 CI 的**阻塞门禁**（`basedpyright`，配置在 `pyproject.toml`，`standard` 模式，
+只关掉第三方库类型不全带来的噪声规则），范围仅 `src/`；推送前本地跑一遍，别让 CI 因类型回归变红。
 
 Markdown 在 CI 里用 `markdownlint-cli2` 检查（不阻塞），配置见 `.markdownlint.json`。
 

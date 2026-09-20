@@ -4,12 +4,17 @@
 - ``/`` 与 ``/app`` 的 ``__HTML_LANG__`` 占位符按 ``?lang=`` 替换（SEO / 分享卡片语言）；
 - ``/api/export.csv`` 的 BOM（Excel 直接打开）、7 列定宽、Content-Disposition 文件名、
   以及 lang=en/zh 的本地化方向；
-- ``/robots.txt`` ``/sitemap.xml`` ``/og-image.png`` 三大 SEO 资源存在且 Content-Type 正确。
+- ``/robots.txt`` ``/sitemap.xml`` ``/og-image.png`` 三大 SEO 资源存在且 Content-Type 正确；
+- 冷启动自愈整条链路 ``_ensure_data``：旧快照被清表重播种、好数据不被误清、
+  各失败分支留下可区分的告警（文件末尾一段）。
 """
 from __future__ import annotations
 
 import csv
 import io
+import logging
+
+import pytest
 
 EXPORT_FIELDS = ["year", "category", "indicator", "dimension", "value", "unit", "note"]
 
@@ -381,3 +386,171 @@ def test_real_apac_dataset_is_not_legacy():
     from src.web import _is_legacy_dataset
 
     assert not _is_legacy_dataset({"亚太", "亚太(发展中)", "中国"})
+
+
+# ---------------------------------------------------------------------------
+# 冷启动自愈整条链路（_ensure_data：KV 恢复 → 特征判别 → 清表 → 重播种 → 清 KV）
+# 上面的谓词测试只证明「认得出旧快照」，这里证明认出来之后确实恢复了。
+# ---------------------------------------------------------------------------
+# 区级快照的标志性维度：真实亚太种子集里一律不存在，才能证明「清表」真的生效
+LEGACY_DIMS = ("全区", "高新区")
+
+
+@pytest.fixture()
+def clean_indicators():
+    """把 indicators 表清成已知空态，起始数据由各测试自行铺设。"""
+    from src.db import INDICATORS, engine, init_db
+
+    init_db()
+    with engine.begin() as conn:
+        conn.execute(INDICATORS.delete())
+    yield
+    with engine.begin() as conn:
+        conn.execute(INDICATORS.delete())
+
+
+@pytest.fixture()
+def fake_kv(monkeypatch):
+    """KV 层换成可记录 / 可注入的假实现（本地无 Redis，测试一律不触网）。
+
+    ``_ensure_data`` 与两处同步钩子都是在函数内 ``from src.kv_store import ...``，
+    因此按模块属性打补丁即可在调用时生效。
+    """
+    import src.kv_store as kv
+
+    trace: dict[str, list] = {"events": [], "deleted_keys": []}
+
+    def _delete(key: str) -> bool:
+        trace["events"].append("kv_delete")
+        trace["deleted_keys"].append(key)
+        return True
+
+    monkeypatch.setattr(kv, "kv_available", lambda: True)
+    monkeypatch.setattr(kv, "kv_set_json", lambda key, value: True)
+    monkeypatch.setattr(kv, "kv_delete", _delete)
+    return trace
+
+
+def _store_legacy_snapshot() -> int:
+    """直接在库里铺一份区级旧快照（缺「亚太」聚合维度）。"""
+    from src.db import INDICATORS, engine, init_db
+
+    init_db()
+    rows = [
+        {"year": 2024, "category": "综合", "indicator": "地区生产总值",
+         "dimension": dim, "value": 1.0, "unit": "亿元", "note": ""}
+        for dim in LEGACY_DIMS
+    ]
+    with engine.begin() as conn:
+        conn.execute(INDICATORS.delete())
+        conn.execute(INDICATORS.insert(), rows)
+    return len(rows)
+
+
+def _dimensions() -> set[str]:
+    from src.db import query_indicators
+
+    return {str(r["dimension"]) for r in query_indicators()}
+
+
+def test_coldstart_purges_legacy_kv_snapshot_in_order(
+        clean_indicators, fake_kv, monkeypatch, caplog):
+    """旧快照 → 清表 → 重播种 → 清 KV，三个副作用按序发生，且全程无告警。"""
+    import src.kv_sync as kv_sync
+    import src.loader as loader
+    from src.web import _ensure_data
+
+    real_load = loader.load_seed_data
+
+    def restore_legacy() -> bool:
+        fake_kv["events"].append("restore")
+        assert _store_legacy_snapshot() == len(LEGACY_DIMS)
+        return True
+
+    def spy_load(years=None):
+        from src.db import query_indicators
+
+        # 重播种前表必须已被清空，否则旧维度会以「覆盖不删」的方式残留
+        assert query_indicators() == [], "重播种前未清表"
+        fake_kv["events"].append("reseed")
+        return real_load(years)
+
+    monkeypatch.setattr(kv_sync, "restore_from_kv", restore_legacy)
+    monkeypatch.setattr(loader, "load_seed_data", spy_load)
+
+    with caplog.at_level(logging.WARNING, logger="src.web"):
+        _ensure_data()
+
+    assert [r.getMessage() for r in caplog.records if r.levelno >= logging.WARNING] == []
+    assert fake_kv["events"] == ["restore", "reseed", "kv_delete"]
+    assert fake_kv["deleted_keys"] == ["qu_stat_ap:indicators"]
+    dims = _dimensions()
+    assert "亚太" in dims
+    assert not set(LEGACY_DIMS) & dims, "区级旧维度未被清掉"
+
+
+def test_coldstart_keeps_good_kv_snapshot_without_purging(clean_indicators, fake_kv, monkeypatch):
+    """KV 里是真实亚太数据时不得清库——否则每次冷启动都白灌一遍。"""
+    import src.kv_sync as kv_sync
+    from src.loader import load_seed_data
+    from src.web import _ensure_data
+
+    def restore_good() -> bool:
+        fake_kv["events"].append("restore")
+        load_seed_data()
+        return True
+
+    monkeypatch.setattr(kv_sync, "restore_from_kv", restore_good)
+
+    _ensure_data()
+
+    assert fake_kv["events"] == ["restore"]
+    assert fake_kv["deleted_keys"] == []
+    assert "亚太" in _dimensions()
+
+
+def test_kv_purge_failure_is_logged_apart_from_restore_failure(
+        clean_indicators, fake_kv, monkeypatch, caplog):
+    """清 KV 失败要与「恢复失败」可区分（不同日志），且不影响已完成的恢复结果。"""
+    import src.kv_store as kv
+    import src.kv_sync as kv_sync
+    from src.web import _ensure_data
+
+    def boom(key: str) -> bool:
+        raise RuntimeError("upstash unreachable")
+
+    def restore_legacy() -> bool:
+        _store_legacy_snapshot()
+        return True
+
+    fake_kv["deleted_keys"] = []          # 本测试不记录成功路径
+    monkeypatch.setattr(kv, "kv_delete", boom)
+    monkeypatch.setattr(kv_sync, "restore_from_kv", restore_legacy)
+
+    with caplog.at_level(logging.WARNING, logger="src.web"):
+        _ensure_data()
+
+    messages = [r.getMessage() for r in caplog.records]
+    assert any("kv purge after reseed failed" in m for m in messages), messages
+    assert not any("kv restore skipped" in m for m in messages), messages
+    dims = _dimensions()
+    assert "亚太" in dims and not set(LEGACY_DIMS) & dims
+
+
+def test_kv_restore_failure_falls_back_to_offline_seed(
+        clean_indicators, fake_kv, monkeypatch, caplog):
+    """KV 恢复抛错不得阻断看板启动，并留下可归因的告警 + 完成离线播种。"""
+    import src.kv_sync as kv_sync
+    from src.web import _ensure_data
+
+    def boom() -> bool:
+        raise RuntimeError("kv read timeout")
+
+    monkeypatch.setattr(kv_sync, "restore_from_kv", boom)
+
+    with caplog.at_level(logging.WARNING, logger="src.web"):
+        _ensure_data()
+
+    messages = [r.getMessage() for r in caplog.records]
+    assert any(m.startswith("kv restore skipped") for m in messages), messages
+    assert "亚太" in _dimensions()

@@ -11,7 +11,37 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **内嵌资产漂移门禁。** CI 重跑 `scripts/embed_pages.py` 后逐字节比对已提交的 `src/pages.py`
+  与 `src/seed_data.py`，差异即红——Vercel 无构建步骤、直接服务仓库里的内嵌页，
+  「改了 `public/` 忘跑 embed」过去只能靠人工发现，漏提交会直接把过期前端推上线。
+- **前端关键行为可执行检查**（`tests/frontend_behavior.mjs` + `tests/test_frontend.py`）。
+  用 node 的 `vm` 直接执行仓库里的 `public/app.js` / `i18n.js`（零依赖、无 `package.json`、
+  无构建），覆盖空看板兜底文案、切回亚太出口、中文原词泄漏、`dimension_key` 判重、
+  有数据渲染、取数失败态等 11 项；并含反向用例（破坏兜底判据后检查必须变红）。
+- **冷启动自愈链路测试**（`tests/test_web.py`）。在隔离的临时 SQLite 上跑真实副作用，
+  验证「恢复旧快照 → 清表 → 重播种 → 清 KV」按序发生、健康链路不产生告警，
+  并区分「KV 恢复失败」与「KV 清理失败」两条日志。
+- **`public/i18n.js` ↔ `data/labels.csv` 逐字一致校验**（`tests/test_labels.py`）。
+  解析前端字典并与标签包逐条比对，重合词条数下限防「解析失效导致空跑」，
+  另检查字典内无自相矛盾的重复键——「两处逐字一致」从书面约定变成机器门禁。
+- **类型门禁接入 CI**（新增 `types` 作业，`basedpyright==1.39.9` 跑 `src/`，失败即红）。
+  此前 `[tool.basedpyright]` 只在 `pyproject.toml` 里声明、从未被执行。
+
+### Fixed
+
+- 类型门禁接入时暴露并修掉的 **10 处类型缺陷**：`db_info()` 由 `dict[str, object]` 改为精确的
+  `DbInfo` TypedDict、`CONFIG` 值类型、`kv_store` 的 Redis 端点/Token 缺失时不再对 `None`
+  调 `rstrip`（此前会拼出 `Bearer None` 请求头）、`key_of` 返回类型收敛为 `str`、
+  `localize_indicators` 形参改用协变的 `Sequence`（`list[IndicatorRow]` 传 `list` 才不报错）。
+- CI 显式声明 Node 运行时（`actions/setup-node@v4`），前端行为检查不再依赖环境里恰好有 node。
+
+### Docs
+
+- `HANDOFF.md`：线上部署与 KV 自愈状态改为已验证、补充自愈失败分支的日志去向
+  （`app.logger` → stderr → Vercel Observability / `vercel logs`）、测试规模对齐至 **121 项**。
+- `CONTRIBUTING.md`：本地检查清单加入 `basedpyright`，并说明类型门禁为阻塞项、只覆盖 `src/`。
 
 ## v1.5.0 — 2026-09-20 — Overseas launch fixes (`bf444ab`)
 

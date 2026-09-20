@@ -32,11 +32,13 @@ _REDIS_URL = (
     os.environ.get("KV_REST_API_URL")
     or os.environ.get("UPSTASH_REDIS_REST_URL")
     or os.environ.get("QU_STAT_REDIS_URL")
+    or ""
 )
 _REDIS_TOKEN = (
     os.environ.get("KV_REST_API_TOKEN")
     or os.environ.get("UPSTASH_REDIS_REST_TOKEN")
     or os.environ.get("QU_STAT_REDIS_TOKEN")
+    or ""
 )
 
 _KV_AVAILABLE = bool(_REDIS_URL and _REDIS_TOKEN)

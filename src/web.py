@@ -707,8 +707,10 @@ def _ensure_data() -> None:
                     load_seed_data()
                     try:
                         _kv_del("qu_stat_ap:indicators")
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        # 清表+重播种已完成，此处只影响 KV 是否留着脏快照；
+                        # 单独成一条日志，运维才能把它和「恢复失败」区分开。
+                        app.logger.warning("kv purge after reseed failed: %s", exc)
                 else:
                     # 恢复成功：补齐缺失年份
                     try:

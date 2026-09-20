@@ -17,6 +17,13 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Set up Node 20
+        # tests/test_frontend.py 用 node 的 vm 执行 public/*.js 做前端行为检查
+        # （零依赖、无 package.json，只要运行时在场即可）。
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -27,6 +34,12 @@ jobs:
         # pages.py / seed_data.py 是 scripts/embed_pages.py 生成的，CI 重新生成一次，
         # 保证测试基于最新 public/ 与 data/（开发者若忘跑 embed，CI 也能兜住）。
         run: python scripts/embed_pages.py
+
+      - name: Fail on embedded-asset drift
+        # 上一步重生成会让「忘跑 embed」在测试层面看不出问题；这里逐字节比对仓库
+        # 已提交的生成物，若有差异说明源码改了但内嵌页没跟着提交——Vercel 无构建
+        # 步骤、直接服务仓库里的 src/pages.py，漏提交会直接上线过期前端。
+        run: git diff --exit-code -- src/pages.py src/seed_data.py
 
       - name: Run unit tests
         run: python -m pytest -q
@@ -46,6 +59,30 @@ jobs:
           RC=$?
           kill "$SERVER_PID" || true
           exit $RC
+
+  types:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install runtime deps + basedpyright into .venv
+        # pyproject 的 [tool.basedpyright] 用 venvPath/venv 指向 .venv，这里同样
+        # 建在 .venv，令 CI 与本地解析到同一套 site-packages（缺依赖会退化成一堆
+        # 无法判定的 Unknown，门禁就失去意义）。
+        # 版本锁死：basedpyright 新版本可能提升规则，把没改代码的提交判红。
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/python -m pip install -r requirements.txt
+          .venv/bin/python -m pip install basedpyright==1.39.9
+
+      - name: Type check src/
+        run: .venv/bin/basedpyright
 
   docs:
     runs-on: ubuntu-latest
