@@ -16,9 +16,9 @@
 | 数据来源 | 世界银行 Open Data · 中国国家统计局 · 海关总署（全部公开、无需鉴权） |
 | 技术栈 | Python 3.12 + Flask + SQLAlchemy Core + SQLite；前端原生 HTML/CSS/JS，**零构建** |
 | 仓库 | Gitee `cpufreestyle/statistical-analysis-system`（origin）· GitHub 同名（github） |
-| 分支 / 版本 | `master`；已发版至 `v1.4.0`（5 个 tag 全部推送 Gitee `origin` + GitHub `github`，详见 §1） |
+| 分支 / 版本 | `master`；已发版至 `v1.5.0`（6 个 tag 全部推送 Gitee `origin` + GitHub `github`，详见 §1） |
 | 线上 | Vercel 项目 `qu-stat-system`，生产别名 `https://qu-stat-system.vercel.app`（**本次未探活，见 §5**） |
-| 测试 / CI | ✅ `tests/` **111 项**单元测试 + `.github/workflows/ci.yml`（pytest + 起服务跑 `check_i18n.py` + 可选 markdownlint）——见 §6.1 |
+| 测试 / CI | ✅ `tests/` **113 项**单元测试 + `.github/workflows/ci.yml`（pytest + 起服务跑 `check_i18n.py` + 可选 markdownlint）——见 §6.1 |
 | 许可证 | MIT（见 `LICENSE`；`data/` 沿用来源方条款：World Bank Open Data CC BY 4.0） |
 | 开源配套 | `LICENSE` · `CONTRIBUTING.md`（+ 中文版）· `SECURITY.md` · `CHANGELOG.md` · `CITATION.cff` · `.github/` 的 PR 与 issue 模板 · `.markdownlint-cli2.jsonc` |
 
@@ -44,7 +44,8 @@
 - 本地服务可跑（`/` `/app` `/docs` `/privacy` 均 200）。
 - **已发版（2026-09-18）**：`v1.1.0`=`7d3faab`（性能·加固·体验·SEO）、
   `v1.2.0`=`202f428`（可用性与质量）、`v1.3.0`=`130e793`+`c70ce1b`（开源配套+隐私页）、
-  `v1.4.0`=`a9d2c37`（外观优化）；`pyproject.toml` version 对齐为 `1.4.0`，
+  `v1.4.0`=`a9d2c37`（外观优化）、`v1.5.0`=`bf444ab`（出海收尾：文案机构口径+旧快照特征判别+空看板兜底）；
+  `pyproject.toml` version 对齐为 `1.5.0`，
   CHANGELOG 批次已折入版本标题。
 
 ---
@@ -179,9 +180,9 @@ python -m src.cli db info
 | `/privacy` 隐私与数据声明页（双语、零 JS） | ✅ 已验证 | curl 双语内容正确、占位符已替换；落地页页脚 / `/docs` 导航 / 错误页**三处入口**均在；pytest 覆盖 |
 | 开源配套文件齐全 | ✅ 已验证 | `LICENSE`(MIT) / `CONTRIBUTING`(中英) / `SECURITY` / `CHANGELOG` / `CITATION.cff` / PR 与 issue 模板；`markdownlint-cli2` 全量 **0 issues** |
 | **线上 Vercel 部署** | ❓ **未验证** | 本次环境无法出外网。域名来自 7–8 月部署日志，**可能已变更或项目已删**，请自行探活 |
-| **Vercel KV 持久化** | ❓ 未验证 | 依赖 `KV_REST_API_URL` / `KV_REST_API_TOKEN`。⚠️ **若 KV 里有旧快照，线上可能仍显示美国/澳大利亚**——重部署后若分类未变，清 KV key `qu_stat_ap:indicators` 或带 `X-Admin-Token` 调 `/api/reseed` |
+| **Vercel KV 持久化** | ❓ 未验证 | 依赖 `KV_REST_API_URL` / `KV_REST_API_TOKEN`。✅ v1.5.0 起冷启动按**特征判别**（缺「亚太」聚合维度即判为区级旧快照）自动清 KV 重灌真实数据；若线上分类仍异常，可手动清 KV key `qu_stat_ap:indicators` 或带 `X-Admin-Token` 调 `/api/reseed` |
 | **云端 AI 解读** | ❓ 未验证 | 需 `INFINISYNAPSE_API_KEY`；未配时自动降级为仅本地统计（不会报错） |
-| **Windows 之外的平台** | ✅ 已配 CI（ubuntu-latest） | `.github/workflows/ci.yml` 在 push/PR 时跑 pytest + 起服务 i18n 冒烟；本地 Windows 亦 111 项单测全绿 |
+| **Windows 之外的平台** | ✅ 已配 CI（ubuntu-latest） | `.github/workflows/ci.yml` 在 push/PR 时跑 pytest + 起服务 i18n 冒烟；本地 Windows 亦 113 项单测全绿 |
 
 ---
 
@@ -189,7 +190,7 @@ python -m src.cli db info
 
 按影响排序。
 
-1. ~~**零自动化测试、无 CI。**~~ ✅ **已补质量底线**：`tests/` 下 5 个模块共 **111 项**单测
+1. ~~**零自动化测试、无 CI。**~~ ✅ **已补质量底线**：`tests/` 下 5 个模块共 **113 项**单测
    （`test_labels` i18n 契约、`test_analyzer` provider 派发与解析、`test_web` 路由冒烟
    「html lang / CSV 导出 BOM 与列 / SEO 三件套 / 静态缓存与安全头 / 资源版本号 / 管理端点鉴权 /
    `/docs` 与路由表一致性 / 错误页 / hreflang」、`test_embed` embed 单遍合并回归、
@@ -199,8 +200,8 @@ python -m src.cli db info
    纯函数补齐已完成（`src/stats/core.py` 的 `yoy`/`share`/`rank_items`/`fmt_pct`，
    以及 `report.build_bulletin_data()` 的结构与边界），仍**不追覆盖率**。
 
-2. ~~**版本号未维护。**~~ ✅ **已对齐（2026-09-18）**：`pyproject.toml` version = `1.4.0`，
-   tag `v1.0.0`→`v1.4.0` 共五个全部推送双远程，GitHub 已建 4 个 release（v1.1.0–v1.4.0）。
+2. ~~**版本号未维护。**~~ ✅ **已对齐（2026-09-20）**：`pyproject.toml` version = `1.5.0`，
+   tag `v1.0.0`→`v1.5.0` 共六个全部推送双远程，GitHub 已建 5 个 release（v1.1.0–v1.5.0）。
    后续发版维持约定：**一个变更批次一个 tag，不合并**（见 §4 约定 5）。
 
 3. **线上部署状态未知。** 见 §5。`vercel.json` 已由旧版 `routes` 迁到 `rewrites`
@@ -310,7 +311,7 @@ python -m src.cli db info
 
 1. **探活线上并核对 Vercel 项目设置**（见 §5、§6.3），清理 `builds` 残留警告。
    这是**唯一仍然未知**的关键项——本地全部能力已实测，线上只有本沙箱出不去网时才无法验证。
-1.5. **Gitee 侧只推了 tag、未建 release**（GitHub 已建 v1.1.0–v1.4.0 四个 release）。
+1.5. **Gitee 侧只推了 tag、未建 release**（GitHub 已建 v1.1.0–v1.5.0 五个 release）。
    若需在 Gitee 镜像仓库也建 release，需 Gitee 私有 token，走 Gitee OpenAPI 或网页后台手动建。
 2. ~~**发布一次正式 release**~~ **已完成（2026-09-18）**：v1.1.0–v1.3.0 三个 tag 已打齐并推双远程。
    此后维持约定：一个变更批次一个 tag，不合并；发版时同步 `pyproject.toml` 与 CHANGELOG 版本标题。
