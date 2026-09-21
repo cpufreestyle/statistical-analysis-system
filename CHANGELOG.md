@@ -11,7 +11,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **SSE 解析行为测试**（`tests/test_analyzer.py`，3 项）。按 `str` 与 `bytes` 两种行形态喂
+  `_iter_events`，锁住「显式解码」这一行为：去掉解码后 `bytes` 用例即以
+  `TypeError: startswith first arg must be bytes or a tuple of bytes, not str` 变红。
+  类型门禁只在带 `py.typed` 的 `requests` 版本下报警，行为门禁则与依赖版本无关。
 
 ## v1.5.1 — 2026-09-21 — Quality gates wired (`c8853bf`…`e3f648d`)
 

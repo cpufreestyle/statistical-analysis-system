@@ -18,7 +18,7 @@
 | 仓库 | Gitee `cpufreestyle/statistical-analysis-system`（origin）· GitHub 同名（github） |
 | 分支 / 版本 | `master`；已发版至 `v1.5.1`（7 个 tag 全部推送 Gitee `origin` + GitHub `github`，详见 §1） |
 | 线上 | Vercel 项目 `qu-stat-system`，生产别名 `https://qu-stat-system.vercel.app`（接口已探活，页面级路由待复核，见 §5） |
-| 测试 / CI | ✅ `tests/` **121 项**检查 + `.github/workflows/ci.yml`（pytest → 起服务跑 `check_i18n.py` → `basedpyright` 类型门禁 → 可选 markdownlint）——见 §6.1 |
+| 测试 / CI | ✅ `tests/` **124 项**检查 + `.github/workflows/ci.yml`（pytest → 起服务跑 `check_i18n.py` → `basedpyright` 类型门禁 → 可选 markdownlint）——见 §6.1 |
 | 许可证 | MIT（见 `LICENSE`；`data/` 沿用来源方条款：World Bank Open Data CC BY 4.0） |
 | 开源配套 | `LICENSE` · `CONTRIBUTING.md`（+ 中文版）· `SECURITY.md` · `CHANGELOG.md` · `CITATION.cff` · `.github/` 的 PR 与 issue 模板 · `.markdownlint-cli2.jsonc` |
 
@@ -185,12 +185,12 @@ python -m src.cli db info
 | 内嵌资产漂移门禁 | ✅ 已验证（正/反面） | CI 重跑 `embed_pages.py` 后 `git diff --exit-code -- src/pages.py src/seed_data.py`。本地实测：干净树 exit=0；给 `public/app.html` 加一行不重生成 → exit=1（随即还原） |
 | 前端关键行为可执行检查 | ✅ 已验证（正/反面） | `tests/frontend_behavior.mjs` 用 node `vm` 跑真实的 `public/app.js`，11 项全绿；`tests/test_frontend.py` 另含反面用例（把空态兜底判据改坏 → 检查必须变红，改动只落在临时副本） |
 | i18n.js ↔ labels.csv 逐字一致 | ✅ 已验证（正/反面） | 52 条重合词条两侧逐字一致、字典无冲突重复键；反面：临时把「综合」改成偏离值 → `test_frontend_dictionary_matches_labels_csv_verbatim` 报错并列出差异，随后 `git checkout` 还原 |
-| 类型门禁（`basedpyright`） | ✅ 已接入并全绿 | 接入时暴露 **10 处**类型缺陷已全部修掉，现在 `0 errors, 0 warnings, 0 notes`；反面：临时塞一个 `return "str"` 到 `src/` → 立刻报 1 error（探针已删除）。CI `types` 作业锁 `basedpyright==1.39.9`。**注意版本相关结论**：依赖是否自带 `py.typed` 会改变判定（例：`requests` 2.33 无标注、2.34 有），本地绿而 CI 红时先比对两边依赖版本，别当成误报 |
+| 类型门禁（`basedpyright`） | ✅ 已接入并全绿 | 接入时暴露 **10 处**类型缺陷已全部修掉，现在 `0 errors, 0 warnings, 0 notes`；反面：临时塞一个 `return "str"` 到 `src/` → 立刻报 1 error（探针已删除）。CI `types` 作业锁 `basedpyright==1.39.9`。**注意版本相关结论**：依赖是否自带 `py.typed` 会改变判定（例：`requests` 2.33 无标注、2.34 有），本地绿而 CI 红时先比对两边依赖版本，别当成误报（该差异的行为层面由 `tests/test_analyzer.py` 的 `str` / `bytes` 双形态 SSE 用例守住，与依赖版本无关） |
 | **线上 Vercel 部署** | ✅ 已验证（2026-09-20） | `https://qu-stat-system.vercel.app` 探活正常：`/api/stats` 返回 `dimension_count: 12` / `indicator_rows: 729`（真实亚太种子集），`/api/overview?lang=en` 输出新机构口径英文文案。outbound 需走代理（`curl -x http://127.0.0.1:7897`），直连不可达 |
 | **Vercel KV 持久化** | ✅ 冷启动自愈已验证 | 依赖 `KV_REST_API_URL` / `KV_REST_API_TOKEN`。v1.5.0 起冷启动按**特征判别**（缺「亚太」聚合维度即判为区级旧快照）自动清表重灌真实数据，线上首轮即把 51 行区级快照换成了 729 行。整条链路（恢复→判别→清表→重播种→清 KV）由 `tests/test_web.py` 逐副作用把守；若线上分类仍异常，可手动清 KV key `qu_stat_ap:indicators` 或带 `X-Admin-Token` 调 `/api/reseed` |
 | **自愈失败分支的日志去向** | ✅ 已确认 | 失败只告警不阻断，四条可区分关键字：`kv restore skipped` / `kv purge after reseed failed` / `year seeding skipped` / `seed data loading skipped`（另有 `knowledge seeding skipped`）。`app.logger` 写 **stderr**（实测格式 `[时间] WARNING in web: <关键字>: <原因>`），Vercel 侧在 **项目 → Observability → Logs**（或部署详情 Functions 面板、CLI `vercel logs <部署 URL>`）按关键字检索；本地等价路径 `python -m src.cli web 2> server.log` 后 grep 同一批关键字 |
 | **云端 AI 解读** | ❓ 未验证 | 需 `INFINISYNAPSE_API_KEY`；未配时自动降级为仅本地统计（不会报错） |
-| **Windows 之外的平台** | ✅ 已配 CI（`ubuntu-24.04`，显式固定） | `.github/workflows/ci.yml` 三个作业：`test`（漂移门禁 → 121 项 pytest → 起服务 i18n 冒烟）、`types`（basedpyright 门禁）、`docs`（markdownlint，不阻塞）。actions 统一 `@v7` + node 24；不用 `ubuntu-latest` 是因为它将于 2026-10-19 自动切到 Ubuntu 26，会让没改代码的提交凭空变红。本地 Windows 亦 **121 项**全绿 |
+| **Windows 之外的平台** | ✅ 已配 CI（`ubuntu-24.04`，显式固定） | `.github/workflows/ci.yml` 三个作业：`test`（漂移门禁 → 124 项 pytest → 起服务 i18n 冒烟）、`types`（basedpyright 门禁）、`docs`（markdownlint，不阻塞）。actions 统一 `@v7` + node 24；不用 `ubuntu-latest` 是因为它将于 2026-10-19 自动切到 Ubuntu 26，会让没改代码的提交凭空变红。本地 Windows 亦 **124 项**全绿 |
 
 ---
 
@@ -198,9 +198,9 @@ python -m src.cli db info
 
 按影响排序。
 
-1. ~~**零自动化测试、无 CI。**~~ ✅ **质量底线已建成三层**：`tests/` 下 6 个模块共 **121 项**检查
-   （`test_labels` 36 项 i18n 契约 + **前端字典与 labels.csv 逐字一致**、`test_analyzer` 18 项
-   provider 派发与解析、`test_web` 44 项路由冒烟「html lang / CSV 导出 BOM 与列 / SEO 三件套 /
+1. ~~**零自动化测试、无 CI。**~~ ✅ **质量底线已建成三层**：`tests/` 下 6 个模块共 **124 项**检查
+   （`test_labels` 36 项 i18n 契约 + **前端字典与 labels.csv 逐字一致**、`test_analyzer` 21 项
+   provider 派发与解析 **+ SSE 行解析（str / bytes 两种形态）**、`test_web` 44 项路由冒烟「html lang / CSV 导出 BOM 与列 / SEO 三件套 /
    静态缓存与安全头 / 资源版本号 / 管理端点鉴权 / `/docs` 与路由表一致性 / 错误页 / hreflang」
    **+ 冷启动自愈整条链路**、`test_embed` 4 项 embed 单遍合并回归、
    `test_stats_core` 17 项纯统计函数边界与公报结构、`test_frontend` 2 项

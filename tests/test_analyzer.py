@@ -164,6 +164,60 @@ def test_system_prompt_language():
 
 
 # ---------------------------------------------------------------------------
+# InfiniSynapse SSE 行解析
+# ---------------------------------------------------------------------------
+_SSE_LINES = [
+    "event: message.delta",       # 只有 event: 行 → 跳过
+    "",                           # 空行 → 跳过
+    "data: {\"data\":{\"message\":{\"text\":\"第一段\"}}}",
+    "data: ping",                 # 心跳 → 跳过
+    "data: not-json",             # 坏 JSON → 跳过而不打断整条流
+    "data: {\"data\":{\"message\":{\"text\":\"第二段\"}}}",
+]
+
+
+class _SSEResp:
+    """支持 ``with`` 的假 SSE 响应；``iter_lines`` 按给定元素类型原样吐行。"""
+
+    text = ""
+
+    def __init__(self, lines, status_code=200):
+        self._lines = lines
+        self.status_code = status_code
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def iter_lines(self, **_kw):
+        return iter(self._lines)
+
+
+@pytest.mark.parametrize("element_type", ["str", "bytes"])
+def test_iter_events_parses_data_lines_regardless_of_element_type(element_type):
+    """`decode_unicode=True` 实际给 str，而 requests 2.34 的类型标注写 bytes。
+
+    解析必须对两种形态都成立——否则换一台依赖版本不同的机器就会在
+    `startswith` 上出错（正是 CI 与本地结论相反的那次）。
+    """
+    lines = ([ln.encode("utf-8") for ln in _SSE_LINES] if element_type == "bytes"
+             else list(_SSE_LINES))
+    az = InfiniSynapseAnalyzer(api_key="k", server="https://example")
+    az._session.get = lambda *a, **k: _SSEResp(lines)  # noqa: ARG005
+    texts = [ev["data"]["message"]["text"] for ev in az._iter_events("conn-id")]
+    assert texts == ["第一段", "第二段"]
+
+
+def test_iter_events_raises_on_http_error():
+    az = InfiniSynapseAnalyzer(api_key="k", server="https://example")
+    az._session.get = lambda *a, **k: _SSEResp([], status_code=500)  # noqa: ARG005
+    with pytest.raises(AgentInfiniError):
+        list(az._iter_events("conn-id"))
+
+
+# ---------------------------------------------------------------------------
 # _lang_header
 # ---------------------------------------------------------------------------
 @pytest.mark.parametrize("raw,expected", [
