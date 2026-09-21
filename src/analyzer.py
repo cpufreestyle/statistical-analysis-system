@@ -111,7 +111,10 @@ class InfiniSynapseAnalyzer:
                 raise AgentInfiniError(
                     f"events 流失败({resp.status_code}): {resp.text[:200]}")
             buf = ""
-            for raw in resp.iter_lines(decode_unicode=True):
+            for chunk in resp.iter_lines(decode_unicode=True):
+                # requests 2.34 起自带类型标注，把 iter_lines 的元素声明为 bytes，
+                # 与 decode_unicode=True 的实际返回（str）不符。显式解码让两侧都对。
+                raw = chunk.decode("utf-8") if isinstance(chunk, bytes) else chunk
                 if not raw:
                     continue
                 if raw.startswith("event:"):

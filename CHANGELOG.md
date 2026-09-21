@@ -36,6 +36,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
   调 `rstrip`（此前会拼出 `Bearer None` 请求头）、`key_of` 返回类型收敛为 `str`、
   `localize_indicators` 形参改用协变的 `Sequence`（`list[IndicatorRow]` 传 `list` 才不报错）。
 - CI 显式声明 Node 运行时（`actions/setup-node@v4`），前端行为检查不再依赖环境里恰好有 node。
+- **SSE 行解析改为显式解码**（`src/analyzer.py`）。`requests` 2.34 起自带 `py.typed`，把
+  `iter_lines()` 的元素标注成 `bytes`，与 `decode_unicode=True` 的实际返回（`str`）不符，
+  新类型门禁据此在 CI 报 2 处 `startswith` 参数错误、本地（`requests` 2.33 无标注）却是 0。
+  改为 `bytes` 才解码、否则原样使用，两种 `requests` 版本下行为与类型都成立。
 
 ### Docs
 
