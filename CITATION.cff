@@ -2,8 +2,8 @@ cff-version: 1.2.0
 title: "Asia-Pacific Statistical Analysis System"
 message: "If you use this software, please cite it using the metadata from this file."
 type: software
-version: 0.1.0
-date-released: "2026-09-18"
+version: 1.5.1
+date-released: "2026-09-21"
 license: MIT
 repository-code: "https://github.com/cpufreestyle/statistical-analysis-system"
 url: "https://qu-stat-system.vercel.app"

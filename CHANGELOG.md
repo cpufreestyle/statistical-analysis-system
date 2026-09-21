@@ -11,6 +11,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
 
 ## [Unreleased]
 
+Nothing yet.
+
+## v1.5.1 — 2026-09-21 — Quality gates wired (`c8853bf`…`e3f648d`)
+
 ### Added
 
 - **内嵌资产漂移门禁。** CI 重跑 `scripts/embed_pages.py` 后逐字节比对已提交的 `src/pages.py`
@@ -54,6 +58,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
 - `HANDOFF.md`：线上部署与 KV 自愈状态改为已验证、补充自愈失败分支的日志去向
   （`app.logger` → stderr → Vercel Observability / `vercel logs`）、测试规模对齐至 **121 项**。
 - `CONTRIBUTING.md`：本地检查清单加入 `basedpyright`，并说明类型门禁为阻塞项、只覆盖 `src/`。
+- `CITATION.cff`：`version` 从长期未维护的 `0.1.0` 对齐到 `1.5.1`、`date-released` 更新，
+  使引用元数据与实际发布版本一致。
 
 ## v1.5.0 — 2026-09-20 — Overseas launch fixes (`bf444ab`)
 

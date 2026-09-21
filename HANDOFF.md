@@ -16,7 +16,7 @@
 | 数据来源 | 世界银行 Open Data · 中国国家统计局 · 海关总署（全部公开、无需鉴权） |
 | 技术栈 | Python 3.12 + Flask + SQLAlchemy Core + SQLite；前端原生 HTML/CSS/JS，**零构建** |
 | 仓库 | Gitee `cpufreestyle/statistical-analysis-system`（origin）· GitHub 同名（github） |
-| 分支 / 版本 | `master`；已发版至 `v1.5.0`（6 个 tag 全部推送 Gitee `origin` + GitHub `github`，详见 §1） |
+| 分支 / 版本 | `master`；已发版至 `v1.5.1`（7 个 tag 全部推送 Gitee `origin` + GitHub `github`，详见 §1） |
 | 线上 | Vercel 项目 `qu-stat-system`，生产别名 `https://qu-stat-system.vercel.app`（接口已探活，页面级路由待复核，见 §5） |
 | 测试 / CI | ✅ `tests/` **121 项**检查 + `.github/workflows/ci.yml`（pytest → 起服务跑 `check_i18n.py` → `basedpyright` 类型门禁 → 可选 markdownlint）——见 §6.1 |
 | 许可证 | MIT（见 `LICENSE`；`data/` 沿用来源方条款：World Bank Open Data CC BY 4.0） |
@@ -44,8 +44,9 @@
 - 本地服务可跑（`/` `/app` `/docs` `/privacy` 均 200）。
 - **已发版（2026-09-18）**：`v1.1.0`=`7d3faab`（性能·加固·体验·SEO）、
   `v1.2.0`=`202f428`（可用性与质量）、`v1.3.0`=`130e793`+`c70ce1b`（开源配套+隐私页）、
-  `v1.4.0`=`a9d2c37`（外观优化）、`v1.5.0`=`bf444ab`（出海收尾：文案机构口径+旧快照特征判别+空看板兜底）；
-  `pyproject.toml` version 对齐为 `1.5.0`，
+  `v1.4.0`=`a9d2c37`（外观优化）、`v1.5.0`=`bf444ab`（出海收尾：文案机构口径+旧快照特征判别+空看板兜底）、
+  `v1.5.1`=`e3f648d`（六道质量门禁接入 + 类型缺陷修复 + CI 运行时对齐 node 24 / ubuntu-24.04）；
+  `pyproject.toml` version 对齐为 `1.5.1`，
   CHANGELOG 批次已折入版本标题。
 
 ---
@@ -212,8 +213,10 @@ python -m src.cli db info
    纯函数补齐已完成（`src/stats/core.py` 的 `yoy`/`share`/`rank_items`/`fmt_pct`，
    以及 `report.build_bulletin_data()` 的结构与边界），仍**不追覆盖率**。
 
-2. ~~**版本号未维护。**~~ ✅ **已对齐（2026-09-20）**：`pyproject.toml` version = `1.5.0`，
-   tag `v1.0.0`→`v1.5.0` 共六个全部推送双远程，GitHub 已建 5 个 release（v1.1.0–v1.5.0）。
+2. ~~**版本号未维护。**~~ ✅ **已对齐（2026-09-21）**：`pyproject.toml` version = `1.5.1`，
+   tag `v1.0.0`→`v1.5.1` 共七个全部推送双远程，GitHub 已建 5 个 release（v1.1.0–v1.5.0；
+   `v1.5.1` 的 release 需一次性提供 PAT 才能建，或直接在
+   `https://github.com/cpufreestyle/statistical-analysis-system/releases/new?tag=v1.5.1` 点一下）。
    后续发版维持约定：**一个变更批次一个 tag，不合并**（见 §4 约定 5）。
 
 3. **线上部署只做过接口探活。** 见 §5：`/api/stats`、`/api/overview` 已实测正常（2026-09-20），
