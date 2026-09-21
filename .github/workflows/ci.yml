@@ -8,21 +8,24 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # 固定镜像标签：ubuntu-latest 将于 2026-10-19 自动切到 Ubuntu 26，
+    # 那会让没改代码的提交突然变红。升级镜像时显式改这里。
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
-      - name: Set up Node 20
+      - name: Set up Node 24
         # tests/test_frontend.py 用 node 的 vm 执行 public/*.js 做前端行为检查
         # （零依赖、无 package.json，只要运行时在场即可）。
-        uses: actions/setup-node@v4
+        # 与本地对齐：开发环境同为 node 24.x。
+        uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version: "24"
 
       - name: Install dependencies
         run: |
@@ -61,12 +64,12 @@ jobs:
           exit $RC
 
   types:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
@@ -85,13 +88,13 @@ jobs:
         run: .venv/bin/basedpyright
 
   docs:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     continue-on-error: true   # markdownlint 为可选质量门，不阻塞主流程
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version: "24"
       - run: npm install -g markdownlint-cli2
       # 忽略项（node_modules / 助手工作目录 / data）统一放在 .markdownlint-cli2.jsonc
       - run: markdownlint-cli2 "**/*.md"

@@ -189,7 +189,7 @@ python -m src.cli db info
 | **Vercel KV 持久化** | ✅ 冷启动自愈已验证 | 依赖 `KV_REST_API_URL` / `KV_REST_API_TOKEN`。v1.5.0 起冷启动按**特征判别**（缺「亚太」聚合维度即判为区级旧快照）自动清表重灌真实数据，线上首轮即把 51 行区级快照换成了 729 行。整条链路（恢复→判别→清表→重播种→清 KV）由 `tests/test_web.py` 逐副作用把守；若线上分类仍异常，可手动清 KV key `qu_stat_ap:indicators` 或带 `X-Admin-Token` 调 `/api/reseed` |
 | **自愈失败分支的日志去向** | ✅ 已确认 | 失败只告警不阻断，四条可区分关键字：`kv restore skipped` / `kv purge after reseed failed` / `year seeding skipped` / `seed data loading skipped`（另有 `knowledge seeding skipped`）。`app.logger` 写 **stderr**（实测格式 `[时间] WARNING in web: <关键字>: <原因>`），Vercel 侧在 **项目 → Observability → Logs**（或部署详情 Functions 面板、CLI `vercel logs <部署 URL>`）按关键字检索；本地等价路径 `python -m src.cli web 2> server.log` 后 grep 同一批关键字 |
 | **云端 AI 解读** | ❓ 未验证 | 需 `INFINISYNAPSE_API_KEY`；未配时自动降级为仅本地统计（不会报错） |
-| **Windows 之外的平台** | ✅ 已配 CI（ubuntu-latest） | `.github/workflows/ci.yml` 三个作业：`test`（漂移门禁 → 121 项 pytest → 起服务 i18n 冒烟）、`types`（basedpyright 门禁）、`docs`（markdownlint，不阻塞）。本地 Windows 亦 **121 项**全绿 |
+| **Windows 之外的平台** | ✅ 已配 CI（`ubuntu-24.04`，显式固定） | `.github/workflows/ci.yml` 三个作业：`test`（漂移门禁 → 121 项 pytest → 起服务 i18n 冒烟）、`types`（basedpyright 门禁）、`docs`（markdownlint，不阻塞）。actions 统一 `@v7` + node 24；不用 `ubuntu-latest` 是因为它将于 2026-10-19 自动切到 Ubuntu 26，会让没改代码的提交凭空变红。本地 Windows 亦 **121 项**全绿 |
 
 ---
 
