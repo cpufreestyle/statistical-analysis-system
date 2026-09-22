@@ -83,9 +83,9 @@ dimension,全区,entire_region,Entire region
 # ---- 单位 ----
 unit,%,percent,%
 unit,美元,usd,USD
-unit,亿美元,usd_100m,USD 100M
+unit,亿美元,usd_100m,100 million USD
 unit,元,cny,CNY
-unit,亿元,cny_100m,CNY 100M
-unit,亿人,hundred_million_people,100M people
+unit,亿元,cny_100m,100 million CNY
+unit,亿人,hundred_million_people,100 million people
 unit,万人,ten_thousand_people,10K people
 unit,岁,years,years

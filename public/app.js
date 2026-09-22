@@ -137,6 +137,31 @@ function exportChartCsv() {
       if (btn.dataset.tab === 'charts') initCharts();
     });
   });
+
+  /* WAI-ARIA tablist 键盘导航：ArrowLeft/Right + Home/End，roving tabindex */
+  const tablist = document.querySelector('[role="tablist"]');
+  if (tablist) {
+    tablist.addEventListener('keydown', (e) => {
+      const tabs = Array.from(tablist.querySelectorAll('[role="tab"]'));
+      if (!tabs.length) return;
+      const idx = tabs.indexOf(e.target);
+      if (idx < 0) return;
+      let next = -1;
+      if (e.key === 'ArrowRight') next = (idx + 1) % tabs.length;
+      else if (e.key === 'ArrowLeft') next = (idx - 1 + tabs.length) % tabs.length;
+      else if (e.key === 'Home') next = 0;
+      else if (e.key === 'End') next = tabs.length - 1;
+      if (next < 0) return;
+      e.preventDefault();
+      tabs.forEach((t, i) => t.setAttribute('tabindex', i === next ? '0' : '-1'));
+      tabs[next].focus();
+      tabs[next].click();
+    });
+    /* 初始 roving tabindex：只有 active tab 可 Tab 到 */
+    tablist.querySelectorAll('[role="tab"]').forEach((t, i) => {
+      t.setAttribute('tabindex', i === 0 ? '0' : '-1');
+    });
+  }
   loadOverview();
   loadCustomList();
   loadDbStats();

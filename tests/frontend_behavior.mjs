@@ -20,6 +20,7 @@ const APP_JS = process.env.QU_STAT_APP_JS || path.join("public", "app.js");
 /* ───────────────────────── 最小浏览器桩 ───────────────────────── */
 
 function makeEl(id, tag = "div") {
+  const listeners = {};
   const el = {
     id: id || "",
     tagName: tag,
@@ -38,12 +39,31 @@ function makeEl(id, tag = "div") {
       toggle(c, on) { if (on === undefined || on) this._set.add(c); else this._set.delete(c); },
       contains(c) { return this._set.has(c); },
     },
-    setAttribute() {}, getAttribute() { return null; }, removeAttribute() {},
+    _attrs: {},
+    setAttribute(k, v) { this._attrs[k] = v; },
+    getAttribute(k) { return this._attrs[k] ?? null; },
+    removeAttribute(k) { delete this._attrs[k]; },
     appendChild(c) { this.children.push(c); return c; },
     removeChild(c) { this.children = this.children.filter((x) => x !== c); return c; },
-    addEventListener() {}, removeEventListener() {},
-    querySelector() { return null; }, querySelectorAll() { return []; },
-    click() {}, focus() {}, blur() {}, select() {}, scrollIntoView() {},
+    addEventListener(type, fn) { (listeners[type] = listeners[type] || []).push(fn); },
+    removeEventListener() {},
+    dispatchEvent(ev) {
+      (listeners[ev.type] || []).forEach(fn => fn(ev));
+      return true;
+    },
+    querySelector(sel) {
+      if (sel === '[role="tablist"]' && el._tablist) return el._tablist;
+      return null;
+    },
+    querySelectorAll(sel) {
+      if (sel === '.wb-tab' || sel === '[role="tab"]') return el._tabs || [];
+      if (sel === '.wb-panel') return el._panels || [];
+      return [];
+    },
+    click() { (listeners["click"] || []).forEach(fn => fn({ target: el })); },
+    focus() { el._focused = true; },
+    blur() { el._focused = false; },
+    select() {}, scrollIntoView() {},
     getBoundingClientRect() { return { top: 0, left: 0, width: 0, height: 0 }; },
   };
   return el;
@@ -98,6 +118,42 @@ sandbox.fetch = async (url) => {
 
 const context = vm.createContext(sandbox);
 
+/* ───────────────────────── Tab 测试 DOM 桩 ───────────────────────── */
+/* 在 app.js init() 跑之前建好最小 tablist，让 keydown handler 能挂上。
+   真实渲染由 loadOverview 驱动，这里只测键盘导航逻辑。 */
+const TAB_IDS = ["nlq", "indicators", "custom", "bulletin", "charts"];
+const tabButtons = TAB_IDS.map((tid, i) => {
+  const btn = makeEl("", "button");
+  btn.dataset.tab = tid;
+  btn.setAttribute("role", "tab");
+  btn.setAttribute("aria-selected", i === 0 ? "true" : "false");
+  btn.classList.toggle("active", i === 0);
+  return btn;
+});
+const panels = TAB_IDS.map((tid) => {
+  const p = makeEl("panel-" + tid);
+  p.classList.toggle("active", tid === "nlq");
+  return p;
+});
+const tablistEl = makeEl("", "div");
+tablistEl._tabs = tabButtons;
+tablistEl._panels = panels;
+tablistEl.setAttribute("role", "tablist");
+
+/* 把 tablist 挂到 body 的 querySelector 路径上 */
+const bodyEl = sandbox.document.body;
+bodyEl._tablist = tablistEl;
+sandbox.document.querySelector = (sel) => {
+  if (sel === '[role="tablist"]') return tablistEl;
+  return null;
+};
+/* querySelectorAll('.wb-tab') 也要返回这些按钮（init 里两处都用） */
+sandbox.document.querySelectorAll = (sel) => {
+  if (sel === ".wb-tab" || sel === "[role=\"tab\"]") return tabButtons;
+  if (sel === ".wb-panel") return panels;
+  return [];
+};
+
 /* 单一脚本体：真实源码 + 场景驱动，保证 driver 与 app.js 处于同一词法作用域
    （app.js 的 STATE 是顶层 const，跨 runInContext 调用不可见）。 */
 const DRIVER = `
@@ -151,6 +207,49 @@ const DRIVER = `
   var failed = await render({ cards: [] }, 'en', { fail: true });
   check('取数失败渲染失败态', failed.indexOf('Load failed') >= 0 || CJK.test(failed) === false, failed.slice(0, 200));
   check('取数失败不留骨架屏', failed.indexOf('metric-skeleton') < 0, failed.slice(0, 200));
+
+  /* ── Tab 键盘导航 ── */
+  /* init() 已挂好 keydown handler；这里用合成事件验证 WAI-ARIA tablist 行为。 */
+  var tabs = document.querySelectorAll('[role="tab"]');
+
+  function fireKey(target, key) {
+    var ev = { type: "keydown", key: key, target: target, preventDefault: function () {} };
+    document.querySelector('[role="tablist"]').dispatchEvent(ev);
+  }
+
+  /* 场景 6：ArrowRight 从第一个 tab 移到第二个 */
+  fireKey(tabs[0], "ArrowRight");
+  check('ArrowRight 激活下一个 tab', tabs[1].getAttribute("aria-selected") === "true",
+    "tab1 aria-selected=" + tabs[1].getAttribute("aria-selected"));
+  check('ArrowRight 取消前一个 tab', tabs[0].getAttribute("aria-selected") === "false",
+    "tab0 aria-selected=" + tabs[0].getAttribute("aria-selected"));
+
+  /* 场景 7：ArrowLeft 回退 */
+  fireKey(tabs[1], "ArrowLeft");
+  check('ArrowLeft 回到前一个 tab', tabs[0].getAttribute("aria-selected") === "true",
+    "tab0 aria-selected=" + tabs[0].getAttribute("aria-selected"));
+
+  /* 场景 8：End 跳到最后一个 */
+  fireKey(tabs[0], "End");
+  check('End 跳到最后一个 tab', tabs[tabs.length - 1].getAttribute("aria-selected") === "true",
+    "last tab aria-selected=" + tabs[tabs.length - 1].getAttribute("aria-selected"));
+
+  /* 场景 9：Home 跳回第一个 */
+  fireKey(tabs[tabs.length - 1], "Home");
+  check('Home 跳回第一个 tab', tabs[0].getAttribute("aria-selected") === "true",
+    "tab0 aria-selected=" + tabs[0].getAttribute("aria-selected"));
+
+  /* 场景 10：ArrowRight 在末尾循环到第一个 */
+  fireKey(tabs[tabs.length - 1], "ArrowRight");
+  check('ArrowRight 末尾循环到首', tabs[0].getAttribute("aria-selected") === "true",
+    "tab0 aria-selected=" + tabs[0].getAttribute("aria-selected"));
+
+  /* 场景 11：roving tabindex — active tab 为 0，其余为 -1 */
+  var rovingOk = tabs.every(function (t, i) {
+    return t.getAttribute("tabindex") === (i === 0 ? "0" : "-1");
+  });
+  check('roving tabindex 正确', rovingOk,
+    tabs.map(function (t) { return t.getAttribute("tabindex"); }).join(","));
 
   globalThis.__results = results;
   globalThis.__done = true;

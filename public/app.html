@@ -63,14 +63,14 @@
   <div class="header-brand">
     <div class="header-logo">AP</div>
     <div>
-      <span class="header-title" data-i18n="全国统计分析">亚太统计分析</span>
+      <span class="header-title" data-i18n="亚太统计分析">亚太统计分析</span>
       <span class="header-title-en">Asia-Pacific</span>
     </div>
   </div>
 
   <div class="header-right">
-    <a href="/" data-i18n="home.link" style="font-size:12px;color:var(--gray-400);text-decoration:none;margin-right:8px;padding:4px 10px;border:1px solid var(--gray-200);border-radius:6px;transition:all 0.2s;" onmouseover="this.style.color='var(--blue-600)';this.style.borderColor='var(--blue-300)'" onmouseout="this.style.color='var(--gray-400)';this.style.borderColor='var(--gray-200)'">🏠 首页</a>
-    <a href="/docs" data-i18n="📖 API 文档" style="font-size:12px;color:var(--gray-400);text-decoration:none;margin-right:12px;padding:4px 10px;border:1px solid var(--gray-200);border-radius:6px;transition:all 0.2s;" onmouseover="this.style.color='var(--blue-600)';this.style.borderColor='var(--blue-300)'" onmouseout="this.style.color='var(--gray-400)';this.style.borderColor='var(--gray-200)'">📖 API 文档</a>
+    <a href="/" class="chip-link" data-i18n="home.link">首页</a>
+    <a href="/docs" class="chip-link" data-i18n="API 文档" style="margin-right:12px">API 文档</a>
     <label class="header-select">
       <span data-i18n="地区/经济体">地区/经济体</span>
       <select id="globalDimension" onchange="syncDimension(this.value)"></select>
@@ -79,7 +79,7 @@
       <select id="globalYear" onchange="syncYear(this.value)"></select>
     </div>
     <button id="langToggle" class="lang-toggle" type="button" onclick="toggleLang()" aria-label="切换语言 / Switch language">EN</button>
-    <button id="shareBtn" class="lang-toggle" type="button" onclick="copyShareLink()" data-i18n="🔗 分享" aria-label="复制分享链接 / Copy share link" title="复制当前筛选条件下的分享链接">🔗 分享</button>
+    <button id="shareBtn" class="lang-toggle" type="button" onclick="copyShareLink()" data-i18n="分享" aria-label="复制分享链接 / Copy share link" title="复制当前筛选条件下的分享链接">分享</button>
   </div>
 </header>
 
@@ -94,11 +94,11 @@
     <!-- ═══════ 查询工作台 ═══════ -->
     <div class="workbench">
       <div class="wb-tabs" role="tablist" aria-label="分析视图">
-        <button class="wb-tab active" data-tab="nlq" role="tab" aria-selected="true" data-i18n="🌟 智能查询">🌟 智能查询</button>
-        <button class="wb-tab" data-tab="indicators" role="tab" aria-selected="false" data-i18n="📊 指标总表">📊 指标总表</button>
-        <button class="wb-tab" data-tab="custom" role="tab" aria-selected="false" data-i18n="📋 自定义分析">📋 自定义分析</button>
-        <button class="wb-tab" data-tab="bulletin" role="tab" aria-selected="false" data-i18n="📄 统计公报">📄 统计公报</button>
-        <button class="wb-tab" data-tab="charts" role="tab" aria-selected="false" data-i18n="📈 图表">📈 图表</button>
+        <button class="wb-tab active" data-tab="nlq" role="tab" aria-selected="true" data-i18n="智能查询">智能查询</button>
+        <button class="wb-tab" data-tab="indicators" role="tab" aria-selected="false" data-i18n="指标总表">指标总表</button>
+        <button class="wb-tab" data-tab="custom" role="tab" aria-selected="false" data-i18n="自定义分析">自定义分析</button>
+        <button class="wb-tab" data-tab="bulletin" role="tab" aria-selected="false" data-i18n="统计公报">统计公报</button>
+        <button class="wb-tab" data-tab="charts" role="tab" aria-selected="false" data-i18n="图表">图表</button>
       </div>
       <div class="wb-body">
         <!-- 智能查询 -->
@@ -108,7 +108,7 @@
             <input type="text" class="query-input" id="nlqInput" data-i18n-ph="例如：2024年GDP是多少？" placeholder="例如：2024年GDP是多少？" />
             <button class="btn btn-primary" id="btnAnalyze" onclick="runAnalyze()">
               <span class="spinner"></span>
-              <span class="btn-label" data-i18n="📡 开始分析">📡 开始分析</span>
+              <span class="btn-label" data-i18n="开始分析">开始分析</span>
             </button>
           </div>
           <label class="cloud-toggle">
@@ -116,7 +116,7 @@
             <span data-i18n="AI 云端解读">AI 云端解读</span>
             <span class="cloud-hint">InfiniSynapse</span>
           </label>
-          <div class="query-hint" data-i18n="💡 试试这些问题">💡 试试这些问题</div>
+          <div class="query-hint" data-i18n="试试这些问题">试试这些问题</div>
           <div class="query-suggestions">
             <span class="suggestion-chip" data-i18n="chip.gdp" data-q-en="2024 GDP" data-q-zh="2024年GDP" onclick="fillQueryI18n(this)">2024年GDP是多少？</span>
             <span class="suggestion-chip" data-i18n="chip.retail" data-q-en="retail sales" data-q-zh="社会消费品零售总额" onclick="fillQueryI18n(this)">社会消费品零售总额</span>
@@ -134,7 +134,7 @@
               <option value="" data-i18n="全部专业">全部专业</option>
             </select>
             <input type="text" class="query-input" id="indSearch" data-i18n-ph="关键词搜索指标 / 说明 / 维度" placeholder="关键词搜索指标 / 说明 / 维度" onkeydown="if(event.key==='Enter')loadIndicators()" />
-            <button class="btn btn-primary" data-i18n="🔍 查询" onclick="loadIndicators()">🔍 查询</button>
+            <button class="btn btn-primary" data-i18n="查询" onclick="loadIndicators()">查询</button>
             <button class="btn btn-secondary" data-i18n="用所选指标创建分析" onclick="createFromSelected()">用所选指标创建分析</button>
             <button class="btn btn-secondary" data-i18n="⬇ 导出 CSV" onclick="exportIndicatorsCsv()">⬇ 导出 CSV</button>
             <span id="indCount" style="color:var(--gray-500);font-size:.8rem;flex-shrink:0"></span>
@@ -270,7 +270,7 @@
     <!-- ═══════ 关键指标 ═══════ -->
     <div class="section-header">
       <div class="section-title"><span data-i18n="关键指标">关键指标</span> <span class="section-badge" data-i18n="公开数据">公开数据</span></div>
-      <a class="section-link" data-i18n="查看全部指标 →" onclick="switchTab('indicators')">查看全部指标 →</a>
+      <a class="section-link" href="#panel-indicators" data-i18n="查看全部指标 →" onclick="switchTab('indicators')">查看全部指标 →</a>
     </div>
     <div class="metrics-grid" id="metricsGrid">
       <div class="metric-card"><div class="metric-header"><span class="metric-label" data-i18n="加载中…">加载中…</span></div><div class="metric-value"><div class="skeleton skeleton-line" style="width:80px;height:24px"></div></div></div>

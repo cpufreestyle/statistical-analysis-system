@@ -126,6 +126,20 @@ def test_static_asset_long_cache(client):
         assert "max-age=31536000" in cc and "immutable" in cc, path
 
 
+def test_metric_unit_nowrap_in_css():
+    """指标卡单位不得折行——'100 million USD' 折成两行会让数值与单位视觉脱节。"""
+    import re
+    from pathlib import Path
+
+    css_path = Path(__file__).resolve().parent.parent / "public" / "style.css"
+    css = css_path.read_text(encoding="utf-8")
+    block = re.search(r"\.metric-unit\s*\{([^}]*)\}", css)
+    assert block, ".metric-unit 规则缺失，请检查 public/style.css"
+    assert "white-space" in block.group(1) and "nowrap" in block.group(1), (
+        ".metric-unit 缺少 white-space:nowrap，单位可能折行"
+    )
+
+
 def test_security_headers_present(client):
     resp = client.get("/")
     assert resp.headers.get("X-Content-Type-Options") == "nosniff"

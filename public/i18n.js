@@ -36,7 +36,7 @@
     /* 通用 / 框架 */
     "page.title": "Asia-Pacific Statistical Analysis System",
     "nav.title": "Asia-Pacific Statistics",
-    "home.link": "🏠 Home",
+    "home.link": "Home",
     "搜索": "Search",
     "搜索指标、地区、分析主题…": "Search indicators, economies, topics…",
     "仅使用公开数据": "Official public data",
@@ -49,7 +49,6 @@
 
     /* 导航 / 其它 */
     "API 文档": "API reference",
-    "📖 API 文档": "📖 API reference",
     "隐私与数据声明": "Privacy and data",
     "线上版本已关闭实时采集（本地运行可用）":
       "Live collection is disabled on the hosted build (run locally to collect)",
@@ -57,23 +56,19 @@
     /* 应用页头 */
     "数据概览": "Overview",
     "subtitle.text": " Official macroeconomic statistics for Asia-Pacific economies",
-    "全国统计分析": "Asia-Pacific Statistics",
+    "亚太统计分析": "Asia-Pacific Statistics",
     "地区/经济体": "Economy",
     "年份": "Year",
 
     /* 工作台 Tab */
-    "🌟 智能查询": "🌟 Ask the AI",
-    "📊 指标总表": "📊 Indicators",
-    "📋 自定义分析": "📋 Custom analysis",
-    "📄 统计公报": "📄 Statistical bulletin",
 
     /* 智能查询 */
     "输入你的分析问题，AI 将基于公开统计数据为你生成分析结果":
       "Ask in plain language — every answer is computed from official public statistics.",
     "例如：2024年GDP是多少？":
       "e.g. What was Asia-Pacific GDP in 2024?",
-    "📡 开始分析": "📡 Run analysis",
-    "💡 试试这些问题": "💡 Example questions",
+    "开始分析": "Run analysis",
+    "试试这些问题": "Example questions",
     "chip.gdp": "What was 2024 GDP?",
     "chip.retail": "Retail sales of consumer goods",
     "chip.invest": "Fixed asset investment",
@@ -109,7 +104,7 @@
     "农业": "Agriculture",
     "投资": "Investment",
     "关键词搜索指标 / 说明 / 维度": "Search indicator / note / economy",
-    "🔍 查询": "🔍 Search",
+    "查询": "Search",
     "用所选指标创建分析": "Create analysis from selection",
     "选择": "Select",
     "指标": "Indicator",
@@ -127,7 +122,7 @@
     "从下拉列表选择一个已有的自定义分析，或点击「新建」创建自己的分析模板":
       "Choose a saved analysis, or click “New” to build your own template.",
     "分析名称（必填）": "Analysis name (required)",
-    "单位，如 %、亿元": "Unit, e.g. %, CNY 100M",
+    "单位，如 %、亿元": "Unit, e.g. %, 100 million CNY",
     "说明（可选）": "Note (optional)",
     "变量绑定": "Bind variables",
     "变量": "Variable",
@@ -288,7 +283,7 @@
     "地区": "Region",
 
     /* ── 图表（自绘 SVG） ── */
-    "📈 图表": "📈 Charts",
+    "图表": "Charts",
     "选择指标…": "Select indicator…",
     "跨年趋势": "Trend over years",
     "勾选经济体叠加对比": "Select economies to overlay",
@@ -300,7 +295,7 @@
     "该指标在所选年份无数据": "No data for the selected year",
 
     /* ── 导出 + 分享链接 ── */
-    "🔗 分享": "🔗 Share",
+    "分享": "Share",
     "⬇ 导出 CSV": "⬇ Export CSV",
     "⬇ 导出当前指标": "⬇ Export indicator",
     "已导出 CSV": "CSV exported",
@@ -308,12 +303,12 @@
     "复制失败，请手动复制地址栏": "Copy failed — copy the address bar manually",
 
     /* ── 单位（对外统一用国际写法）── */
-    "亿美元": "USD 100M",
+    "亿美元": "100 million USD",
     "美元": "USD",
-    "亿元": "CNY 100M",
+    "亿元": "100 million CNY",
     "万元": "CNY 10K",
     "元": "CNY",
-    "亿人": "100M people",
+    "亿人": "100 million people",
     "万人": "10K people",
     "岁": "years",
 
@@ -409,8 +404,8 @@
     remark: "Remark",
     kb_reference: "Knowledge base reference",
     ai_interpretation: "AI interpretation",
-    value_cny_100m: "Value (CNY 100M)",
-    value_usd_100m: "Value (USD 100M)",
+    value_cny_100m: "Value (100 million CNY)",
+    value_usd_100m: "Value (100 million USD)",
     secondary_industry_investment_share: "Investment in secondary industry, share",
     title: "Title",
     source: "Source",
