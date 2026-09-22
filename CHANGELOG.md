@@ -11,12 +11,30 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
 
 ## [Unreleased]
 
+## v1.5.2 — 2026-09-22 — UI quality pass (`d07cf55`)
+
+### Changed
+
+- **指标卡左对齐、单位不折行。** `.metric-card` 由居中改为左对齐（统计机构惯例）；
+  `.metric-unit` 加 `white-space:nowrap`，消除 "100 million USD" 折成两行的视觉脱节。
+  grid 最小列宽由 220px 降至 180px，5 卡不再出现 4+1 孤行。
+- **英文单位文案规范化。** `USD 100M / CNY 100M / 100M people` →
+  `100 million USD / 100 million CNY / 100 million people`，
+  `data/labels.csv` 与 `public/i18n.js` 两侧同步（逐字一致门禁把守）。
+- **去除界面 emoji 图标。** 11 条 ZH2EN 键值对摘除 emoji；5 条与纯中文键重复的条目
+  合并（避免 conflicting-duplicate-key 门禁变红）；`app.html` 的 `data-i18n` 属性与
+  可见文本同步更新。侧栏装饰性 emoji（📚🗄️）保留在 `<span class="icon">` 内，不参与翻译。
+- **头部链接样式收敛。** 首页 / API 文档两个 chip link 的内联 `style` + `onmouseover` /
+  `onmouseout` 提为 `.chip-link` CSS 类，补 `:focus-visible` 状态。
+- **遗留键修正。** `data-i18n="全国统计分析"` → `"亚太统计分析"`（区级遗留）。
+
 ### Added
 
-- **SSE 解析行为测试**（`tests/test_analyzer.py`，3 项）。按 `str` 与 `bytes` 两种行形态喂
-  `_iter_events`，锁住「显式解码」这一行为：去掉解码后 `bytes` 用例即以
-  `TypeError: startswith first arg must be bytes or a tuple of bytes, not str` 变红。
-  类型门禁只在带 `py.typed` 的 `requests` 版本下报警，行为门禁则与依赖版本无关。
+- **Tab 键盘导航（WAI-ARIA）。** `role="tablist"` 容器支持 ArrowLeft / ArrowRight / Home / End，
+  roving tabindex；`tests/frontend_behavior.mjs` 新增 7 项行为场景（总计 18 项）。
+- **CSS 回归断言。** `test_metric_unit_nowrap_in_css` 对 `public/style.css` 断言
+  `.metric-unit` 含 `white-space:nowrap`，防止未来误删。
+- **section-link 可访问。** "查看全部指标 →" 补 `href="#panel-indicators"`，Tab 键可达。
 
 ## v1.5.1 — 2026-09-21 — Quality gates wired (`c8853bf`…`e3f648d`)
 
