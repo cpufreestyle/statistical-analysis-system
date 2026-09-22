@@ -11,7 +11,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
 
 ## [Unreleased]
 
-## v1.5.2 — 2026-09-22 — UI quality pass (`d07cf55`)
+## v1.5.2 — 2026-09-22 — UI quality pass (`3b00c03`…`d07cf55`)
 
 ### Changed
 
@@ -30,6 +30,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
 
 ### Added
 
+- **SSE 解析行为测试**（`tests/test_analyzer.py`，3 项）。按 `str` 与 `bytes` 两种行形态喂
+  `_iter_events`，锁住 v1.5.1 那处「显式解码」修复：去掉解码后 `bytes` 用例即以
+  `TypeError: startswith first arg must be bytes or a tuple of bytes, not str` 变红。
+  类型门禁只在带 `py.typed` 的 `requests` 版本下报警，行为门禁则与依赖版本无关。
 - **Tab 键盘导航（WAI-ARIA）。** `role="tablist"` 容器支持 ArrowLeft / ArrowRight / Home / End，
   roving tabindex；`tests/frontend_behavior.mjs` 新增 7 项行为场景（总计 18 项）。
 - **CSS 回归断言。** `test_metric_unit_nowrap_in_css` 对 `public/style.css` 断言
