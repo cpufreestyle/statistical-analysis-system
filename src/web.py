@@ -11,6 +11,7 @@ import hashlib
 import hmac
 import json
 import os as _os
+import gzip as _gzip
 
 # 本地看板跑在 127.0.0.1，必须排除出系统 HTTP 代理（如 127.0.0.1:7897），
 # 否则代理会拦截本地请求导致预览/接口连接被拒。
@@ -56,6 +57,17 @@ _ASSET_VER = hashlib.sha256(
 
 #: 静态资源缓存（URL 已带内容哈希版本号，可安全长缓存）。
 _STATIC_CACHE = "public, max-age=31536000, immutable"
+
+#: C3 · 触发 gzip 的最小响应体（更小则压缩不划算）。
+_GZIP_MIN_BYTES = 500
+#: C3 · 可压缩的 MIME 前缀（文本类）。
+_GZIP_MIMES = ("text/", "application/json", "application/javascript",
+               "application/xml", "image/svg+xml")
+
+
+def _client_accepts_gzip() -> bool:
+    """客户端是否声明支持 gzip（Accept-Encoding）。"""
+    return "gzip" in (request.headers.get("Accept-Encoding") or "").lower()
 
 #: 安全响应头。本项目无外部 CDN 依赖（字体已走系统字体栈），故 CSP 收敛到 'self'。
 _SECURITY_HEADERS = {
@@ -130,6 +142,32 @@ def _apply_headers(resp):
     if request.is_secure or request.headers.get("X-Forwarded-Proto") == "https":
         resp.headers.setdefault("Strict-Transport-Security",
                                 "max-age=31536000; includeSubDomains")
+    # C2 · ETag + 条件请求：内容未变则 304，省带宽。
+    # 仅对 JSON 接口启用——HTML 页面必须保持 ``no-store``（见
+    # tests/test_web.py::test_html_is_no_store），否则会破坏「页面永不缓存」的既定契约。
+    if (resp.status_code == 200 and request.method in ("GET", "HEAD")
+            and not resp.direct_passthrough and "ETag" not in resp.headers
+            and resp.mimetype == "application/json"):
+        resp.add_etag()
+        # no-store 会让浏览器不再发条件请求；接口改为 no-cache（可存但每次校验）。
+        if "no-store" in resp.headers.get("Cache-Control", ""):
+            resp.headers["Cache-Control"] = "no-cache"
+        resp = resp.make_conditional(request)
+
+    # C3 · gzip 压缩：文本类、体积达标、客户端支持、尚未编码。
+    if (resp.status_code == 200 and request.method in ("GET", "HEAD")
+            and not resp.direct_passthrough
+            and "Content-Encoding" not in resp.headers
+            and _client_accepts_gzip()
+            and resp.mimetype and resp.mimetype.startswith(_GZIP_MIMES)):
+        _data = resp.get_data()
+        if len(_data) >= _GZIP_MIN_BYTES:
+            _compressed = _gzip.compress(_data, compresslevel=6)
+            if len(_compressed) < len(_data):
+                resp.set_data(_compressed)
+                resp.headers["Content-Encoding"] = "gzip"
+                resp.headers["Content-Length"] = str(len(_compressed))
+                resp.vary.add("Accept-Encoding")
     return resp
 
 
@@ -599,12 +637,16 @@ def api_ask():
                            if lang == "en" else "云端未启用，仅本地统计")
             return jsonify(labels.localize_payload(local, lang))
         # 云端提示词喂原始（中文规范键）事实，避免本地化后再回溯口径
-        out = az.analyze(_cloud_prompt(text, local, lang))
+        from src.analyzer import build_facts_files
+        facts = build_facts_files(local, lang)
+        out = az.analyze(_cloud_prompt(text, local, lang), files=facts)
         answer = str(out.get("result") or "").strip()
         if answer:
             local["AI 解读"] = answer
         if out.get("task_id"):
             local["task_id"] = out["task_id"]
+        if out.get("console_url"):
+            local["console_url"] = out["console_url"]
         return jsonify(labels.localize_payload(local, lang))
     except AgentInfiniError as e:
         local["注"] = (f"Cloud analysis failed: {e}" if lang == "en"
@@ -673,7 +715,29 @@ def api_custom():
         return jsonify({"error": msg}), 404
     # 自定义分析的「名称」是用户自己写的配置（name / name_en），已由 run_custom 按语言取用；
     # 这里只把结构键与单位等数据词条本地化。
-    return jsonify(labels.localize_payload(cust.run_custom(a, year, lang), lang))
+    from src.stats import sql_engine
+    engine_name = (request.args.get("engine") or "").strip().lower() or None
+    result = sql_engine.run_custom(a, year, lang, engine_name)
+    return jsonify(labels.localize_payload(result, lang))
+
+
+@app.route("/api/infini_skill")
+def api_infini_skill():
+    """按 agent_infini Skill 规范暴露集成自检：推荐工作流 + 资源预检。
+
+    只读端点，不触发任何云端调用；CLI 不可用时自动降级为「声明式」结果。
+    """
+    from src import infini_skill
+    db_ids = [x for x in (request.args.get("db") or "").split(",") if x.strip()]
+    rag_ids = [x for x in (request.args.get("rag") or "").split(",") if x.strip()]
+    creds = infini_skill.skill_credentials()
+    return jsonify({
+        "skill": infini_skill.SKILL_NAME,
+        "config_found": bool(creds.get("server") or creds.get("api_key")),
+        "cli": infini_skill.resolve_cli_path(),
+        "workflow": infini_skill.recommended_workflow(),
+        "preflight": infini_skill.preflight(db_ids, rag_ids),
+    })
 
 
 def _is_legacy_dataset(dims: set[str]) -> bool:

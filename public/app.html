@@ -123,12 +123,12 @@
             <span class="suggestion-chip" data-i18n="chip.invest" data-q-en="fixed asset investment" data-q-zh="固定资产投资总额" onclick="fillQueryI18n(this)">固定资产投资总额</span>
             <span class="suggestion-chip" data-i18n="chip.pop" data-q-en="total population of Japan" data-q-zh="日本人口" onclick="fillQueryI18n(this)">常住人口数据</span>
           </div>
-          <div id="nlqResult" class="ans-box"></div>
+          <div id="nlqResult" class="ans-box" aria-live="polite"></div>
         </div>
 
         <!-- 指标总表 -->
         <div class="wb-panel" id="panel-indicators">
-          <p style="font-size:.8rem;color:var(--gray-400);margin:0 0 .5rem" data-i18n="勾选指标后点「用所选建分析」可一键带入自定义分析；也可在上方自然语言框直接问具体指标名。">勾选指标后点「用所选建分析」可一键带入自定义分析；也可在上方自然语言框直接问具体指标名。</p>
+          <p style="font-size:.8rem;color:var(--gray-500);margin:0 0 .5rem" data-i18n="勾选指标后点「用所选建分析」可一键带入自定义分析；也可在上方自然语言框直接问具体指标名。">勾选指标后点「用所选建分析」可一键带入自定义分析；也可在上方自然语言框直接问具体指标名。</p>
           <div class="query-row" style="margin-bottom:10px">
             <select class="query-input" style="flex:none;max-width:180px" id="indCat" onchange="loadIndicators()">
               <option value="" data-i18n="全部专业">全部专业</option>
@@ -172,7 +172,7 @@
             </button>
             <button class="btn btn-secondary" data-i18n="＋ 新建" onclick="openAddCustom()">＋ 新建</button>
           </div>
-          <div id="customResult" class="ans-box">
+          <div id="customResult" class="ans-box" aria-live="polite">
             <div class="empty-state">
               <div class="empty-icon">📋</div>
               <div class="empty-title" data-i18n="选择并运行分析">选择并运行分析</div>
@@ -202,7 +202,7 @@
                 <input type="text" class="query-input" id="customExpr" data-i18n-ph="表达式，如 x / y * 100" placeholder="表达式，如 x / y * 100" style="flex:1" />
               </div>
               <div class="query-row" style="margin-top:6px;gap:6px;flex-wrap:wrap">
-                <span style="font-size:.8rem;color:var(--gray-400)" data-i18n="常用公式：">常用公式：</span>
+                <span style="font-size:.8rem;color:var(--gray-500)" data-i18n="常用公式：">常用公式：</span>
                 <button class="btn btn-ghost" style="padding:4px 8px;font-size:.8rem" data-i18n="占比 x/y×100" onclick="fillExpr('share')">占比 x/y×100</button>
                 <button class="btn btn-ghost" style="padding:4px 8px;font-size:.8rem" data-i18n="差值 x−y" onclick="fillExpr('diff')">差值 x−y</button>
                 <button class="btn btn-ghost" style="padding:4px 8px;font-size:.8rem" data-i18n="倍数 x/y" onclick="fillExpr('ratio')">倍数 x/y</button>
@@ -224,7 +224,7 @@
 
         <!-- 统计公报 -->
         <div class="wb-panel" id="panel-bulletin">
-          <p style="font-size:.8rem;color:var(--gray-400);margin:0 0 .6rem" data-i18n="点击「生成公报」按当前年份与维度输出真实数据公报">点击「生成公报」按当前年份与维度输出真实数据公报</p>
+          <p style="font-size:.8rem;color:var(--gray-500);margin:0 0 .6rem" data-i18n="点击「生成公报」按当前年份与维度输出真实数据公报">点击「生成公报」按当前年份与维度输出真实数据公报</p>
           <div class="query-row">
             <button class="btn btn-primary" id="btnBulletin" onclick="loadBulletin()">
               <span class="spinner"></span>
@@ -235,12 +235,12 @@
               <span data-i18n="含云端 AI 解读">含云端 AI 解读</span>
             </label>
           </div>
-          <div id="bulletinOut" class="bulletin-out"></div>
+          <div id="bulletinOut" class="bulletin-out" aria-live="polite"></div>
         </div>
 
         <!-- 图表 -->
         <div class="wb-panel" id="panel-charts">
-          <p style="font-size:.8rem;color:var(--gray-400);margin:0 0 .6rem" data-i18n="选择指标后可查看跨年趋势与分经济体排名（自绘 SVG，无图表库依赖）">选择指标后可查看跨年趋势与分经济体排名（自绘 SVG，无图表库依赖）</p>
+          <p style="font-size:.8rem;color:var(--gray-500);margin:0 0 .6rem" data-i18n="选择指标后可查看跨年趋势与分经济体排名（自绘 SVG，无图表库依赖）">选择指标后可查看跨年趋势与分经济体排名（自绘 SVG，无图表库依赖）</p>
           <div class="query-row" style="margin-bottom:10px">
             <select class="query-input" style="flex:none;max-width:260px" id="chartIndicator" onchange="loadChartSeries()">
               <option value="" data-i18n="选择指标…">选择指标…</option>
@@ -321,7 +321,7 @@
           <li class="source-item"><span class="source-dot"></span><span data-i18n="国家统计局（公开数据）">国家统计局（公开数据）</span></li>
           <li class="source-item"><span class="source-dot"></span><span data-i18n="海关总署（公开数据）">海关总署（公开数据）</span></li>
         </ul>
-        <p style="font-size:11px;color:var(--gray-400);margin-top:8px;line-height:1.5" data-i18n-html="本项目仅使用公开数据，不含任何内部或涉密数据">本项目<b>仅使用公开数据</b>，不含任何内部或涉密数据</p>
+        <p style="font-size:11px;color:var(--gray-500);margin-top:8px;line-height:1.5" data-i18n-html="本项目仅使用公开数据，不含任何内部或涉密数据">本项目<b>仅使用公开数据</b>，不含任何内部或涉密数据</p>
       </div>
     </div>
 
@@ -337,7 +337,7 @@
         </select>
         <input type="text" class="query-input" id="collectInd" style="width:100%;margin-bottom:8px;padding:8px 10px" data-i18n-ph="指标名，如 GDP、CPI" placeholder="指标名，如 GDP、CPI" />
         <button class="btn btn-secondary side-btn" id="btnCollect" data-i18n="从公开数据源采集" onclick="collectNow()">从公开数据源采集</button>
-        <p style="font-size:11px;color:var(--gray-400);margin-top:8px;line-height:1.5" data-i18n="采集说明：数据源为世界银行 Open Data（公开、无需鉴权）">采集说明：数据源为世界银行 Open Data（公开、无需鉴权）</p>
+        <p style="font-size:11px;color:var(--gray-500);margin-top:8px;line-height:1.5" data-i18n="采集说明：数据源为世界银行 Open Data（公开、无需鉴权）">采集说明：数据源为世界银行 Open Data（公开、无需鉴权）</p>
       </div>
     </div>
 
@@ -368,7 +368,7 @@
   </div>
 </template>
 
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="/i18n.js?v=__ASSET_VER__"></script>
 <script src="/app.js?v=__ASSET_VER__"></script>

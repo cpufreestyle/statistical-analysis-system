@@ -41,7 +41,10 @@ def _do_ask(text: str, use_cloud: bool, lang: str = labels.DEFAULT_LANG):
                 print(json.dumps(labels.localize_payload(nlq.ask(text, lang=lang), lang),
                                  ensure_ascii=False, indent=2))
                 return
-            out = az.analyze(text)
+            local = nlq.ask(text, lang=lang)
+            from src.analyzer import build_facts_files
+            facts = build_facts_files(local, lang)
+            out = az.analyze(text, files=facts)
             print(json.dumps(out, ensure_ascii=False, indent=2))
         except AgentInfiniError as e:
             print(f"[云端分析失败] {e}\n已回退到本地统计：")
@@ -85,6 +88,8 @@ def main():
     sp_custom.add_argument("--year", type=int, default=2024)
     sp_custom.add_argument("--lang", default="en", choices=["en", "zh"],
                            help="输出语言（默认 en）")
+    sp_custom.add_argument("--engine", default=None, choices=["python", "sql"],
+                           help="计算引擎（默认 python；可用 QU_STAT_CUSTOM_ENGINE 切换 sql）")
     sp_web = sub.add_parser("web", help="启动 Web 看板")
     sp_web.add_argument("--host", default="0.0.0.0", help="绑定地址（默认 0.0.0.0 便于云端/容器外部访问）")
     sp_web.add_argument("--port", type=int, default=5000, help="监听端口（默认 5000）")
@@ -190,7 +195,8 @@ def main():
             if not a:
                 print(f"未找到自定义分析：{args.name} / not found: {args.name}")
             else:
-                print(json.dumps(cust.run_custom(a, args.year, args.lang),
+                from src.stats import sql_engine
+                print(json.dumps(sql_engine.run_custom(a, args.year, args.lang, args.engine),
                                  ensure_ascii=False, indent=2))
     elif args.cmd == "web":
         from src.web import app, _ensure_data

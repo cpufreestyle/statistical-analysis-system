@@ -307,6 +307,25 @@ ENDPOINTS: list[dict[str, object]] = [
         "example": "curl -s \"$BASE/api/ask?text=2024%20GDP&lang=en&cloud=0\"",
     },
 
+    {
+        "group": "ai", "method": "GET", "path": "/api/infini_skill", "auth": False,
+        "title": ("集成自检", "Integration self-check"),
+        "desc": ("按 agent_infini Skill 规范返回推荐工作流与资源预检结果；只读、不触发"
+                 "任何云端调用，CLI 不可用时优雅降级。",
+                 "Returns the recommended agent_infini workflow and a resource "
+                 "pre-flight result. Read-only; never triggers a cloud call, and "
+                 "degrades gracefully when the CLI is absent."),
+        "params": [
+            {"name": "db", "type": "str", "required": False,
+             "d": ("逗号分隔的数据库标识，用于核验是否已启用。",
+                   "Comma-separated database ids to verify.")},
+            {"name": "rag", "type": "str", "required": False,
+             "d": ("逗号分隔的 RAG 知识库标识，用于核验是否已启用。",
+                   "Comma-separated RAG knowledge-base ids to verify.")},
+        ],
+        "example": "curl -s \"$BASE/api/infini_skill\"",
+    },
+
     # ── 知识库接口 ────────────────────────────────────────────────────
     {
         "group": "kb", "method": "GET", "path": "/api/knowledge", "auth": False,

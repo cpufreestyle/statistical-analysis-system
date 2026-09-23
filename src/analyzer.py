@@ -32,10 +32,16 @@ from typing import cast, Iterator
 import requests
 import yaml
 
+from src import infini_skill
+
 CONFIG_PATH = Path(__file__).resolve().parent.parent / "config.yaml"
 
-# Vercel / Serverless 等长连接受限环境：缩短超时，避免函数挂死
+# Vercel / Serverless 等长连接受限环境：缩短超时，避免函数挂死。
+# A1：拆成 (连接超时, 读取超时)，连接阶段快速失败，读取阶段给足时间。
 _DEFAULT_TIMEOUT = int(os.environ.get("INFINI_TIMEOUT", "120"))
+_CONNECT_TIMEOUT = int(os.environ.get("INFINI_CONNECT_TIMEOUT", "5"))
+#: A1：SSE 等待上限，默认与 Serverless 函数超时对齐（可用 INFINI_MAX_WAIT 覆盖）。
+_DEFAULT_MAX_WAIT = int(os.environ.get("INFINI_MAX_WAIT", "45"))
 
 
 class AgentInfiniError(Exception):
@@ -64,14 +70,64 @@ def _lang_header(lang: str | None) -> str:
     return lang or "zh_CN"
 
 
+def render_files_as_text(files: list[dict[str, object]] | None) -> str:
+    """把 ``files`` 里的文本内容拼成可直接并入提示词的文本块。
+
+    用于两类场合：(1) OpenAI 兼容端点没有独立文件上传通道，只能内联；
+    (2) 任何需要确保「事实一定进入模型上下文」的场合——即便服务端不解析
+    ``files`` 字段，文本内联也能兜底。
+    """
+    if not files:
+        return ""
+    blocks: list[str] = []
+    for f in files:
+        name = str(f.get("name") or "data")
+        content = f.get("content")
+        if content is None:
+            continue
+        blocks.append(f"--- {name} ---\n{content}")
+    return "\n\n".join(blocks)
+
+
+def with_facts(query: str, files: list[dict[str, object]] | None) -> str:
+    """把事实文件的文本内容追加到提问后面，返回增强后的提示词。
+
+    语言无关：仅做拼接，不改变原始问题与既有的提示词模板。
+    """
+    extra = render_files_as_text(files)
+    if not extra:
+        return query
+    return f"{query}\n\n{extra}"
+
+
+def build_facts_files(local: dict[str, object],
+                      lang: str | None = None) -> list[dict[str, object]]:
+    """把本地统计结果封装成随任务送入的「事实文件」。
+
+    这些文件是 AI 的**唯一数据依据**（呼应项目「AI 不得编造数字」的原则）：
+    - 以 JSON 文本承载，便于 Agent 阅读与引用，也便于服务端留痕审计；
+    - 屏蔽仅供展示的字段（如已本地化的「知识库参考」），避免口径混淆；
+    - 文件名按语言命名，纯 ASCII 名对非中文 Agent 更友好。
+    """
+    payload = {k: v for k, v in local.items() if k not in ("知识库参考",)}
+    text = json.dumps(payload, ensure_ascii=False, indent=2, default=str)
+    name = ("检索到的统计事实.json" if str(lang or "").startswith("zh")
+            else "retrieved_statistics.json")
+    return [{"name": name, "content": text}]
+
+
 class InfiniSynapseAnalyzer:
     """直连 InfiniSynapse Server API 的分析器（SSE 流式收集结果）。"""
 
     def __init__(self, api_key: str, server: str = "https://app.infinisynapse.cn",
-                 prefer_language: str = "zh_CN"):
+                 prefer_language: str = "zh_CN", console: str = "",
+                 console_task_url_template: str = ""):
         self.api_key: str = api_key
         self.server: str = server.rstrip("/")
         self.prefer_language: str = prefer_language
+        # 审计链接基地址与模板（见 agent_infini Skill：调用日志可查验）
+        self.console: str = console
+        self.console_task_url_template: str = console_task_url_template
         self._session = requests.Session()
         self._session.headers.update({
             "Authorization": f"Bearer {api_key}",
@@ -79,9 +135,18 @@ class InfiniSynapseAnalyzer:
         })
 
     # ------------------------------------------------------------------
-    def new_task(self, query: str, conn_id: str | None = None) -> tuple[str, str]:
-        """发起 newTask，返回 (task_id, conn_id)。"""
-        task_id = str(uuid.uuid4())
+    def new_task(self, query: str, conn_id: str | None = None,
+                 files: list[dict[str, object]] | None = None,
+                 images: list[dict[str, object]] | None = None,
+                 task_id: str | None = None) -> tuple[str, str]:
+        """发起 newTask，返回 (task_id, conn_id)。
+
+        ``files`` / ``images`` 用于把本系统检索到的**真实数据**与**图表**随任务
+        一并送入 InfiniSynapse Agent，使 AI 的解读建立在可溯源的事实之上，
+        而不是只看问题文字（避免「空对空」解读）。二者缺省为空，向后兼容。
+        """
+        if task_id is None:
+            task_id = str(uuid.uuid4())
         if conn_id is None:
             conn_id = str(uuid.uuid4())
         payload = {
@@ -89,12 +154,12 @@ class InfiniSynapseAnalyzer:
             "taskId": task_id,
             "connId": conn_id,
             "text": query,
-            "images": [],
-            "files": [],
+            "images": images or [],
+            "files": files or [],
         }
         r = self._session.post(
             f"{self.server}/api/ai/message", json=payload,
-            timeout=_DEFAULT_TIMEOUT,
+            timeout=(_CONNECT_TIMEOUT, _DEFAULT_TIMEOUT),
         )
         if r.status_code >= 400:
             raise AgentInfiniError(f"newTask 失败({r.status_code}): {r.text[:200]}")
@@ -105,7 +170,7 @@ class InfiniSynapseAnalyzer:
         url = f"{self.server}/api/ai/events?connId={conn_id}"
         with self._session.get(
             url, headers={"Accept": "text/event-stream"},
-            stream=True, timeout=_DEFAULT_TIMEOUT,
+            stream=True, timeout=(_CONNECT_TIMEOUT, _DEFAULT_TIMEOUT),
         ) as resp:
             if resp.status_code >= 400:
                 raise AgentInfiniError(
@@ -129,9 +194,17 @@ class InfiniSynapseAnalyzer:
                         continue
 
     def analyze(self, query: str, followups: list[str] | None = None,
-                max_wait: int = 110) -> dict[str, object]:
-        """一站式：newTask -> 收 SSE 流 -> 返回聚合文本与 task_id。"""
-        task_id, conn_id = self.new_task(query)
+                max_wait: int | None = None,
+                files: list[dict[str, object]] | None = None,
+                images: list[dict[str, object]] | None = None) -> dict[str, object]:
+        """一站式：newTask -> 收 SSE 流 -> 返回聚合文本与 task_id。
+
+        ``files`` / ``images`` 会随首个 newTask 一起送入（见 :meth:`new_task`），
+        使 Agent 在解读时能同时看到**真实数据**与**图表**。
+        """
+        if max_wait is None:  # A1：默认与平台函数超时对齐，避免请求挂死
+            max_wait = _DEFAULT_MAX_WAIT
+        task_id, conn_id = self.new_task(query, files=files, images=images)
         texts: list[str] = []
         started = time.time()
         done = False
@@ -151,7 +224,8 @@ class InfiniSynapseAnalyzer:
                 break
         # 若有追问，再发起一轮（复用同一 task，沿用 conn_id）
         for fq in (followups or []):
-            self.new_task(fq, conn_id=conn_id)
+            # 沿用同一 taskId（Skill Step 4：task new -> task ask <taskId>）
+            self.new_task(fq, conn_id=conn_id, task_id=task_id)
             for ev in self._iter_events(conn_id):
                 msg = cast("dict[str, object]",
                            cast("dict[str, object]", ev.get("data", {})).get("message", {}))
@@ -164,6 +238,8 @@ class InfiniSynapseAnalyzer:
             "task_id": task_id,
             "done": done,
             "result": "\n".join(texts).strip() or "（未收到明确文本结果，请稍后在 InfiniSynapse 控制台查看任务工作区）",
+            "console_url": infini_skill.console_task_url(
+                task_id, self.server, self.console, self.console_task_url_template),
         }
 
 
@@ -198,16 +274,22 @@ class OpenAICompatAnalyzer:
                 "figures the user supplies; never invent numbers that are not given.")
 
     def analyze(self, query: str, followups: list[str] | None = None,
-                max_wait: int = 110) -> dict[str, object]:
+                max_wait: int = 110,
+                files: list[dict[str, object]] | None = None,
+                images: list[dict[str, object]] | None = None) -> dict[str, object]:
         """返回 ``{task_id, done, result}`` —— 与 InfiniSynapse 一致，调用方无需改动。
 
         ``max_wait`` 仅为签名对齐（非流式调用没有等待上限），实际不生效。
+        ``files`` 的**文本内容会内联进提问**（该端点无独立文件上传通道）；
+        ``images`` 无法随纯文本请求携带，故忽略——以此保持与 InfiniSynapse
+        完全同构的入参签名，调用方无需分支。
         """
         _ = max_wait
+        _ = images
         task_id = str(uuid.uuid4())
         messages: list[dict[str, str]] = [
             {"role": "system", "content": self._system_prompt()},
-            {"role": "user", "content": query},
+            {"role": "user", "content": with_facts(query, files)},
         ]
         for fq in (followups or []):
             messages.append({"role": "user", "content": fq})
@@ -291,15 +373,24 @@ def get_analyzer(lang: str | None = None
     cfg = cast("dict[str, object]", full.get("infinisynapse", {}))
     if not cfg.get("enabled"):
         return None
+    # 凭证链（Skill Step 1）：环境变量 > 项目 config.yaml > ~/.agent_infini/config.txt
+    skill_creds = infini_skill.skill_credentials()
     api_key_obj = (os.environ.get("INFINISYNAPSE_API_KEY")
                    or os.environ.get("QU_STAT_INFINI_KEY")
-                   or cfg.get("api_key"))
+                   or cfg.get("api_key")
+                   or skill_creds.get("api_key"))
     if not api_key_obj:
         raise AgentInfiniError(
             "infinisynapse.enabled=true but no api_key configured "
             "(set env INFINISYNAPSE_API_KEY, or fill config.yaml)")
     api_key = str(api_key_obj)
     server = str(os.environ.get("INFINISYNAPSE_SERVER")
-                 or cfg.get("server") or "https://app.infinisynapse.cn")
-    prefer = _lang_header(lang) if lang else str(cfg.get("prefer_language", "zh_CN"))
-    return InfiniSynapseAnalyzer(api_key=api_key, server=server, prefer_language=prefer)
+                 or cfg.get("server") or skill_creds.get("server")
+                 or "https://app.infinisynapse.cn")
+    prefer = _lang_header(lang) if lang else str(
+        cfg.get("prefer_language") or skill_creds.get("prefer_language") or "zh_CN")
+    console = str(os.environ.get("INFINISYNAPSE_CONSOLE")
+                  or cfg.get("console") or skill_creds.get("console") or "")
+    template = str(cfg.get("console_task_url_template") or "")
+    return InfiniSynapseAnalyzer(api_key=api_key, server=server, prefer_language=prefer,
+                                 console=console, console_task_url_template=template)

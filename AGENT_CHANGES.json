@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "kind": "agent-change-manifest",
+  "project": "Asia-Pacific Statistical Analysis System (区统计系统 / qu-stat-system)",
+  "recorded_at": "2026-09-23",
+  "recorded_by": "InfiniSynapse agent",
+  "summary": "InfiniSynapse 集成强化 + 数据库优化 + 性能/缓存优化",
+  "batches": [
+    {
+      "id": "A",
+      "title": "InfiniSynapse 集成（AI 基于真实数据解读）",
+      "files": [
+        {"path": "src/analyzer.py", "change": "modified", "purpose": "new_task/analyze 新增 files/images 入参；新增 build_facts_files()/render_files_as_text()/with_facts()；OpenAI 兼容端点内联事实文本"},
+        {"path": "src/cli.py", "change": "modified", "purpose": "cloud/ask --cloud 把本地检索结果作为 files 送入；custom run 新增 --engine"},
+        {"path": "src/web.py", "change": "modified", "purpose": "/api/ask 注入事实文件；/api/custom 支持 ?engine="},
+        {"path": "src/report.py", "change": "modified", "purpose": "公报云端解读附带公报文件"}
+      ]
+    },
+    {
+      "id": "B",
+      "title": "SQL 计算引擎（变量绑定下沉）",
+      "files": [
+        {"path": "src/stats/sql_engine.py", "change": "added", "purpose": "1 条 SQL 的 MAX(CASE WHEN) 绑定全部变量；可选远程下推；默认 python 引擎，行为不变"}
+      ]
+    },
+    {
+      "id": "C",
+      "title": "按 agent_infini Skill 规范强化集成",
+      "files": [
+        {"path": "src/infini_skill.py", "change": "added", "purpose": "凭证链(~/.agent_infini)/资源预检/审计链接/稳定 taskId/推荐工作流"},
+        {"path": "src/analyzer.py", "change": "modified", "purpose": "读取 Skill 配置兜底；console 审计链接 console_url；new_task 支持复用 task_id"},
+        {"path": "src/web.py", "change": "modified", "purpose": "/api/ask 返回 console_url；新增只读自检端点 GET /api/infini_skill"}
+      ]
+    },
+    {
+      "id": "D",
+      "title": "数据库优化（索引/写入/连接）",
+      "files": [
+        {"path": "src/db.py", "change": "modified", "purpose": "自然键复合唯一索引 ux_indicators_key；新增 ix_indicators_dimension；ON CONFLICT upsert；连接级 PRAGMA(WAL 等)；幂等索引迁移"}
+      ],
+      "measured": {"exact_lookup_speedup": "12.1x", "bulk_upsert_speedup": "14.4x", "full_scans": "0"}
+    },
+    {
+      "id": "E",
+      "title": "性能/缓存优化（P0+P1）",
+      "files": [
+        {"path": "src/db.py", "change": "modified", "purpose": "R1 init_db 进程内只跑一次(force 形参)；D1 显式连接池 QueuePool(5+10)/Vercel NullPool + pool_pre_ping"},
+        {"path": "src/stats/indicators.py", "change": "modified", "purpose": "Q1 新增 _val_unit()，取值+取单位两次点查合并为一次（结果等值）"},
+        {"path": "src/web.py", "change": "modified", "purpose": "C2 ETag+条件请求(304)；C3 gzip 文本响应(>=500B)"},
+        {"path": "src/analyzer.py", "change": "modified", "purpose": "A1 连接/读取超时分离；SSE 等待上限默认对齐函数超时"}
+      ],
+      "measured": {"init_db_2nd_call_ms": "0.001 (from 3.5)", "gzip_ratio": "0.167 (-83%)", "repeat_request": "HTTP 304"}
+    }
+  ],
+  "changed_files": [
+    "src/analyzer.py",
+    "src/cli.py",
+    "src/web.py",
+    "src/report.py",
+    "src/db.py",
+    "src/stats/indicators.py"
+  ],
+  "added_files": [
+    "src/stats/sql_engine.py",
+    "src/infini_skill.py"
+  ],
+  "new_environment_variables": [
+    "QU_STAT_CUSTOM_ENGINE=python|sql",
+    "INFINISYNAPSE_SQL_ENDPOINT",
+    "INFINISYNAPSE_CONSOLE",
+    "INFINI_CONNECT_TIMEOUT",
+    "INFINI_MAX_WAIT",
+    "AGENT_INFINI_CLI"
+  ],
+  "new_http_endpoints": [
+    "GET /api/infini_skill",
+    "GET /api/custom?engine=sql"
+  ],
+  "new_cli_flags": [
+    "qu-stat custom run <name> --engine sql"
+  ],
+  "verification": {
+    "compile": "py_compile OK (db/web/indicators/analyzer/analyzer)",
+    "equivalence": "SQL↔Python custom analysis ALL MATCH; indicator functions values identical",
+    "regression_tests": "pytest 74 passed",
+    "http": "ETag → 304; gzip roundtrip OK; small responses not compressed"
+  },
+  "rollback": {
+    "note": "原始文件备份在改动前的对应副本（见文档《INFINISYNAPSE_INTEGRATION.md》§回退）",
+    "principle": "所有改动默认零行为变更；不设任何环境变量时走原逻辑"
+  },
+  "docs": {
+    "primary": "INFINISYNAPSE_INTEGRATION.md",
+    "agent_memory": ".codebuddy/memory/2026-09-23.md",
+    "changelog": "CHANGELOG.md"
+  }
+}

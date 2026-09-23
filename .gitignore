@@ -11,6 +11,8 @@ venv/
 
 # ---- 生成的数据 / 运行时产物（非源码，勿提交）----
 data/*.db
+data/*.db-shm
+data/*.db-wal
 data/indicators_*.csv
 web_server.log
 web_server.err

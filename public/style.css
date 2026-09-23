@@ -50,7 +50,6 @@
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 12px;
-  --radius-xl: 16px;
 
   --shadow-xs: 0 1px 2px rgba(0,0,0,0.04);
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
@@ -138,56 +137,6 @@ body { font-family: var(--font); color: var(--gray-700); background: var(--gray-
   display: none;
 }
 
-/* 搜索栏（参考图1） */
-.header-search {
-  flex: 1;
-  max-width: 480px;
-  position: relative;
-}
-
-.header-search input {
-  width: 100%;
-  font-family: var(--font);
-  font-size: 13px;
-  color: var(--gray-700);
-  background: var(--gray-50);
-  border: 1px solid var(--gray-200);
-  border-radius: 20px;
-  padding: 7px 14px 7px 34px;
-  outline: none;
-  transition: all 0.15s;
-}
-
-.header-search input:focus {
-  border-color: var(--blue-400);
-  box-shadow: 0 0 0 3px rgba(64,128,240,0.1);
-  background: var(--surface);
-}
-
-.header-search .search-icon {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--gray-400);
-  font-size: 13px;
-}
-
-.header-search .search-btn {
-  position: absolute;
-  right: 4px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-family: var(--font);
-  font-size: 12px;
-  font-weight: 600;
-  color: white;
-  background: var(--blue-600);
-  border: none;
-  border-radius: 16px;
-  padding: 4px 14px;
-  cursor: pointer;
-}
 
 .header-right {
   display: flex;
@@ -214,7 +163,7 @@ body { font-family: var(--font); color: var(--gray-700); background: var(--gray-
 
 .chip-link {
   font-size: 12px;
-  color: var(--gray-400);
+  color: var(--gray-500);
   text-decoration: none;
   padding: 4px 10px;
   border: 1px solid var(--gray-200);
@@ -248,37 +197,6 @@ body { font-family: var(--font); color: var(--gray-700); background: var(--gray-
   outline: none;
   cursor: pointer;
   letter-spacing: 0.3px;
-}
-
-.header-icon-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 1px solid var(--gray-200);
-  background: var(--surface);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: var(--gray-500);
-  font-size: 14px;
-  transition: all 0.15s;
-}
-
-.header-icon-btn:hover { background: var(--gray-50); color: var(--gray-700); }
-
-.header-avatar {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--blue-500), var(--blue-300));
-  color: white;
-  font-size: 12px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
 }
 
 /* ============ 布局主体 ============ */
@@ -403,7 +321,7 @@ body { font-family: var(--font); color: var(--gray-700); background: var(--gray-
   background: var(--surface);
 }
 
-.query-input::placeholder { color: var(--gray-400); }
+.query-input::placeholder { color: var(--gray-500); }
 
 /* select 下拉框：隐藏原生箭头，用居中的自定义箭头 */
 select.query-input {
@@ -433,7 +351,7 @@ select.query-input:focus {
 
 .query-hint {
   font-size: 12px;
-  color: var(--gray-400);
+  color: var(--gray-500);
   margin-top: 8px;
   display: flex;
   align-items: center;
@@ -604,8 +522,8 @@ select.query-input:focus {
 
 .metric-tag {
   font-size: 10px;
-  color: var(--gray-400);
-  background: var(--gray-100);
+  color: var(--gray-500);
+  background: var(--gray-50);
   padding: 2px 6px;
   border-radius: 4px;
   font-weight: 500;
@@ -834,7 +752,7 @@ select.query-input:focus {
 
 .query-time {
   font-size: 11px;
-  color: var(--gray-400);
+  color: var(--gray-500);
   flex-shrink: 0;
 }
 
@@ -899,7 +817,7 @@ select.query-input:focus {
 
 .report-date {
   font-size: 11px;
-  color: var(--gray-400);
+  color: var(--gray-500);
   margin-top: 1px;
 }
 
@@ -923,7 +841,7 @@ select.query-input:focus {
   font-family: var(--num);
   font-size: 12px;
   font-weight: 500;
-  color: var(--gray-400);
+  color: var(--gray-500);
   flex-shrink: 0;
   min-width: 48px;
   letter-spacing: 0.3px;
@@ -962,7 +880,7 @@ select.query-input:focus {
 
 .empty-desc {
   font-size: 12px;
-  color: var(--gray-400);
+  color: var(--gray-500);
 }
 
 /* ============ 表格 ============ */
@@ -1094,7 +1012,6 @@ select.query-input:focus {
 }
 
 @media (max-width: 640px) {
-  .header-search { display: none; }
   .query-row { flex-direction: column; }
   /* 移动端顶栏：收紧内边距、允许换行，避免「首页/维度/年份/语言/分享」控件溢出 */
   .header { padding: 0 16px; gap: 12px; flex-wrap: wrap; height: auto; min-height: var(--header-h); }
@@ -1102,6 +1019,12 @@ select.query-input:focus {
   /* 工作台 5 个标签在窄屏可横向滚动，不换行挤压 */
   .wb-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .wb-tab { white-space: nowrap; }
+  /* 顶栏控件窄屏分组换行：链接与按钮收紧padding，过滤器保留可用宽度 */
+  .header-right { flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+  .chip-link { padding: 3px 8px; }
+  .lang-toggle { padding: 4px 8px; font-size: 12px; }
+  .header-select { margin-right: 0; }
+  .header-select select { max-width: 108px; }
 }
 
 /* ═══════ NLQ 结果区 ═══════ */
@@ -1169,7 +1092,7 @@ select.query-input:focus {
 .custom-yoy { font-size: 14px; font-weight: 600; margin-top: 6px; font-family: var(--num); }
 .custom-yoy.up { color: var(--green-600); }
 .custom-yoy.down { color: var(--red-500); }
-.custom-expr { margin-top: 8px; font-size: 12px; color: var(--gray-400); }
+.custom-expr { margin-top: 8px; font-size: 12px; color: var(--gray-500); }
 
 /* ═══════ 自定义分析新建表单 ═══════ */
 .custom-add { margin-top: 12px; }
@@ -1229,7 +1152,7 @@ select.query-input:focus {
 .ai-head { font-size: 12px; font-weight: 600; color: var(--blue-700); margin-bottom: 8px; }
 .ai-body { font-size: 13px; line-height: 1.7; color: var(--gray-700); }
 .ai-body b { color: var(--gray-900); }
-.ai-foot { margin-top: 8px; font-size: 11px; color: var(--gray-400); font-family: var(--num); }
+.ai-foot { margin-top: 8px; font-size: 11px; color: var(--gray-500); font-family: var(--num); }
 
 /* ═══════ 统计公报输出 ═══════ */
 .bulletin-out {
@@ -1255,7 +1178,7 @@ select.query-input:focus {
 .bul-src {
   padding: 0 18px 10px;
   font-size: 11px;
-  color: var(--gray-400);
+  color: var(--gray-500);
   border-bottom: 1px solid var(--gray-150);
 }
 .bul-sec {
@@ -1274,7 +1197,7 @@ select.query-input:focus {
 }
 .bul-ind { flex: 1 1 auto; color: var(--gray-600); }
 .bul-val { font-family: var(--num); font-weight: 600; color: var(--gray-900); white-space: nowrap; }
-.bul-yoy { font-family: var(--num); font-size: 11px; color: var(--gray-400); white-space: nowrap; min-width: 92px; text-align: right; }
+.bul-yoy { font-family: var(--num); font-size: 11px; color: var(--gray-500); white-space: nowrap; min-width: 92px; text-align: right; }
 .bul-kb {
   margin: 10px 14px 14px;
   padding: 12px 14px;
@@ -1291,7 +1214,7 @@ select.query-input:focus {
 .ai-note {
   margin: 10px 18px 14px;
   font-size: 11.5px;
-  color: var(--gray-400);
+  color: var(--gray-500);
 }
 
 /* ═══════ 卡片出处 / 侧栏真实统计 ═══════ */
@@ -1301,7 +1224,7 @@ select.query-input:focus {
   border-top: 1px dashed var(--gray-150);
   font-size: 10px;
   line-height: 1.4;
-  color: var(--gray-400);
+  color: var(--gray-500);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1348,7 +1271,7 @@ select.query-input:focus {
   font-weight: 600;
   color: var(--gray-900);
 }
-.chart-hint { font-size: 12px; font-weight: 400; color: var(--gray-400); }
+.chart-hint { font-size: 12px; font-weight: 400; color: var(--gray-500); }
 
 .chart-dim-pick {
   display: flex;
@@ -1373,7 +1296,7 @@ select.query-input:focus {
 .dim-chip input { accent-color: var(--blue-600); cursor: pointer; margin: 0; }
 .dim-chip.on { background: var(--blue-50); border-color: var(--blue-200); color: var(--blue-700); }
 
-.chart-svg { width: 100%; }
+.chart-svg { width: 100%; position: relative; }
 .chart-svg svg { display: block; }
 
 .chart-legend {
@@ -1387,12 +1310,45 @@ select.query-input:focus {
 .lg-item { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--gray-600); }
 .lg-item i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
 
-.chart-empty {
-  text-align: center;
-  color: var(--gray-400);
-  font-size: 12.5px;
-  padding: 36px 10px;
+
+/* 图表悬浮读数浮层（由 app.js 动态创建与填充，跟随指针） */
+.chart-tip {
+  position: absolute;
+  z-index: 5;
+  min-width: 132px;
+  max-width: 260px;
+  padding: 8px 10px;
+  background: var(--surface);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--gray-700);
+  pointer-events: none;
+  display: none;
 }
+.chart-tip.show { display: block; }
+.chart-tip-title { font-weight: 600; color: var(--gray-900); margin-bottom: 4px; }
+.chart-tip-row { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+.chart-tip-row i { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+.chart-tip-row .tip-name { color: var(--gray-600); }
+.chart-tip-row .tip-val { font-family: var(--num); font-weight: 600; color: var(--gray-900); white-space: nowrap; }
+.chart-svg svg .rank-row { cursor: default; }
+.chart-svg svg .rank-row:hover rect { filter: brightness(1.12); }
+.chart-svg svg .chart-guide { pointer-events: none; }
+
+/* 图表取数期：顶部细进度条（旧图保留到新数据到达，避免闪烁；reduced-motion 已全局降级） */
+.chart-block.loading { position: relative; overflow: hidden; }
+.chart-block.loading::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--blue-500), transparent);
+  animation: chart-load 1.1s ease-in-out infinite;
+}
+@keyframes chart-load { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
 
 .chart-year {
   flex: none !important;

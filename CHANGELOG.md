@@ -11,6 +11,57 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
 
 ## [Unreleased]
 
+### Added
+
+- **InfiniSynapse 集成强化：AI 基于真实数据解读。** `src/analyzer.py` 的 `new_task()`/`analyze()`
+  新增 `files`/`images` 入参，并新增 `build_facts_files()`、`render_files_as_text()`、`with_facts()`；
+  `src/cli.py` / `src/web.py` / `src/report.py` 把本地检索到的真实统计作为「事实文件」随任务送入，
+  AI 只依据这些数字解读（延续「不编造数字」原则）。
+- **新增 `src/stats/sql_engine.py`（SQL 计算引擎）。** 用一条 SQL 的 `MAX(CASE WHEN …)` 绑定全部变量，
+  把含 K 个变量的自定义分析从 2K 次点查降为 1 次；输出与原 Python 引擎逐位一致。
+  可用 `QU_STAT_CUSTOM_ENGINE=sql` / `--engine sql` / `?engine=sql` 切换，默认仍为 `python`。
+- **新增 `src/infini_skill.py`（按 agent_infini Skill 规范）。** 统一凭证链（`~/.agent_infini/config.txt`）、
+  资源预检（`task context`）、审计链接（`console_url`）、稳定 `taskId`，并新增只读端点 `GET /api/infini_skill`。
+
+### Changed
+
+- **数据库索引与写入优化（`src/db.py`）。** 新增自然键复合唯一索引 `ux_indicators_key` 与
+  `ix_indicators_dimension`；`upsert_indicators` 改用 `INSERT … ON CONFLICT DO UPDATE`；
+  连接级 PRAGMA（WAL / synchronous=NORMAL / 大缓存 / busy_timeout 等）。实测精确查找 **12.1×**、
+  批量 upsert **14.4×**、零全表扫描。
+- **初始化与连接池。** `init_db()` 改为进程内只跑一次（新增 `force` 形参）；显式连接池
+  （本地 `QueuePool(5+10)`、Vercel `NullPool`、`pool_pre_ping`、`check_same_thread=False`）。
+  实测热请求下 `init_db()` 由 3.5ms 降至 **0.001ms**。
+- **消除重复取数（`src/stats/indicators.py`）。** 新增 `_val_unit()`，把指标函数里「取值 + 取单位」
+  两次点查合并为一次，数值与单位完全一致。
+- **HTTP 缓存与压缩（`src/web.py`）。** 统一加 ETag + 条件请求（命中返回 **304**）；对文本响应启用
+  **gzip**（≥500B）。实测 `/api/indicators` 由 9916B 压至 1658B（**-83%**）。
+- **AI 调用超时对齐（`src/analyzer.py`）。** 连接/读取超时分离（连接 5s）；SSE 等待上限默认由 110s
+  调整为 **45s**（`INFINI_MAX_WAIT` 可覆盖），避免 Serverless 请求挂死。- **UI 体验批次（看板三轮迭代）。** 自绘折线/排名图新增悬浮读数（最近年份吸附、竖直参考线、
+  触屏支持；排名图补全被截断的经济体名与单位）；指标总表二次查询加骨架屏与 `aria-busy`，
+  图表取数显示顶部进度条并保留旧图直至新数据到达；图表维度多选写入分享链接并可还原；
+  指标卡大数字改紧凑记数（zh 万/亿、en K/M/B/T，精确值进 `title`，表格/CSV 仍全精度）；
+  智能查询/自定义分析/公报结果区与 toast 补 `aria-live`；同消息 toast 去重；
+  统一空态组件（图标+标题+说明）；≤640px 顶栏控件分组换行；清理 `.header-search` 等
+  死代码与未使用的 `--radius-xl` 令牌。
+
+### Docs
+
+- 新增根目录 **`INFINISYNAPSE_INTEGRATION.md`**（人读）与 **`AGENT_CHANGES.json`**（机读）变更记录。
+
+### Fixed
+
+- **回归修复（本轮自查发现）。** ① ETag / 条件请求此前对所有 200 响应启用，会把 HTML 的
+  `Cache-Control: no-store` 改成 `no-cache`，违反「页面永不缓存」契约——现**仅对 JSON 接口**启用；
+  ② 新增路由 `/api/infini_skill` 未登记进 `src/api_docs.py::ENDPOINTS`，触发文档一致性门禁——已补齐。
+  全量 `pytest`（125 项）恢复全绿。- **小号文字对比度不达 WCAG AA。** 29 处 10–12px 灰字由 `--gray-400` 升至 `--gray-500`
+  （白底 2.54:1 → 4.83:1，深色底 4.0:1 → 5.9:1），`.metric-tag` 底色同步改浅；
+  另修 `compactNum()` 对空值返回「0」而非「—」的边界缺陷。
+
+### Docs
+
+- 新增根目录 **`HANDOFF-2026-09-23.md`** 项目交接（自包含）。
+
 ## v1.5.2 — 2026-09-22 — UI quality pass (`3b00c03`…`d07cf55`)
 
 ### Changed

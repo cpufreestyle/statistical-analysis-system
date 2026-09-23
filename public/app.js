@@ -44,6 +44,8 @@ function initShareState() {
     if (lang === 'zh' || lang === 'en') window.CUR_LANG = lang;
     var ind = p.get('indicator');
     if (ind) window._pendingChartIndicator = ind;   // 图表初始化后再带入
+    var dims = p.get('dims');
+    if (dims) window._pendingChartDims = dims.split(',').filter(Boolean);   // 图表维度多选同理
   } catch (e) { /* 解析失败不影响主流程 */ }
 }
 
@@ -57,6 +59,7 @@ function updateShareUrl() {
     var pc = document.getElementById('panel-charts');
     if (pc && pc.classList.contains('active') && CHART && CHART.currentKey) {
       p.set('indicator', CHART.currentKey);
+      if (CHART.selDims && CHART.selDims.length) p.set('dims', CHART.selDims.join(','));
     }
     var qs = p.toString();
     history.replaceState(null, '', qs ? '?' + qs : window.location.pathname);
@@ -298,8 +301,8 @@ async function loadOverview() {
         ? ' <button type="button" class="btn btn-secondary" onclick="syncDimension(\'亚太\')">'
           + h(tr('切换到亚太')) + '</button>'
         : '';
-      grid.innerHTML = '<div class="metric-card" style="grid-column:1/-1;color:var(--gray-400);text-align:center">'
-        + h(tr('该维度暂无数据')) + back + '</div>';
+      grid.innerHTML = '<div class="metric-card" style="grid-column:1/-1">'
+        + emptyState('🗺️', tr('该维度暂无数据')) + back + '</div>';
       return;
     }
     grid.innerHTML = (d.cards || []).map(c => `
@@ -308,7 +311,7 @@ async function loadOverview() {
           <span class="metric-label">${h(c.label)}</span>
           <span class="metric-tag">${h(c.dimension || '')}</span>
         </div>
-        <div class="metric-value">${h(c.value)}<span class="metric-unit">${h(c.unit || '')}</span></div>
+        <div class="metric-value" title="${a(c.value)}">${h(compactNum(c.value))}<span class="metric-unit">${h(c.unit || '')}</span></div>
         <div class="metric-footer">
           ${c.yoy ? `<span class="metric-change">${h(tr('同比'))} ${h(c.yoy)}</span>` : ''}
         </div>
@@ -316,7 +319,7 @@ async function loadOverview() {
       </div>`).join('');
   } catch (e) {
     grid.removeAttribute('aria-busy');
-    grid.innerHTML = '<div class="metric-card" style="grid-column:1/-1;color:var(--gray-400)">' + tr('加载失败') + '</div>';
+    grid.innerHTML = '<div class="metric-card" style="grid-column:1/-1">' + emptyState('⚠️', tr('加载失败')) + '</div>';
   }
 }
 
@@ -330,6 +333,7 @@ async function runAnalyze() {
   btn.classList.add('loading');
   btn.disabled = true;
   var el = document.getElementById('nlqResult');
+  el.setAttribute('aria-busy', 'true');
   el.innerHTML = '<div class="skeleton skeleton-line" style="width:60%"></div><div class="skeleton skeleton-line" style="width:40%"></div>';
   if (useCloud) el.innerHTML += '<div class="cloud-note">' + h(tr('AI 云端解读')) + ' · InfiniSynapse …</div>';
   try {
@@ -354,6 +358,7 @@ async function runAnalyze() {
     el.innerHTML = '<div style="color:var(--red-500)">' + tr('请求失败') + ': ' + h(e) + '</div>';
     showToast(tr('请求失败'), 'error');
   } finally {
+    el.removeAttribute('aria-busy');
     btn.classList.remove('loading');
     btn.disabled = false;
   }
@@ -411,13 +416,20 @@ async function loadIndicators() {
     + '&' + langQ();
   var tb = document.querySelector('#indTable tbody');
   if (!tb) return;
+  /* 二次查询也给加载态：骨架 + aria-busy，避免「点了没反应」 */
+  var indTable = document.getElementById('indTable');
+  if (indTable) indTable.setAttribute('aria-busy', 'true');
+  tb.innerHTML = '<tr aria-hidden="true"><td colspan="7">'
+    + '<div class="skeleton skeleton-line" style="width:70%"></div>'
+    + '<div class="skeleton skeleton-line" style="width:50%"></div></td></tr>';
   try {
     var r = await fetch(u);
     var rows = await r.json();
     var cnt = document.getElementById('indCount');
     if (cnt) cnt.textContent = rows.length ? rows.length + (isZh() ? ' 条' : ' rows') : '';
     if (!rows.length) {
-      tb.innerHTML = '<tr><td colspan="7" style="color:var(--gray-400)">' + tr('无可展示数据') + '</td></tr>';
+      tb.innerHTML = '<tr><td colspan="7">' + emptyState('📭', tr('无可展示数据')) + '</td></tr>';
+      if (indTable) indTable.removeAttribute('aria-busy');
       return;
     }
     // 数据字段（indicator/category/dimension/unit/note）已由服务端按 lang 本地化；
@@ -429,10 +441,12 @@ async function loadIndicators() {
       + '<td>' + h(r.dimension) + '</td>'
       + '<td class="num">' + (r.value !== null && r.value !== undefined ? Number(r.value).toLocaleString() : '—') + '</td>'
       + '<td>' + h(r.unit || '') + '</td>'
-      + '<td class="note-cell" style="color:var(--gray-400)" title="' + a(r.note || '') + '">' + h(r.note || '') + '</td>'
+      + '<td class="note-cell" style="color:var(--gray-500)" title="' + a(r.note || '') + '">' + h(r.note || '') + '</td>'
       + '</tr>'; }).join('');
+    if (indTable) indTable.removeAttribute('aria-busy');
   } catch (e) {
     tb.innerHTML = '<tr><td colspan="7" style="color:var(--red-500)">' + tr('加载失败') + '</td></tr>';
+    if (indTable) indTable.removeAttribute('aria-busy');
   }
 }
 
@@ -482,6 +496,7 @@ async function runCustom() {
   var btn = document.getElementById('btnRunCustom');
   btn.classList.add('loading');
   var el = document.getElementById('customResult');
+  el.setAttribute('aria-busy', 'true');
   try {
     var r = await fetch(API + '/api/custom?name=' + enc(sel.value) + '&year=' + enc(STATE.year) + '&' + langQ());
     var d = await r.json();
@@ -490,7 +505,7 @@ async function runCustom() {
       return;
     }
     el.innerHTML = '<div class="custom-card">'
-      + '<div class="custom-value">' + (d.value !== undefined && d.value !== null ? Number(d.value).toLocaleString() : '—')
+      + '<div class="custom-value" title="' + a(d.value) + '">' + (d.value !== undefined && d.value !== null ? compactNum(d.value) : '—')
       + (d.unit ? ' <span class="custom-unit">' + h(tr(d.unit)) + '</span>' : '') + '</div>'
       + (d.yoy !== undefined ? '<div class="custom-yoy ' + (d.yoy >= 0 ? 'up' : 'down') + '">'
           + (d.yoy >= 0 ? '▲' : '▼') + ' ' + tr('同比') + ' ' + d.yoy + '%</div>' : '')
@@ -500,6 +515,7 @@ async function runCustom() {
   } catch (e) {
     el.innerHTML = '<div style="color:var(--red-500)">' + tr('请求失败') + '</div>';
   } finally {
+    el.removeAttribute('aria-busy');
     btn.classList.remove('loading');
   }
 }
@@ -574,6 +590,7 @@ async function loadBulletin() {
   if (!out) return;
   var btn = document.getElementById('btnBulletin');
   var useCloud = !!(document.getElementById('bulletinCloud') || {}).checked;
+  out.setAttribute('aria-busy', 'true');
   btn.classList.add('loading');
   btn.disabled = true;
   out.textContent = tr('正在生成…');
@@ -589,6 +606,7 @@ async function loadBulletin() {
   } catch (e) {
     out.textContent = tr('请求失败') + ': ' + e;
   } finally {
+    out.removeAttribute('aria-busy');
     btn.classList.remove('loading');
     btn.disabled = false;
   }
@@ -708,9 +726,14 @@ function mdToHtml(md) {
 function showToast(msg, type) {
   var toast = document.getElementById('toast');
   if (!toast) return;
+  clearTimeout(window._toastTimer);
+  /* 同一条消息重复触发（如切换语言后重放上一次分析）时只续期不重播，避免连弹多条 */
+  if (toast.textContent === msg && toast.classList.contains('show')) {
+    window._toastTimer = setTimeout(function () { toast.className = 'toast'; }, 2600);
+    return;
+  }
   toast.textContent = msg;
   toast.className = 'toast show' + (type ? ' ' + type : '');
-  clearTimeout(window._toastTimer);
   window._toastTimer = setTimeout(function () { toast.className = 'toast'; }, 2600);
 }
 
@@ -764,6 +787,12 @@ async function initCharts() {
     var ov = await ro.json();
     CHART.dimOptions = (ov.dimension_options || []).map(function (o) { return { key: o.key, label: o.label }; });
     CHART.years = (ov.years || []).slice().sort(function (a, b) { return a - b; });
+    /* 分享链接带来的维度多选优先于默认值：刷新/换指标后仍能还原对比组合 */
+    if (window._pendingChartDims && window._pendingChartDims.length) {
+      var pend = window._pendingChartDims;
+      window._pendingChartDims = null;
+      CHART.selDims = CHART.dimOptions.filter(function (d) { return pend.indexOf(d.key) >= 0; }).map(function (d) { return d.key; });
+    }
     if (!CHART.selDims.length) {
       var def = ['中国','日本','韩国','印度','亚太'];
       CHART.selDims = CHART.dimOptions.filter(function (d) { return def.indexOf(d.key) >= 0; }).map(function (d) { return d.key; });
@@ -825,6 +854,16 @@ function fillChartYear() {
   if (CHART.years.some(function (y) { return String(y) === prev; })) sel.value = prev;
 }
 
+/* 取数期间：两个图表区块显示顶部进度条 + aria-busy；旧图保留到新数据到达，避免闪烁 */
+function chartBlocksLoading(on) {
+  document.querySelectorAll('#panel-charts .chart-block').forEach(function (b) { b.classList.toggle('loading', on); });
+  ['lineChart', 'rankChart'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    if (on) el.setAttribute('aria-busy', 'true'); else el.removeAttribute('aria-busy');
+  });
+}
+
 async function loadChartSeries() {
   var sel = document.getElementById('chartIndicator');
   if (!sel || !sel.value) {
@@ -834,6 +873,7 @@ async function loadChartSeries() {
   }
   CHART.currentKey = sel.value;
   updateShareUrl();
+  chartBlocksLoading(true);
   try {
     var r = await fetch(API + '/api/indicators?indicator=' + enc(sel.value) + '&' + langQ());
     var rows = await r.json();
@@ -845,6 +885,7 @@ async function loadChartSeries() {
     if (cu) cu.textContent = u ? (isZh() ? '单位：' : 'Unit: ') + u : '';
   } catch (e) { CHART.rows = []; }
   renderCharts();
+  chartBlocksLoading(false);
 }
 
 function renderCharts() { renderLine(); renderRank(); }
@@ -864,7 +905,115 @@ function fmtNum(v) {
   if (!isFinite(n)) return '—';
   return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
-function chartEmpty(msg) { return '<div class="chart-empty" role="status">' + h(msg) + '</div>'; }
+/* 卡片大数字紧凑化：28px 大字下全精度会溢出换行；紧凑记数（zh: 万/亿，en: K/M/B/T）
+   更易读。精确值保留在卡片 title 属性与表格/CSV 里，两种语言都走 Intl 标准记数。 */
+function compactNum(v) {
+  var raw = v == null ? '' : String(v);
+  if (raw === '') return '—';
+  var n = Number(raw.replace(/,/g, ''));
+  if (!isFinite(n)) return raw;
+  if (Math.abs(n) < 1e6) return n.toLocaleString(isZh() ? 'zh-CN' : 'en-US', { maximumFractionDigits: 2 });
+  return n.toLocaleString(isZh() ? 'zh-CN' : 'en-US', { notation: 'compact', maximumFractionDigits: 2 });
+}
+/* 统一空态（图标 + 标题 + 说明），替代各处纯文字提示；结构见 .empty-state */
+function emptyState(icon, title, desc) {
+  return '<div class="empty-state" role="status">'
+    + '<div class="empty-icon">' + h(icon) + '</div>'
+    + '<div class="empty-title">' + h(title) + '</div>'
+    + (desc ? '<div class="empty-desc">' + h(desc) + '</div>' : '')
+    + '</div>';
+}
+function chartEmpty(msg, icon) { return emptyState(icon || '📈', msg); }
+
+/* ═══════ 图表悬浮读数（桌面 hover / 触屏 touch） ═══════
+   自绘 SVG 的数值不在 DOM 文本里，鼠标悬停时按几何反查数据，用跟随指针的
+   浮层给出精确读数（折线图附加竖直参考线），解决「只能目测轴刻度」的问题。
+   浮层 aria-hidden：等价信息已由 SVG 的 <desc> 与结果区 aria-live 提供。 */
+function chartTipBox(box) {
+  var tip = box.querySelector('.chart-tip');
+  if (!tip) {
+    tip = document.createElement('div');
+    tip.className = 'chart-tip';
+    tip.setAttribute('aria-hidden', 'true');
+    box.appendChild(tip);
+  }
+  return tip;
+}
+function chartTipPlace(tip, box, px, py) {
+  var bw = box.clientWidth, bh = box.clientHeight;
+  var tw = tip.offsetWidth, th = tip.offsetHeight;
+  var left = px + 14;
+  if (left + tw > bw - 6) left = px - tw - 14;
+  var top = py - th - 12;
+  if (top < 6) top = py + 18;
+  tip.style.left = Math.max(6, left) + 'px';
+  tip.style.top = Math.min(Math.max(6, top), Math.max(6, bh - th - 6)) + 'px';
+}
+/* 折线图：按最近年份吸附，浮层列出该年份全部可见经济体的数值 */
+function attachLineTip(box, ctx) {
+  var svgEl = box.querySelector('svg');
+  if (!svgEl || ctx.years.length < 2) return;
+  var tip = chartTipBox(box);
+  var guide = svgEl.querySelector('.chart-guide');
+  function show(clientX, clientY) {
+    var r = svgEl.getBoundingClientRect();
+    if (!r.width) return;
+    var px = clientX - r.left, py = clientY - r.top;
+    var vx = px * (ctx.W / r.width);
+    var idx = 0, best = Infinity;
+    ctx.years.forEach(function (y, i) {
+      var dx = Math.abs(ctx.xFor(i) - vx);
+      if (dx < best) { best = dx; idx = i; }
+    });
+    var y = ctx.years[idx];
+    var series = ctx.active.filter(function (d) { return ctx.byDim[d][y] != null; });
+    if (!series.length) { hide(); return; }
+    if (guide) {
+      guide.setAttribute('x1', ctx.xFor(idx));
+      guide.setAttribute('x2', ctx.xFor(idx));
+      guide.setAttribute('visibility', 'visible');
+    }
+    tip.innerHTML = '<div class="chart-tip-title">' + h(String(y) + (ctx.unit ? ' · ' + ctx.unit : '')) + '</div>'
+      + series.map(function (d) {
+          return '<div class="chart-tip-row"><i style="background:' + dimColor(d) + '"></i>'
+            + '<span class="tip-name">' + h(dimLabel(d)) + '</span>'
+            + '<span class="tip-val">' + h(fmtNum(ctx.byDim[d][y])) + '</span></div>';
+        }).join('');
+    tip.classList.add('show');
+    chartTipPlace(tip, box, px, py);
+  }
+  function hide() {
+    tip.classList.remove('show');
+    if (guide) guide.setAttribute('visibility', 'hidden');
+  }
+  svgEl.addEventListener('mousemove', function (e) { show(e.clientX, e.clientY); });
+  svgEl.addEventListener('mouseleave', hide);
+  svgEl.addEventListener('touchstart', function (e) { var t = e.touches[0]; if (t) show(t.clientX, t.clientY); }, { passive: true });
+  svgEl.addEventListener('touchmove', function (e) { var t = e.touches[0]; if (t) show(t.clientX, t.clientY); }, { passive: true });
+  svgEl.addEventListener('touchend', hide);
+}
+/* 排名图：标签超 6 字会被截断，悬浮给出完整经济体名 + 数值 + 单位 + 年份 */
+function attachRankTip(box, rows, unit) {
+  var svgEl = box.querySelector('svg');
+  if (!svgEl) return;
+  var tip = chartTipBox(box);
+  svgEl.querySelectorAll('.rank-row').forEach(function (g) {
+    var r = rows[Number(g.getAttribute('data-i'))];
+    if (!r) return;
+    function show(e) {
+      var bx = box.getBoundingClientRect();
+      var dk = r.dimension_key || r.dimension;
+      tip.innerHTML = '<div class="chart-tip-title">' + h(dimLabel(dk)) + '</div>'
+        + '<div class="chart-tip-row"><span class="tip-name">' + h(tr('数值')) + '</span><span class="tip-val">' + h(fmtNum(r.value) + (unit ? ' ' + unit : '')) + '</span></div>'
+        + '<div class="chart-tip-row"><span class="tip-name">' + h(tr('年份')) + '</span><span class="tip-val">' + h(String(r.year)) + '</span></div>';
+      tip.classList.add('show');
+      chartTipPlace(tip, box, e.clientX - bx.left, e.clientY - bx.top);
+    }
+    g.addEventListener('mousemove', show);
+    g.addEventListener('mouseleave', function () { tip.classList.remove('show'); });
+    g.addEventListener('touchstart', show, { passive: true });
+  });
+}
 /* 当前所选指标的展示名（用于图表 aria-label / title 的无障碍文案） */
 function chartIndicatorLabel() {
   for (var i = 0; i < CHART.indicators.length; i++) {
@@ -878,7 +1027,7 @@ function fontFamily() { return "-apple-system,BlinkMacSystemFont,'Segoe UI',Robo
 function renderLine() {
   var box = document.getElementById('lineChart');
   if (!box) return;
-  if (!CHART.currentKey) { box.innerHTML = chartEmpty(tr('请先选择指标')); return; }
+  if (!CHART.currentKey) { box.innerHTML = chartEmpty(tr('请先选择指标'), '📈'); return; }
   var dims = CHART.selDims.slice();
   var byDim = {};
   CHART.rows.forEach(function (r) {
@@ -890,8 +1039,8 @@ function renderLine() {
   });
   var years = CHART.years.slice().sort(function (a, b) { return a - b; });
   var active = dims.filter(function (d) { return byDim[d] && Object.keys(byDim[d]).length >= 1; });
-  if (years.length < 2) { box.innerHTML = chartEmpty(tr('需至少两个年份才能绘制趋势线')); return; }
-  if (!active.length) { box.innerHTML = chartEmpty(tr('该指标在所选经济体无数据')); return; }
+  if (years.length < 2) { box.innerHTML = chartEmpty(tr('需至少两个年份才能绘制趋势线'), '📈'); return; }
+  if (!active.length) { box.innerHTML = chartEmpty(tr('该指标在所选经济体无数据'), '📈'); return; }
 
   var allV = [];
   active.forEach(function (d) { for (var y in byDim[d]) allV.push(byDim[d][y]); });
@@ -928,10 +1077,10 @@ function renderLine() {
     var tv = yMin + (yMax - yMin) * t / ticks;
     var ty = yFor(tv);
     svg += '<line x1="' + mL + '" y1="' + ty + '" x2="' + (W - mR) + '" y2="' + ty + '" stroke="var(--gray-200)" stroke-width="1"/>';
-    svg += '<text x="' + (mL - 10) + '" y="' + (ty + 4) + '" text-anchor="end" font-size="12" fill="var(--gray-400)" font-family="' + ff + '">' + h(fmtNum(Math.round(tv * 100) / 100)) + '</text>';
+    svg += '<text x="' + (mL - 10) + '" y="' + (ty + 4) + '" text-anchor="end" font-size="12" fill="var(--gray-500)" font-family="' + ff + '">' + h(fmtNum(Math.round(tv * 100) / 100)) + '</text>';
   }
   years.forEach(function (y, i) {
-    svg += '<text x="' + xFor(i) + '" y="' + (H - 12) + '" text-anchor="middle" font-size="12" fill="var(--gray-400)" font-family="' + ff + '">' + h(y) + '</text>';
+    svg += '<text x="' + xFor(i) + '" y="' + (H - 12) + '" text-anchor="middle" font-size="12" fill="var(--gray-500)" font-family="' + ff + '">' + h(y) + '</text>';
   });
   active.forEach(function (d) {
     var color = dimColor(d);
@@ -946,6 +1095,8 @@ function renderLine() {
       }
     });
   });
+  /* 竖直参考线：hover 到最近年份时可见，辅助多序列对齐读数 */
+  svg += '<line class="chart-guide" x1="0" y1="' + mT + '" x2="0" y2="' + (H - mB) + '" stroke="var(--gray-300)" stroke-width="1" stroke-dasharray="3 2" visibility="hidden"/>';
   svg += '</svg>';
   /* 图例对屏幕阅读器隐藏：经济体与数值的对应关系已写进上面的 <desc>，
      重复播报只会增加噪音（视觉用户仍可正常看到色块）。 */
@@ -953,18 +1104,22 @@ function renderLine() {
     return '<span class="lg-item"><i style="background:' + dimColor(d) + '"></i>' + h(dimLabel(d)) + '</span>';
   }).join('') + '</div>';
   box.innerHTML = svg + legend;
+  attachLineTip(box, {
+    W: W, H: H, xFor: xFor,
+    years: years, active: active, byDim: byDim, unit: CHART.unit
+  });
 }
 
 /* 排名条形图：所选年份分经济体排名 */
 function renderRank() {
   var box = document.getElementById('rankChart');
   if (!box) return;
-  if (!CHART.currentKey) { box.innerHTML = chartEmpty(tr('请先选择指标')); return; }
+  if (!CHART.currentKey) { box.innerHTML = chartEmpty(tr('请先选择指标'), '📊'); return; }
   var yr = (document.getElementById('chartYear') || {}).value;
   var rows = CHART.rows.filter(function (r) {
     return String(r.year) === String(yr) && r.value != null && r.value !== '';
   });
-  if (!rows.length) { box.innerHTML = chartEmpty(tr('该指标在所选年份无数据')); return; }
+  if (!rows.length) { box.innerHTML = chartEmpty(tr('该指标在所选年份无数据'), '📊'); return; }
   rows.sort(function (a, b) { return Number(b.value) - Number(a.value); });
 
   /* 无障碍：同折线图，role=img 需要等价的文字描述（按降序给出名次 + 数值） */
@@ -994,10 +1149,13 @@ function renderRank() {
     var bw = Math.max(2, (Number(r.value) / max) * chartW);
     var label = dimLabel(dk);
     if (label.length > 7) label = label.slice(0, 6) + '…';
-    svg += '<text x="' + (labelW - 8) + '" y="' + (y + 17) + '" text-anchor="end" font-size="12" fill="var(--gray-600)" font-family="' + ff + '">' + h(label) + '</text>';
+    svg += '<g class="rank-row" data-i="' + i + '">'
+      + '<text x="' + (labelW - 8) + '" y="' + (y + 17) + '" text-anchor="end" font-size="12" fill="var(--gray-600)" font-family="' + ff + '">' + h(label) + '</text>';
     svg += '<rect x="' + barX + '" y="' + (y + 5) + '" width="' + bw + '" height="18" rx="4" fill="' + color + '"/>';
-    svg += '<text x="' + (barX + bw + 8) + '" y="' + (y + 17) + '" font-size="12" fill="var(--gray-700)" font-family="' + ff + '" font-weight="600">' + h(fmtNum(r.value)) + '</text>';
+    svg += '<text x="' + (barX + bw + 8) + '" y="' + (y + 17) + '" font-size="12" fill="var(--gray-700)" font-family="' + ff + '" font-weight="600">' + h(fmtNum(r.value)) + '</text>'
+      + '</g>';
   });
   svg += '</svg>';
   box.innerHTML = svg;
+  attachRankTip(box, rows, CHART.unit);
 }

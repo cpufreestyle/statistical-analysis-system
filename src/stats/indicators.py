@@ -105,6 +105,22 @@ def _unit(year: int, category: str, indicator: str,
     return str(rows[0]["unit"]) if rows else ""
 
 
+def _val_unit(year: int, category: str, indicator: str,
+              dimension: str | None) -> tuple[float | None, str]:
+    """严格在指定维度内**一次**取回 (值, 单位)。
+
+    原先「``_in()`` 取数 + ``_unit()`` 取同行单位」是两次点查；
+    这里合并为一次，语义完全等价（Q1：消除重复取数）。
+    """
+    if not dimension:
+        return None, ""
+    rows = query_indicators(year=year, category=category,
+                            indicator=indicator, dimension=dimension)
+    if not rows:
+        return None, ""
+    return rows[0]["value"], str(rows[0]["unit"])
+
+
 def _keyed(indicator: str, unit: str) -> str:
     """按实际单位拼接结果键；无单位时退化为纯指标名。"""
     return f"{indicator}({unit})" if unit else indicator
@@ -214,7 +230,7 @@ def gdp_overview(year: int, prev_year: int | None = None,
     if dim is None or cat is None or iname is None:
         return {"指标": "地区生产总值", "年份": year, "维度": "—",
                 "数值": None, "同比": "—"}
-    cur = _in(year, cat, iname, dim)
+    cur, cur_unit = _val_unit(year, cat, iname, dim)
     prev = _in(year - 1, cat, iname, dim)
     return {
         # 标签用命中的真实指标名：世界银行口径是「国内生产总值(GDP)」，
@@ -223,7 +239,7 @@ def gdp_overview(year: int, prev_year: int | None = None,
         "指标": iname,
         "年份": year,
         "维度": dim,
-        _keyed("数值", _unit(year, cat, iname, dim)): cur,
+        _keyed("数值", cur_unit): cur,
         "同比": fmt_pct(yoy(cur, prev)) if prev is not None else "—",
     }
 
@@ -233,12 +249,12 @@ def industry_stats(year: int, dimension: str | None = None) -> dict[str, object]
                              ("工业", "规模以上工业增加值"),
                              ("工业", "规模以上工业总产值")], dimension)
     ranking = economy_ranking(year, "工业", "工业增加值")
+    ind_val, ind_unit = _val_unit(year, "工业", "工业增加值", dim)
+    scale_val, scale_unit = _val_unit(year, "工业", "规模以上工业增加值", dim)
     return {
         "维度": dim or "—",
-        _keyed("工业增加值", _unit(year, "工业", "工业增加值", dim)):
-            _in(year, "工业", "工业增加值", dim),
-        _keyed("规上工业增加值", _unit(year, "工业", "规模以上工业增加值", dim)):
-            _in(year, "工业", "规模以上工业增加值", dim),
+        _keyed("工业增加值", ind_unit): ind_val,
+        _keyed("规上工业增加值", scale_unit): scale_val,
         "分经济体排名": ranking[:10],
     }
 
@@ -251,26 +267,26 @@ def trade_stats(year: int, dimension: str | None = None) -> dict[str, object]:
     for indicator in ("货物服务出口总额", "货物服务进口总额",
                       "货物进出口总额", "社会消费品零售总额",
                       "限额以上商品销售额"):
-        v = _in(year, "贸易", indicator, dim)
+        v, v_unit = _val_unit(year, "贸易", indicator, dim)
         if v is not None:
-            out[_keyed(indicator, _unit(year, "贸易", indicator, dim))] = v
+            out[_keyed(indicator, v_unit)] = v
     return out
 
 
 def investment_stats(year: int, dimension: str | None = None) -> dict[str, object]:
     dim, _, _ = _pick(year, [("投资", "固定资产投资总额")], dimension)
-    total = _in(year, "投资", "固定资产投资总额", dim)
-    secondary = _in(year, "投资", "第二产业投资", dim)
-    tertiary = _in(year, "投资", "第三产业投资", dim)
+    total, total_unit = _val_unit(year, "投资", "固定资产投资总额", dim)
+    secondary, secondary_unit = _val_unit(year, "投资", "第二产业投资", dim)
+    tertiary, tertiary_unit = _val_unit(year, "投资", "第三产业投资", dim)
     out: dict[str, object] = {
         "维度": dim or "—",
-        _keyed("固定资产投资总额", _unit(year, "投资", "固定资产投资总额", dim)): total,
+        _keyed("固定资产投资总额", total_unit): total,
     }
     if secondary is not None:
-        out[_keyed("第二产业投资", _unit(year, "投资", "第二产业投资", dim))] = secondary
+        out[_keyed("第二产业投资", secondary_unit)] = secondary
         out["二产投资占比(%)"] = share(secondary, total)
     if tertiary is not None:
-        out[_keyed("第三产业投资", _unit(year, "投资", "第三产业投资", dim))] = tertiary
+        out[_keyed("第三产业投资", tertiary_unit)] = tertiary
     return out
 
 
@@ -289,16 +305,15 @@ def population_stats(year: int, dimension: str | None = None) -> dict[str, objec
 def service_stats(year: int, dimension: str | None = None) -> dict[str, object]:
     dim, _, _ = _pick(year, [("服务业", "规模以上服务业营业收入"),
                              ("综合", "第三产业增加值")], dimension)
-    rev = _in(year, "服务业", "规模以上服务业营业收入", dim)
-    added = _in(year, "综合", "第三产业增加值", dim)
+    rev, rev_unit = _val_unit(year, "服务业", "规模以上服务业营业收入", dim)
+    added, added_unit = _val_unit(year, "综合", "第三产业增加值", dim)
     out: dict[str, object] = {"维度": dim or "—"}
     if rev is not None:
         prev = _in(year - 1, "服务业", "规模以上服务业营业收入", dim)
-        out[_keyed("规模以上服务业营业收入",
-                   _unit(year, "服务业", "规模以上服务业营业收入", dim))] = rev
+        out[_keyed("规模以上服务业营业收入", rev_unit)] = rev
         out["同比"] = fmt_pct(yoy(rev, prev)) if prev is not None else "—"
     if added is not None:
-        out[_keyed("第三产业增加值", _unit(year, "综合", "第三产业增加值", dim))] = added
+        out[_keyed("第三产业增加值", added_unit)] = added
     return out
 
 
@@ -306,12 +321,12 @@ def agriculture_stats(year: int, dimension: str | None = None) -> dict[str, obje
     dim, _, _ = _pick(year, [("农业", "农业总产值"), ("综合", "第一产业增加值")],
                       dimension)
     out: dict[str, object] = {"维度": dim or "—"}
-    out_val = _in(year, "农业", "农业总产值", dim)
+    out_val, out_unit = _val_unit(year, "农业", "农业总产值", dim)
     if out_val is not None:
-        out[_keyed("农业总产值", _unit(year, "农业", "农业总产值", dim))] = out_val
-    added = _in(year, "综合", "第一产业增加值", dim)
+        out[_keyed("农业总产值", out_unit)] = out_val
+    added, added_unit = _val_unit(year, "综合", "第一产业增加值", dim)
     if added is not None:
-        out[_keyed("第一产业增加值", _unit(year, "综合", "第一产业增加值", dim))] = added
+        out[_keyed("第一产业增加值", added_unit)] = added
     return out
 
 
