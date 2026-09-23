@@ -255,6 +255,11 @@ body { font-family: var(--font); color: var(--gray-700); background: var(--gray-
   display: flex;
   border-bottom: 1px solid var(--gray-150);
   padding: 0 20px;
+  /* 吸顶：页面滚动到关键指标区后仍可切回工作台各视图 */
+  position: sticky;
+  top: var(--header-h);
+  z-index: 30;
+  background: var(--surface);
 }
 
 .wb-tab {
@@ -567,23 +572,6 @@ select.query-input:focus {
 
 .metric-change.up { color: var(--green-600); }
 .metric-change.down { color: var(--red-500); }
-
-/* 迷你柱状图 */
-.mini-chart {
-  display: flex;
-  align-items: flex-end;
-  gap: 3px;
-  height: 28px;
-}
-
-.mini-bar {
-  width: 6px;
-  border-radius: 2px;
-  background: var(--blue-200);
-  transition: height 0.3s;
-}
-
-.mini-bar:last-child { background: var(--blue-500); }
 
 /* ============ 快速开始卡片 ============ */
 .quick-grid {
@@ -1392,12 +1380,63 @@ select.query-input:focus {
 }
 
 /* =============================================
-   深色模式（跟随系统 prefers-color-scheme）
+   深色模式（手动切换 + 跟随系统）
    策略：灰阶整体反相（浅底→深、深字→浅），卡片底色与浅色调 tint 一并调深，
    避免深色下出现「白卡片 / 深字看不见」。图表内联 SVG 已改用 CSS 变量，随之一并适配。
+   两个入口共用同一份令牌，改令牌必须同步两处：
+     · :root[data-theme="dark"]          —— 手动切到深色（app.js 早期内联脚本写入，无闪白）；
+     · @media (prefers-color-scheme: dark) 下未显式选浅色 —— 无 JS 时仍跟随系统。
    ============================================= */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --surface: #131A27;
+  --surface-2: #0F1621;
+
+  --gray-25:  #0E1420;
+  --gray-50:  #0A0F18;
+  --gray-100: #161D2A;
+  --gray-150: #1B2331;
+  --gray-200: #28313F;
+  --gray-300: #3A4658;
+  --gray-400: #6C7A8F;
+  --gray-500: #8B97AA;
+  --gray-600: #AEB9C9;
+  --gray-700: #CBD3DF;
+  --gray-800: #E1E7EF;
+  --gray-900: #F3F6FA;
+
+  --blue-50:  #142138;
+  --blue-100: #17263F;
+  --blue-200: #1E3054;
+  --teal-50:  #0F2A27;
+  --green-50: #0E2A1F;
+  --amber-50: #2A2210;
+  --red-50:   #2C1717;
+
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.45);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.55), 0 1px 2px rgba(0,0,0,0.45);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.6), 0 2px 4px -2px rgba(0,0,0,0.45);
+
+  /* 图表色板：深底上改用 300/400 级亮色（600 级在深色背景上对比不足） */
+  --ch-1:  #60A5FA;
+  --ch-2:  #2DD4BF;
+  --ch-3:  #FBBF24;
+  --ch-4:  #F87171;
+  --ch-5:  #A78BFA;
+  --ch-6:  #38BDF8;
+  --ch-7:  #4ADE80;
+  --ch-8:  #F472B6;
+  --ch-9:  #C084FC;
+  --ch-10: #FB923C;
+  --ch-11: #34D399;
+  --ch-12: #818CF8;
+  --ch-13: #A3E635;
+  --ch-14: #FB7185;
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     color-scheme: dark;
 
     --surface: #131A27;
@@ -1444,4 +1483,181 @@ select.query-input:focus {
     --ch-13: #A3E635;
     --ch-14: #FB7185;
   }
+}
+
+/* =============================================
+   工作台增强：命令面板 / 快捷键帮助 / 迷你趋势 / 主题按钮
+   ============================================= */
+/* 通用浮层：命令面板与快捷键帮助共用一套背板与层级 */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 12vh 16px 24px;
+}
+.overlay[hidden] { display: none; }
+
+.overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(17, 24, 39, .45);
+}
+
+/* ── 命令面板 ── */
+.palette {
+  position: relative;
+  width: min(580px, 100%);
+  background: var(--surface);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 24px 48px -12px rgba(0, 0, 0, .28);
+  display: flex;
+  flex-direction: column;
+  max-height: min(560px, 72vh);
+  overflow: hidden;
+}
+
+.palette-input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--gray-900);
+  padding: 14px 16px;
+  box-sizing: border-box;
+}
+.palette-input::placeholder { color: var(--gray-400); }
+
+.palette-list {
+  overflow-y: auto;
+  padding: 6px;
+  border-top: 1px solid var(--gray-150);
+}
+
+.palette-group {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gray-500);
+  padding: 8px 10px 4px;
+  letter-spacing: .3px;
+}
+
+.palette-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--gray-700);
+}
+.palette-item[aria-selected="true"] { background: var(--blue-50); color: var(--blue-700); }
+.palette-item .pi-icon { width: 18px; text-align: center; flex-shrink: 0; }
+.palette-item .pi-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.palette-item .pi-hint { font-size: 11px; color: var(--gray-500); flex-shrink: 0; }
+
+.palette-empty { padding: 22px 12px; text-align: center; font-size: 13px; color: var(--gray-500); }
+
+/* 键帽（快捷键帮助 / 面板提示） */
+.kbd {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--gray-600);
+  background: var(--gray-100);
+  border: 1px solid var(--gray-200);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 1px 5px;
+  white-space: nowrap;
+}
+
+/* ── 快捷键帮助 ── */
+.help-dialog {
+  position: relative;
+  width: min(520px, 100%);
+  background: var(--surface);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 24px 48px -12px rgba(0, 0, 0, .28);
+  padding: 20px 22px;
+  max-height: 76vh;
+  overflow-y: auto;
+}
+.help-title { font-size: 15px; font-weight: 600; color: var(--gray-900); margin: 0 0 4px; }
+.help-sub { font-size: 12px; color: var(--gray-500); margin: 0 0 10px; line-height: 1.5; }
+.help-group { font-size: 11px; font-weight: 600; color: var(--gray-500); margin: 14px 0 4px; }
+.help-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0; font-size: 13px; color: var(--gray-700); }
+.help-row + .help-row { border-top: 1px solid var(--gray-100); }
+
+/* ── 指标卡迷你趋势（装饰性；数值与同比已有文字，故对读屏隐藏） ── */
+.metric-spark { display: inline-flex; align-items: center; flex-shrink: 0; }
+.metric-spark svg { display: block; }
+
+/* 主题按钮：图标随 auto/亮/暗 变化 */
+.theme-toggle { padding: 0 9px; font-size: 14px; line-height: 1; }
+
+/* ── 数据洞察 ── */
+.section-desc { font-size: 12px; color: var(--gray-500); margin: -6px 0 12px; line-height: 1.6; }
+
+.insights-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.insight-card {
+  background: var(--surface);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  box-shadow: var(--shadow-xs);
+}
+
+.insight-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.insight-title { font-size: 12px; font-weight: 600; color: var(--gray-700); }
+.insight-sub { font-size: 11px; color: var(--gray-500); white-space: nowrap; }
+
+.insight-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 5px 0;
+  font-size: 12px;
+  color: var(--gray-700);
+}
+.insight-row + .insight-row { border-top: 1px solid var(--gray-100); }
+.insight-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.insight-val { font-family: var(--num); font-weight: 600; white-space: nowrap; }
+.insight-val.up { color: var(--green-600); }
+.insight-val.down { color: var(--red-500); }
+.insight-rank { font-family: var(--num); font-size: 11px; color: var(--gray-500); white-space: nowrap; }
+
+.insight-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.insight-chip {
+  background: var(--gray-50);
+  border: 1px solid var(--gray-150);
+  border-radius: var(--radius-md);
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--gray-500);
+}
+.insight-chip b { display: block; margin-top: 2px; font-size: 15px; color: var(--gray-900); font-family: var(--num); }
+
+@media (max-width: 640px) {
+  .overlay { padding: 8vh 10px 16px; }
+  .palette { max-height: 80vh; }
+  .help-dialog { padding: 16px; }
 }

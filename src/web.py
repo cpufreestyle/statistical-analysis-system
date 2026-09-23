@@ -376,6 +376,62 @@ def api_overview():
     return jsonify(_overview(year, _dimension_arg(), _lang()))
 
 
+@app.route("/api/insights")
+def api_insights():
+    """看板「数据洞察」：该维度同比变化最大的指标 + 名次变动最大的经济体。
+
+    与 :func:`api_overview` 的分工：概览回答「今年是多少」，洞察回答「今年变了什么」。
+    计算全部来自本地 SQLite 真实行（:mod:`src.insights`），可随 ``/api/indicators``
+    复算；某指标上一年缺失或为 0 时不进榜单——宁缺毋滥，不给误导性百分比。
+    标识符经 :mod:`src.labels` 一处本地化，并给 ``*_key`` / ``*_slug``。
+    """
+    from src import insights
+
+    year = request.args.get("year", type=int) or DEFAULT_YEAR
+    dimension = _dimension_arg()
+    lang = _lang()
+    data = insights.build(year, dimension)
+
+    def _row(indicator: str, unit: str, dim: str) -> dict[str, str]:
+        """一条洞察行的标识符三层：本地化值 + 中文规范键 + ASCII slug。"""
+        return {
+            "indicator": labels.label("indicator", indicator, lang),
+            "indicator_key": indicator,
+            "indicator_slug": labels.slug("indicator", indicator),
+            "unit": labels.label("unit", unit, lang),
+            "unit_key": unit,
+            "unit_slug": labels.slug("unit", unit),
+            "dimension": labels.label("dimension", dim, lang),
+            "dimension_key": dim,
+            "dimension_slug": labels.slug("dimension", dim),
+        }
+
+    movers = [
+        dict(_row(str(m["indicator"]), str(m["unit"]), str(m["dimension"])),
+             value=m["value"], prev_value=m["prev_value"], change_pct=m["change_pct"])
+        for m in data["movers"]           # type: ignore[union-attr]
+    ]
+    shift = data["rank_shifts"]
+    shifts = [
+        dict(_row(str(shift["indicator"] or ""), str(shift["unit"] or ""), str(s["dimension"])),  # type: ignore[arg-type]
+             rank_now=s["rank_now"], rank_prev=s["rank_prev"], delta=s["delta"], value=s["value"])
+        for s in shift["rows"]            # type: ignore[index]
+    ]
+    return jsonify({
+        "year": data["year"],
+        "prev_year": data["prev_year"],
+        "dimension": labels.label("dimension", dimension, lang),
+        "dimension_key": dimension,
+        "dimension_slug": labels.slug("dimension", dimension),
+        "movers": movers,
+        "rank_indicator": labels.label("indicator", str(shift["indicator"] or ""), lang),
+        "rank_indicator_key": shift["indicator"],
+        "rank_unit": labels.label("unit", str(shift["unit"] or ""), lang),
+        "rank_shifts": shifts,
+        "coverage": data["coverage"],
+    })
+
+
 @app.route("/api/stats")
 def api_stats():
     """公开只读的「数据规模」统计——落地页首屏与看板侧栏用它填数字。

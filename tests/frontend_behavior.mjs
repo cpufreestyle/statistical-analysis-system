@@ -40,7 +40,7 @@ function makeEl(id, tag = "div") {
       contains(c) { return this._set.has(c); },
     },
     _attrs: {},
-    setAttribute(k, v) { this._attrs[k] = v; },
+    setAttribute(k, v) { this._attrs[k] = v; if (k === 'title') this.title = v; },
     getAttribute(k) { return this._attrs[k] ?? null; },
     removeAttribute(k) { delete this._attrs[k]; },
     appendChild(c) { this.children.push(c); return c; },
@@ -58,6 +58,8 @@ function makeEl(id, tag = "div") {
     querySelectorAll(sel) {
       if (sel === '.wb-tab' || sel === '[role="tab"]') return el._tabs || [];
       if (sel === '.wb-panel') return el._panels || [];
+      /* 通用兜底：测试可以按 class 精确注入子元素（如指标卡的 .metric-spark） */
+      if (el.__qa) return el.__qa(sel) || [];
       return [];
     },
     click() { (listeners["click"] || []).forEach(fn => fn({ target: el })); },
@@ -87,13 +89,29 @@ const documentStub = {
 const sandbox = {
   console,
   document: documentStub,
-  localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
+  /* 可读写的 localStorage：主题持久化 / 语言偏好都走它，返回 null 的假存储测不出回归 */
+  localStorage: (() => {
+    const store = new Map();
+    return {
+      getItem: (k) => (store.has(k) ? store.get(k) : null),
+      setItem: (k, v) => store.set(k, String(v)),
+      removeItem: (k) => store.delete(k),
+      _store: store,
+    };
+  })(),
   history: { replaceState() {}, pushState() {} },
   navigator: {},
   location: { href: "http://127.0.0.1:5000/app", pathname: "/app", search: "", origin: "http://127.0.0.1:5000" },
   setTimeout, clearTimeout, setInterval, clearInterval,
   requestAnimationFrame: (fn) => setTimeout(fn, 0),
   URLSearchParams,
+  /* 系统配色偏好：测试用 __darkSystem 切换，验证 auto 主题的跟随行为 */
+  matchMedia: (q) => ({
+    matches: /dark/.test(String(q)) ? !!sandbox.__darkSystem : false,
+    media: String(q),
+    addEventListener() {}, removeEventListener() {},
+    addListener() {}, removeListener() {},
+  }),
   CustomEvent: class CustomEvent { constructor(type, detail) { this.type = type; this.detail = detail; } },
   Event: class Event { constructor(type) { this.type = type; } },
 };
@@ -109,6 +127,8 @@ sandbox.fetch = async (url) => {
   const u = String(url);
   let payload;
   if (u.includes("/api/overview")) payload = sandbox.__overview;
+  else if (u.includes("/api/insights")) payload = sandbox.__insights || {};
+  else if (u.includes("/api/indicators")) payload = sandbox.__indicators || [];
   else if (u.includes("/api/custom")) payload = [];
   else if (u.includes("/api/stats")) payload = { indicator_rows: 0, knowledge_rows: 0, dimension_count: 0, years: [] };
   else payload = {};
@@ -250,6 +270,149 @@ const DRIVER = `
   });
   check('roving tabindex 正确', rovingOk,
     tabs.map(function (t) { return t.getAttribute("tabindex"); }).join(","));
+
+  /* ── 主题三态 ── */
+  localStorage.removeItem('qu_theme_v1');
+  globalThis.__darkSystem = false;
+  var t0 = themeMode();
+  themeApply(t0);
+  check('默认主题为 auto', t0 === 'auto', t0);
+  check('系统浅色时解析为 light', document.documentElement.getAttribute('data-theme') === 'light',
+    document.documentElement.getAttribute('data-theme'));
+
+  globalThis.__darkSystem = true;
+  themeApply('auto');
+  check('系统深色时 auto 解析为 dark', document.documentElement.getAttribute('data-theme') === 'dark',
+    document.documentElement.getAttribute('data-theme'));
+  themeApply('light');
+  check('手动浅色优先于系统深色', document.documentElement.getAttribute('data-theme') === 'light',
+    document.documentElement.getAttribute('data-theme'));
+
+  localStorage.setItem('qu_theme_v1', 'auto');
+  cycleTheme();
+  var m1 = themeMode();
+  cycleTheme();
+  var m2 = themeMode();
+  cycleTheme();
+  var m3 = themeMode();
+  check('主题循环顺序 auto/light/dark', m1 === 'light' && m2 === 'dark' && m3 === 'auto',
+    m1 + ',' + m2 + ',' + m3);
+  check('主题选择已持久化', localStorage.getItem('qu_theme_v1') === 'auto',
+    localStorage.getItem('qu_theme_v1'));
+
+  /* ── 命令面板 ── */
+  window._years = [2022, 2023, 2024];
+  window._dimOptions = [{ label: 'China', key: '中国', slug: 'china' },
+                         { label: 'Japan', key: '日本', slug: 'japan' }];
+  openPalette();
+  var palEl = document.getElementById('palette');
+  var listEl = document.getElementById('paletteList');
+  check('命令面板打开后可见', palEl.hidden === false && PAL.open === true, String(palEl.hidden));
+  check('命令列表渲染 option', listEl.innerHTML.indexOf('role="option"') >= 0,
+    listEl.innerHTML.slice(0, 120));
+  check('命令含年份项', listEl.innerHTML.indexOf('2024') >= 0, '');
+  check('命令含经济体项', listEl.innerHTML.indexOf('China') >= 0, '');
+
+  paletteRender('2024');
+  var allMatchQ = PAL.view.length > 0 && PAL.view.every(function (c) {
+    return paletteScore(c.label + ' ' + (c.keywords || ''), '2024') >= 0;
+  });
+  check('按年份过滤只留命中项', PAL.view.length > 0 && allMatchQ, String(PAL.view.length));
+  paletteRender('zzzzzz');
+  check('无命中给出空态', PAL.view.length === 0
+    && listEl.innerHTML.indexOf('palette-empty') >= 0, listEl.innerHTML.slice(0, 80));
+
+  paletteRender('');
+  var chartIdx = -1;
+  PAL.view.forEach(function (c, i) { if (c.label === tr('图表')) chartIdx = i; });
+  PAL.idx = chartIdx;
+  paletteMove(1);
+  PAL.idx = chartIdx;
+  paletteRun(chartIdx);
+  var chartsTab = document.querySelectorAll('[role="tab"]').filter(function (t) {
+    return t.dataset.tab === 'charts';
+  })[0];
+  check('面板命令切到图表视图', chartsTab.getAttribute('aria-selected') === 'true',
+    chartsTab.getAttribute('aria-selected'));
+  check('执行命令后面板关闭', palEl.hidden === true && PAL.open === false, String(palEl.hidden));
+
+  /* ── 快捷键 ── */
+  check('输入类控件被识别为打字目标',
+    isTypingTarget({ tagName: 'INPUT' }) && isTypingTarget({ tagName: 'TEXTAREA' })
+    && isTypingTarget({ tagName: 'SELECT' }) && isTypingTarget({ tagName: 'DIV', isContentEditable: true })
+    && !isTypingTarget({ tagName: 'BUTTON' }), 'tag guard');
+  openShortcuts();
+  var helpEl = document.getElementById('shortcuts');
+  var helpBody = document.getElementById('helpBody');
+  check('帮助浮层可打开', helpEl.hidden === false, String(helpEl.hidden));
+  check('帮助渲染键帽与说明', helpBody.innerHTML.indexOf('class="kbd"') >= 0
+    && helpBody.innerHTML.indexOf('help-row') >= 0, helpBody.innerHTML.slice(0, 120));
+  closeShortcuts();
+  check('帮助浮层可关闭', helpEl.hidden === true, String(helpEl.hidden));
+
+  /* ── 指标卡迷你趋势 ── */
+  globalThis.__indicators = [
+    { year: 2022, indicator_key: 'GDP', value: '30' },
+    { year: 2023, indicator_key: 'GDP', value: '33' },
+    { year: 2024, indicator_key: 'GDP', value: '36' }
+  ];
+  var sparkBox = document.createElement('span');
+  grid.__qa = function (sel) { return sel === '.metric-spark' ? [sparkBox] : []; };
+  var sparkHtml = await render({
+    cards: [{ label: 'GDP', value: '36', unit: 'US$', dimension: 'China',
+              dimension_key: '中国', label_key: 'GDP', note: 'note' }],
+    dimension: 'China', dimension_key: '中国'
+  }, 'en');
+  check('卡片含趋势容器', sparkHtml.indexOf('metric-spark') >= 0, sparkHtml.slice(0, 160));
+  await new Promise(function (r) { setTimeout(r, 30); });
+  check('有跨年序列时画出折线', sparkBox.innerHTML.indexOf('<svg') >= 0
+    && sparkBox.innerHTML.indexOf('<path') >= 0, sparkBox.innerHTML.slice(0, 120));
+  check('折线悬浮给出起止值', String(sparkBox.title).indexOf('2022') >= 0
+    && String(sparkBox.title).indexOf('2024') >= 0, String(sparkBox.title));
+
+  /* 单点序列不画折线（趋势至少需要两个点） */
+  globalThis.__indicators = [{ year: 2024, indicator_key: 'GDP', value: '36' }];
+  sparkBox.innerHTML = '';
+  await render({
+    cards: [{ label: 'GDP', value: '36', unit: 'US$', dimension: 'China',
+              dimension_key: '中国', label_key: 'GDP', note: 'note' }],
+    dimension: 'China', dimension_key: '中国'
+  }, 'en');
+  await new Promise(function (r) { setTimeout(r, 30); });
+  check('单点序列不画折线', sparkBox.innerHTML === '', sparkBox.innerHTML.slice(0, 80));
+
+  /* ── 数据洞察 ── */
+  globalThis.__insights = {
+    year: 2024, prev_year: 2023,
+    movers: [
+      { indicator: 'Inflation (CPI)', indicator_key: '通货膨胀率(CPI)', unit: '%', change_pct: -46.5 },
+      { indicator: 'GDP growth', indicator_key: 'GDP增长率', unit: '%', change_pct: -8.5 }
+    ],
+    rank_indicator: 'GDP growth',
+    rank_shifts: [
+      { dimension: 'Singapore', dimension_key: '新加坡', rank_prev: 11, rank_now: 4, delta: 7 }
+    ],
+    coverage: { rows: 10, economies: 1, indicators: 10, comparable: 10 }
+  };
+  var grid2 = document.getElementById('insightsGrid');
+  grid2.__qa = function (sel) {
+    return sel === '.insight-card' ? [document.createElement('div')] : [];
+  };
+  await loadInsights();
+  var insHtml = grid2.innerHTML;
+  check('洞察渲染三张卡', (insHtml.split('insight-card').length - 1) === 3, String(insHtml.slice(0, 80)));
+  check('洞察含同比榜单', insHtml.indexOf('Inflation (CPI)') >= 0
+    && insHtml.indexOf('46.5%') >= 0 && insHtml.indexOf('down') >= 0, insHtml.slice(0, 120));
+  check('洞察含名次变动', insHtml.indexOf('Singapore') >= 0
+    && insHtml.indexOf('11 → 4') >= 0, insHtml.slice(0, 120));
+  check('洞察含覆盖计数', insHtml.indexOf('insight-chip') >= 0
+    && insHtml.indexOf('<b>10</b>') >= 0, insHtml.slice(0, 120));
+
+  globalThis.__insights = { year: 2024, prev_year: 2023, movers: [],
+    rank_shifts: [], rank_indicator: '', coverage: {} };
+  await loadInsights();
+  check('无洞察给空态', grid2.innerHTML.indexOf('empty-state') >= 0
+    && grid2.innerHTML.indexOf('No insights available yet') >= 0, grid2.innerHTML.slice(0, 120));
 
   globalThis.__results = results;
   globalThis.__done = true;

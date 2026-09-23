@@ -136,6 +136,32 @@ ENDPOINTS: list[dict[str, object]] = [
         "example": "curl -s \"$BASE/api/overview?year=2024&dimension=china&lang=en\"",
     },
     {
+        "group": "data", "method": "GET", "path": "/api/insights", "auth": False,
+        "title": ("数据洞察", "Data insights"),
+        "desc": ("从本地公开数据算出**可复算**的年度变化：该维度同比变化最大的指标、"
+                 "覆盖最广指标上名次变动最大的经济体，以及本年度真实覆盖规模。"
+                 "每条洞察都带两年数值，可用 ``/api/indicators`` 复核；上一年缺失或为 0 "
+                 "的指标不进榜单，不给误导性百分比。",
+                 "Recomputable year-over-year movements computed from local public data: "
+                 "the biggest movers for the dimension, the economies with the largest "
+                 "rank changes on the widest-coverage indicator, and the real coverage "
+                 "counts. Every item carries both year values so it can be checked "
+                 "against ``/api/indicators``; indicators without a prior-year value "
+                 "are omitted rather than given a misleading percentage."),
+        "params": [
+            {"name": "year", "type": "int", "required": False,
+             "d": ("年份，缺省 2024。洞察为「当年 vs 上一年」。",
+                   "Year, defaults to 2024. Insights compare it with the prior year.")},
+            {"name": "dimension", "type": "str", "required": False,
+             "d": ("经济体：接受规范键、英文标签或 slug；缺省 ``亚太`` 聚合口径。",
+                   "Economy: canonical key, English label or slug; defaults to the "
+                   "``亚太`` aggregate.")},
+            {"name": "lang", "type": "en | zh", "required": False,
+             "d": ("本地化语言。", "Localization language.")},
+        ],
+        "example": "curl -s \"$BASE/api/insights?year=2024&dimension=china&lang=en\"",
+    },
+    {
         "group": "data", "method": "GET", "path": "/api/indicators", "auth": False,
         "title": ("指标宽表", "Indicator wide table"),
         "desc": ("面向程序消费的主要数据接口。每行的 ``category`` / ``indicator`` / "

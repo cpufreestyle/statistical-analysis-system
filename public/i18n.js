@@ -371,7 +371,54 @@
     "保存失败": "Save failed",
     "开始采集公开数据…": "Collecting public data…",
     "年份已切换至": "Year switched to",
-    "维度已切换至": "Economy switched to"
+    "维度已切换至": "Economy switched to",
+
+    /* ── 工作台增强：命令面板 / 快捷键 / 主题 ── */
+    "命令面板": "Command palette",
+    "搜索命令、年份、经济体…": "Search commands, years, economies…",
+    "没有匹配的命令": "No matching command",
+    "视图": "View",
+    "切换年份": "Switch year",
+    "切换经济体": "Switch economy",
+    "外观": "Appearance",
+    "操作": "Actions",
+    "复制分享链接": "Copy share link",
+    "导出指标 CSV": "Export indicators (CSV)",
+    "导出当前指标 CSV": "Export current indicator (CSV)",
+    "生成统计公报": "Generate bulletin",
+    "跟随系统": "Match system",
+    "浅色模式": "Light mode",
+    "深色模式": "Dark mode",
+    "主题已切换": "Theme switched",
+    "键盘快捷键": "Keyboard shortcuts",
+    "全局快捷键": "Global shortcuts",
+    "打开命令面板": "Open command palette",
+    "聚焦查询输入框": "Focus the query box",
+    "切换视图标签": "Switch view tab",
+    "打开本帮助": "Open this help",
+    "关闭当前浮层": "Close the current overlay",
+    "输入框聚焦时快捷键不生效": "Shortcuts pause while a text field has focus",
+    "迷你趋势": "Trend",
+    "命令": "Command",
+    "功能说明": "What it does",
+    "切换主题": "Switch theme",
+    "切换语言": "Switch language",
+    "标签行切换视图": "Switch view from the tab bar",
+
+    /* ── 数据洞察（服务端实时计算） ── */
+    "数据洞察": "Data insights",
+    "自动计算": "Auto-computed",
+    "同比变化最大": "Biggest movers, YoY",
+    "名次变动": "Largest rank changes",
+    "覆盖规模": "Coverage",
+    "较上年": "vs prior year",
+    "上年": "Prior year",
+    "指标行": "Indicator rows",
+    "可比指标": "Comparable indicators",
+    "暂无洞察": "No insights available yet",
+    "由本地公开数据实时计算：同比变化最大的指标、名次变动最大的经济体与覆盖规模。每条都带两年数值，可在指标总表里逐条复算。":
+      "Auto-computed from local public data: the biggest year-over-year movers, the largest rank changes and the coverage counts. Every item carries both year values, so you can recompute it in the indicator catalog.",
+    "名次": "Rank"
   };
 
   /* 单字/符号单位：长度 1，需显式列入组合串替换表 */

@@ -23,6 +23,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
 - **新增 `src/infini_skill.py`（按 agent_infini Skill 规范）。** 统一凭证链（`~/.agent_infini/config.txt`）、
   资源预检（`task context`）、审计链接（`console_url`）、稳定 `taskId`，并新增只读端点 `GET /api/infini_skill`。
 
+- **新增 `src/insights.py`（数据洞察计算层）与只读端点 `GET /api/insights`。**
+  纯计算、无本地化：`movers()` 取同维度内同比变化最大的指标（上一年缺失或为 0 则剔除）、
+  `rank_shifts()` 选覆盖经济体最多的指标并计算名次变动、`coverage()`；`src/web.py` 用
+  `labels.label`/`slug` 一处本地化并附带 `*_key`/`*_slug`，结果可由 `/api/indicators` 复算。
+  已登记 `src/api_docs.py::ENDPOINTS` 与 `scripts/check_i18n.py`（双语契约门禁）。
+- **看板命令面板（`Ctrl`/`⌘ + K`）。** 模糊匹配、`↑`/`↓`/`Home`/`End`/`Enter`/`Esc` 键盘导航、
+  combobox ARIA；命令项按当前真实状态（`window._years`/`window._dimOptions`/`.suggestion-chip`）动态生成。
+- **全局快捷键 + 帮助浮层。** `1`–`5` 切换视图、`/` 聚焦查询框、`?` 打开帮助、`Esc` 关闭浮层；
+  输入类控件聚焦时自动让位（`isTypingTarget`）。
+- **主题三态切换 + 防闪白。** `qu_theme_v1` 持久化 `auto`/`light`/`dark`（`THEME_ORDER`），
+  `<head>` 内联防闪白脚本先落 `data-theme`；暗色令牌改为 `:root[data-theme="dark"]` 与
+  `@media (prefers-color-scheme:dark)` 双入口、同一份令牌。
+- **指标卡迷你趋势 sparkline。** 一次 `/api/indicators?dimension=KEY` 取跨年序列并按 `indicator_key`
+  分组绘制；纯装饰（`aria-hidden`），取数失败静默降级。
+
 ### Changed
 
 - **数据库索引与写入优化（`src/db.py`）。** 新增自然键复合唯一索引 `ux_indicators_key` 与
@@ -37,13 +52,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
 - **HTTP 缓存与压缩（`src/web.py`）。** 统一加 ETag + 条件请求（命中返回 **304**）；对文本响应启用
   **gzip**（≥500B）。实测 `/api/indicators` 由 9916B 压至 1658B（**-83%**）。
 - **AI 调用超时对齐（`src/analyzer.py`）。** 连接/读取超时分离（连接 5s）；SSE 等待上限默认由 110s
-  调整为 **45s**（`INFINI_MAX_WAIT` 可覆盖），避免 Serverless 请求挂死。- **UI 体验批次（看板三轮迭代）。** 自绘折线/排名图新增悬浮读数（最近年份吸附、竖直参考线、
+  调整为 **45s**（`INFINI_MAX_WAIT` 可覆盖），避免 Serverless 请求挂死。
+- **UI 体验批次（看板三轮迭代）。** 自绘折线/排名图新增悬浮读数（最近年份吸附、竖直参考线、
   触屏支持；排名图补全被截断的经济体名与单位）；指标总表二次查询加骨架屏与 `aria-busy`，
   图表取数显示顶部进度条并保留旧图直至新数据到达；图表维度多选写入分享链接并可还原；
   指标卡大数字改紧凑记数（zh 万/亿、en K/M/B/T，精确值进 `title`，表格/CSV 仍全精度）；
   智能查询/自定义分析/公报结果区与 toast 补 `aria-live`；同消息 toast 去重；
   统一空态组件（图标+标题+说明）；≤640px 顶栏控件分组换行；清理 `.header-search` 等
   死代码与未使用的 `--radius-xl` 令牌。
+- **看板「数据洞察」区块。** 三张骨架卡分别呈现同比变动最大指标、名次跃升/滑坡、口径覆盖，
+  随年份、维度、语言联动刷新（挂接 `init` / `syncYear` / `syncDimension` / `refreshLang`）。
+- **看板 UI 细节收尾。** `.wb-tabs` 吸顶（`position:sticky; top:var(--header-h)`）；
+  `public/i18n.js` 的 `ZH2EN` 补齐命令面板 / 快捷键 / 主题 / 洞察约 40 个键；
+  删除 `.mini-chart` / `.mini-bar` 死代码，新增 `.insight-*` / `.section-desc` 样式。
 
 ### Docs
 
@@ -54,7 +75,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
 - **回归修复（本轮自查发现）。** ① ETag / 条件请求此前对所有 200 响应启用，会把 HTML 的
   `Cache-Control: no-store` 改成 `no-cache`，违反「页面永不缓存」契约——现**仅对 JSON 接口**启用；
   ② 新增路由 `/api/infini_skill` 未登记进 `src/api_docs.py::ENDPOINTS`，触发文档一致性门禁——已补齐。
-  全量 `pytest`（125 项）恢复全绿。- **小号文字对比度不达 WCAG AA。** 29 处 10–12px 灰字由 `--gray-400` 升至 `--gray-500`
+  全量 `pytest`（125 项）恢复全绿。
+- **小号文字对比度不达 WCAG AA。** 29 处 10–12px 灰字由 `--gray-400` 升至 `--gray-500`
   （白底 2.54:1 → 4.83:1，深色底 4.0:1 → 5.9:1），`.metric-tag` 底色同步改浅；
   另修 `compactNum()` 对空值返回「0」而非「—」的边界缺陷。
 

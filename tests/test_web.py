@@ -239,7 +239,65 @@ def test_public_stats_stays_open_in_production(monkeypatch, seeded_client):
 
 
 # ---------------------------------------------------------------------------
+# /api/insights —— 可复算的数据洞察（同比榜单 + 名次变动 + 覆盖规模）
+# ---------------------------------------------------------------------------
+def test_insights_endpoint_shape(seeded_client):
+    resp = seeded_client.get("/api/insights?year=2024&dimension=亚太")
+    assert resp.status_code == 200
+    d = resp.get_json()
+    assert d["year"] == 2024 and d["prev_year"] == 2023
+    assert d["dimension_key"] == "亚太"
+    assert {"movers", "rank_shifts", "rank_indicator", "rank_indicator_key",
+            "coverage"} <= set(d)
+    assert d["movers"], "有可比数据时榜单不应为空"
+    for m in d["movers"]:
+        assert {"indicator", "indicator_key", "indicator_slug", "unit",
+                "value", "prev_value", "change_pct"} <= set(m)
+    # 榜单按变化幅度降序
+    amps = [abs(m["change_pct"]) for m in d["movers"]]
+    assert amps == sorted(amps, reverse=True)
+
+
+def test_insights_numbers_are_recomputable(seeded_client):
+    """洞察数字必须能被 /api/indicators 复算——「绝不编数」的机器防线。"""
+    d = seeded_client.get("/api/insights?year=2024&dimension=亚太").get_json()
+    top = d["movers"][0]
+    key = top["indicator_key"]
+    cur_rows = seeded_client.get(
+        f"/api/indicators?year=2024&indicator={key}&dimension=亚太").get_json()
+    prev_rows = seeded_client.get(
+        f"/api/indicators?year=2023&indicator={key}&dimension=亚太").get_json()
+    cur, prev = float(cur_rows[0]["value"]), float(prev_rows[0]["value"])
+    assert abs(cur - float(top["value"])) < 1e-9
+    assert top["change_pct"] == round((cur - prev) / abs(prev) * 100, 1)
+
+
+def test_insights_is_localized(seeded_client):
+    zh = seeded_client.get("/api/insights?lang=zh&year=2024&dimension=中国").get_json()
+    en = seeded_client.get("/api/insights?lang=en&year=2024&dimension=china").get_json()
+    assert zh["dimension"] == "中国"
+    assert en["dimension"] == "China"
+    # 规范键跨语言稳定，英文消费方才能把两种语言的同一条洞察对上
+    assert en["dimension_key"] == "中国"
+    assert en["movers"][0]["indicator_slug"]
+    assert en["movers"][0]["indicator"] != en["movers"][0]["indicator_key"]
+
+
+def test_insights_rank_delta_direction(seeded_client):
+    """delta = 上年名次 − 今年名次：正数代表名次上升。"""
+    d = seeded_client.get("/api/insights?year=2024").get_json()
+    shifts = d["rank_shifts"]
+    assert shifts
+    for s in shifts:
+        assert s["delta"] == s["rank_prev"] - s["rank_now"]
+        assert 1 <= s["rank_now"] <= 20
+    amps = [abs(s["delta"]) for s in shifts]
+    assert amps == sorted(amps, reverse=True)
+
+
+# ---------------------------------------------------------------------------
 # /docs —— API 参考页（服务端渲染、双语、与路由表保持一致）
+# ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
 def test_docs_page_renders_without_placeholders(client):
     resp = client.get("/docs")

@@ -57,6 +57,8 @@ CHECKS: list[tuple[str, str, dict]] = [
     ("/api/stats", "数据规模（公开）", {}),
     ("/api/overview", "概览卡片", {"year": 2024, "dimension": "亚太"}),
     ("/api/overview", "概览卡片", {"year": 2024, "dimension": "中国"}),
+    ("/api/insights", "数据洞察", {"year": 2024, "dimension": "亚太"}),
+    ("/api/insights", "数据洞察(经济体)", {"year": 2024, "dimension": "中国"}),
     ("/api/indicators", "指标宽表", {"year": 2024, "dimension": "日本", "limit": None}),
     ("/api/indicators", "指标搜索", {"q": "retail"}),
     ("/api/indicators", "指标搜索(中)", {"q": "社会消费品"}),

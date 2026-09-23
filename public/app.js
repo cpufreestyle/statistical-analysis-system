@@ -168,6 +168,9 @@ function exportChartCsv() {
   loadOverview();
   loadCustomList();
   loadDbStats();
+  loadInsights();
+  /* 主题预设 / 全局快捷键 / 命令面板：增强能力，单独 try 避免影响主流程 */
+  try { initTheme(); initShortcuts(); initPalette(); } catch (e) { /* 忽略 */ }
 })();
 
 /* ───── 下拉框填充（统一入口，保证语言切换后可重填） ───── */
@@ -207,6 +210,7 @@ function syncYear(y) {
   if (gy) gy.value = STATE.year;
   loadOverview();
   loadIndicators();
+  loadInsights();
   updateShareUrl();
   showToast(tr('年份已切换至') + ' ' + STATE.year + (isZh() ? '年' : ''), 'success');
 }
@@ -217,6 +221,7 @@ function syncDimension(d) {
   if (gd) gd.value = d;
   loadOverview();
   loadIndicators();
+  loadInsights();
   updateShareUrl();
   showToast(tr('维度已切换至') + ' ' + tr(d), 'success');
 }
@@ -292,6 +297,10 @@ async function loadOverview() {
     const sy = document.getElementById('subtitleYear');
     if (sy) sy.textContent = STATE.year;
 
+    // 命令面板的「切换年份 / 切换经济体」直接复用最近一次概览结果，不另建接口
+    window._years = d.years || [];
+    window._dimOptions = d.dimension_options || [];
+
     grid.removeAttribute('aria-busy');
     // 卡片字段全部来自服务端本地化结果，前端不再做数据词条替换
     if (!(d.cards || []).length) {
@@ -314,13 +323,106 @@ async function loadOverview() {
         <div class="metric-value" title="${a(c.value)}">${h(compactNum(c.value))}<span class="metric-unit">${h(c.unit || '')}</span></div>
         <div class="metric-footer">
           ${c.yoy ? `<span class="metric-change">${h(tr('同比'))} ${h(c.yoy)}</span>` : ''}
+          <span class="metric-spark" aria-hidden="true"></span>
         </div>
         <div class="metric-src" title="${a(c.note || '')}">${h(c.note || '')}</div>
       </div>`).join('');
+    loadSparks(d.dimension_key || STATE.dimension, d.cards || []);
   } catch (e) {
     grid.removeAttribute('aria-busy');
     grid.innerHTML = '<div class="metric-card" style="grid-column:1/-1">' + emptyState('⚠️', tr('加载失败')) + '</div>';
   }
+}
+
+/* ═══════ 数据洞察 ═══════
+   数字全部来自服务端 /api/insights（本地公开数据实时计算），前端只负责排版；
+   同比口径 = 同维度、同指标、相邻两年，可在指标总表按同样条件逐条复算。 */
+function insightsSkeleton() {
+  var one = '<div class="insight-card" aria-hidden="true">'
+    + '<div class="skeleton skeleton-line" style="width:46%"></div>'
+    + '<div class="skeleton skeleton-line" style="width:80%"></div>'
+    + '<div class="skeleton skeleton-line" style="width:64%"></div></div>';
+  return new Array(3).fill(one).join('');
+}
+
+async function loadInsights() {
+  var grid = document.getElementById('insightsGrid');
+  if (!grid) return;
+  if (!grid.querySelector('.insight-card')) {
+    grid.setAttribute('aria-busy', 'true');
+    grid.innerHTML = insightsSkeleton();
+  }
+  try {
+    var r = await fetch(API + '/api/insights?year=' + enc(STATE.year)
+      + '&dimension=' + enc(STATE.dimension) + '&' + langQ());
+    var d = await r.json();
+    grid.removeAttribute('aria-busy');
+    grid.innerHTML = renderInsights(d);
+  } catch (e) {
+    grid.removeAttribute('aria-busy');
+    grid.innerHTML = '<div class="insight-card" style="grid-column:1/-1">'
+      + emptyState('⚠️', tr('加载失败')) + '</div>';
+  }
+}
+
+function insightCard(icon, title, sub, body) {
+  return '<div class="insight-card">'
+    + '<div class="insight-head"><span class="insight-title">' + h(icon) + ' ' + h(title) + '</span>'
+    + (sub ? '<span class="insight-sub">' + h(sub) + '</span>' : '') + '</div>'
+    + body + '</div>';
+}
+
+/* 变化方向：上行绿、下行红；箭头与正负号一起给，色盲用户也能读 */
+function insightDelta(pct) {
+  var v = Number(pct);
+  if (!isFinite(v)) return { cls: '', arrow: '—', abs: '—' };
+  return {
+    cls: v >= 0 ? 'up' : 'down',
+    arrow: v >= 0 ? '▲' : '▼',
+    abs: Math.abs(v).toFixed(1) + '%'
+  };
+}
+
+function renderInsights(d) {
+  if (!d || typeof d !== 'object') return '';
+  var years = (d.year || STATE.year) + ' vs ' + (d.prev_year || (Number(STATE.year) - 1));
+
+  /* 卡 1：同比变化最大的指标 */
+  var movers = d.movers || [];
+  var mBody = movers.length
+    ? movers.map(function (m) {
+        var k = insightDelta(m.change_pct);
+        return '<div class="insight-row"><span class="insight-name" title="' + a(m.indicator) + '">'
+          + h(m.indicator) + '</span><span class="insight-val ' + k.cls + '">' + k.arrow + ' ' + h(k.abs) + '</span></div>';
+      }).join('')
+    : emptyState('📈', tr('暂无洞察'));
+  var c1 = insightCard('📈', tr('同比变化最大'), tr('较上年'), mBody);
+
+  /* 卡 2：名次变动最大的经济体（指标由服务端选覆盖最广的那个） */
+  var shifts = d.rank_shifts || [];
+  var rTitle = tr('名次变动') + (d.rank_indicator ? ' · ' + d.rank_indicator : '');
+  var rBody = shifts.length
+    ? shifts.map(function (s) {
+        var cls = s.delta > 0 ? 'up' : (s.delta < 0 ? 'down' : '');
+        var arrow = s.delta > 0 ? '▲' : (s.delta < 0 ? '▼' : '—');
+        return '<div class="insight-row"><span class="insight-name">' + h(s.dimension) + '</span>'
+          + '<span class="insight-rank">' + s.rank_prev + ' → ' + s.rank_now + '</span>'
+          + '<span class="insight-val ' + cls + '">' + arrow + ' ' + Math.abs(s.delta) + '</span></div>';
+      }).join('')
+    : emptyState('🏅', tr('暂无洞察'));
+  var c2 = insightCard('🏅', rTitle, tr('名次'), rBody);
+
+  /* 卡 3：覆盖规模（计数本身就是洞察：数据到底有多全） */
+  var cov = d.coverage || {};
+  var chips = [
+    { label: tr('指标行'), value: cov.rows },
+    { label: tr('覆盖经济体'), value: cov.economies },
+    { label: tr('可比指标'), value: cov.comparable }
+  ].map(function (x) {
+    return '<div class="insight-chip">' + h(x.label) + '<b>' + h(x.value == null ? '—' : x.value) + '</b></div>';
+  }).join('');
+  var c3 = insightCard('🗄️', tr('覆盖规模'), years, '<div class="insight-chips">' + chips + '</div>');
+  return c1 + c2 + c3;
 }
 
 /* ═══════ 智能查询 ═══════ */
@@ -742,6 +844,7 @@ function refreshLang() {
   loadOverview();
   loadIndicators();
   loadDbStats();
+  loadInsights();
   var bo = document.getElementById('bulletinOut');
   // 公报内容已由服务端按 lang 本地化，切换语言必须重新取数（缓存的是上一语言的文本）
   if (bo && window._lastBulletin) loadBulletin();
@@ -757,12 +860,396 @@ function refreshLang() {
   var pc = document.getElementById('panel-charts');
   if (pc && pc.classList.contains('active')) initCharts();
   updateShareUrl();
+  // 主题按钮图标之外的文案、快捷键帮助内容随语言重渲染
+  themeApply(themeMode());
+  var shEl = document.getElementById('shortcuts');
+  if (shEl && !shEl.hidden) renderHelp();
 }
 
 /* ═══════ 侧边栏卡片折叠 ═══════ */
 function toggleSidebarCard(headerEl) {
   var card = headerEl.closest('.side-card');
   card.classList.toggle('collapsed');
+}
+
+/* ═══════ 主题：跟随系统 / 浅色 / 深色 ═══════
+   app.html 的内联脚本已按 localStorage + 系统偏好提前写好 data-theme（无闪白）；
+   本模块管三态循环、持久化、系统偏好变化时跟随，以及头部按钮的图标与文案。 */
+const THEME_KEY = 'qu_theme_v1';
+const THEME_ORDER = ['auto', 'light', 'dark'];
+const THEME_META = {
+  auto:  { icon: '🌗', zh: '跟随系统', en: 'Match system', key: '跟随系统' },
+  light: { icon: '☀️', zh: '浅色',   en: 'Light',        key: '浅色模式' },
+  dark:  { icon: '🌙', zh: '深色',   en: 'Dark',         key: '深色模式' }
+};
+/* 工作台五个视图的顺序（与 app.html 的 .wb-tab 一致），快捷键 1–5 用它寻址 */
+const TAB_IDS = ['nlq', 'indicators', 'custom', 'bulletin', 'charts'];
+
+function themeMode() {
+  try {
+    var v = localStorage.getItem(THEME_KEY);
+    return THEME_ORDER.indexOf(v) >= 0 ? v : 'auto';
+  } catch (e) { return 'auto'; }
+}
+
+function themeIsDarkSystem() {
+  try { return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); }
+  catch (e) { return false; }
+}
+
+function themeApply(mode) {
+  var meta = THEME_META[mode] || THEME_META.auto;
+  var dark = mode === 'auto' ? themeIsDarkSystem() : mode === 'dark';
+  var root = document.documentElement;
+  if (root) root.setAttribute('data-theme', dark ? 'dark' : 'light');
+  var btn = document.getElementById('themeToggle');
+  if (btn) {
+    btn.textContent = meta.icon;
+    var label = '主题：' + meta.zh + ' / Theme: ' + meta.en;
+    btn.title = label;
+    btn.setAttribute('aria-label', label);
+  }
+}
+
+function cycleTheme() {
+  var next = THEME_ORDER[(THEME_ORDER.indexOf(themeMode()) + 1) % THEME_ORDER.length];
+  try { localStorage.setItem(THEME_KEY, next); }
+  catch (e) { /* 隐私模式取不到存储时仅本次会话生效 */ }
+  themeApply(next);
+  showToast(tr('主题已切换') + '：' + tr(THEME_META[next].key), 'success');
+}
+
+function initTheme() {
+  themeApply(themeMode());
+  try {
+    var mq = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
+    if (!mq) return;
+    var onChange = function () { if (themeMode() === 'auto') themeApply('auto'); };
+    if (mq.addEventListener) mq.addEventListener('change', onChange);
+    else if (mq.addListener) mq.addListener(onChange);   // 旧版 Safari
+  } catch (e) { /* 忽略 */ }
+}
+
+/* ═══════ 命令面板（Ctrl/⌘+K） ═══════
+   零依赖浮层：命令清单由当前真实状态（年份 / 经济体 / 示例问题）动态生成，
+   模糊匹配 + 键盘导航，全部复用已有函数，不新增接口。 */
+const PAL = { open: false, all: [], view: [], idx: 0, lastFocus: null };
+
+/* 子序列模糊匹配：连续命中加分、起始命中加分；任一字符缺席返回 -1 */
+function paletteScore(text, q) {
+  if (!q) return 1;
+  var t = String(text).toLowerCase(), s = String(q).toLowerCase();
+  var ti = 0, score = 0, prev = -2;
+  for (var si = 0; si < s.length; si++) {
+    var ch = s.charAt(si);
+    if (ch === ' ') continue;
+    var found = t.indexOf(ch, ti);
+    if (found < 0) return -1;
+    score += found === prev + 1 ? 3 : 1;
+    if (found === 0) score += 2;
+    prev = found;
+    ti = found + 1;
+  }
+  return score;
+}
+
+function paletteCommands() {
+  var cmds = [];
+  [
+    { id: 'nlq', icon: '💬', key: '智能查询' },
+    { id: 'indicators', icon: '📋', key: '指标总表' },
+    { id: 'custom', icon: '🧮', key: '自定义分析' },
+    { id: 'bulletin', icon: '📄', key: '统计公报' },
+    { id: 'charts', icon: '📈', key: '图表' }
+  ].forEach(function (t) {
+    cmds.push({
+      group: tr('视图'), icon: t.icon, label: tr(t.key), keywords: 'view tab ' + t.id,
+      hint: String(TAB_IDS.indexOf(t.id) + 1),
+      run: function () { switchTab(t.id); }
+    });
+  });
+  (window._years || []).forEach(function (y) {
+    y = String(y);
+    cmds.push({
+      group: tr('切换年份'), icon: '📅', label: y + (isZh() ? '年' : ''),
+      hint: y === STATE.year ? '✓' : '', keywords: 'year ' + y,
+      run: function () { syncYear(y); }
+    });
+  });
+  (window._dimOptions || []).forEach(function (o) {
+    var key = o.key || o.slug;
+    if (!key) return;
+    cmds.push({
+      group: tr('切换经济体'), icon: '🌏', label: o.label || key,
+      keywords: 'dimension economy ' + key + ' ' + (o.slug || ''),
+      hint: key === STATE.dimension ? '✓' : '',
+      run: function () { syncDimension(key); }
+    });
+  });
+  cmds.push({ group: tr('外观'), icon: '🌓', label: tr('切换主题'),
+    hint: tr(THEME_META[themeMode()].key), keywords: 'theme dark light auto', run: cycleTheme });
+  cmds.push({ group: tr('外观'), icon: '🔤', label: tr('切换语言'),
+    hint: isZh() ? '中文 → EN' : 'EN → 中文', keywords: 'language lang', run: function () { toggleLang(); } });
+  cmds.push({ group: tr('操作'), icon: '🔗', label: tr('复制分享链接'), keywords: 'share link copy', run: copyShareLink });
+  cmds.push({ group: tr('操作'), icon: '⬇️', label: tr('导出指标 CSV'), keywords: 'export csv download', run: exportIndicatorsCsv });
+  cmds.push({ group: tr('操作'), icon: '⬇️', label: tr('导出当前指标 CSV'), keywords: 'export csv chart indicator', run: exportChartCsv });
+  cmds.push({ group: tr('操作'), icon: '📄', label: tr('生成统计公报'), keywords: 'bulletin report',
+    run: function () { switchTab('bulletin'); loadBulletin(); } });
+  cmds.push({ group: tr('操作'), icon: '⌨️', label: tr('键盘快捷键'), hint: '?',
+    keywords: 'shortcuts help keyboard', run: openShortcuts });
+  Array.prototype.slice.call(document.querySelectorAll('.suggestion-chip')).forEach(function (el) {
+    var q = pickQ(el);
+    if (!q) return;
+    cmds.push({ group: tr('示例问题'), icon: '💬', label: q, keywords: 'ask ' + q,
+      run: function () { fillQuery(q); runAnalyze(); } });
+  });
+  return cmds;
+}
+
+function openPalette() {
+  var el = document.getElementById('palette');
+  if (!el) return;
+  PAL.lastFocus = document.activeElement;
+  el.hidden = false;
+  PAL.open = true;
+  PAL.all = paletteCommands();
+  PAL.idx = 0;
+  if (document.body) document.body.style.overflow = 'hidden';
+  var input = document.getElementById('paletteInput');
+  if (input) input.value = '';
+  paletteRender('');
+  if (input && input.focus) input.focus();
+}
+
+function closePalette() {
+  var el = document.getElementById('palette');
+  if (el) el.hidden = true;
+  PAL.open = false;
+  if (document.body) document.body.style.overflow = '';
+  if (PAL.lastFocus && PAL.lastFocus.focus) { try { PAL.lastFocus.focus(); } catch (e) { /* 忽略 */ } }
+  PAL.lastFocus = null;
+}
+
+function paletteRender(q) {
+  var list = document.getElementById('paletteList');
+  if (!list) return;
+  var scored = [];
+  PAL.all.forEach(function (c) {
+    var s = paletteScore(c.label + ' ' + (c.keywords || ''), q);
+    if (s >= 0) scored.push({ c: c, s: s });
+  });
+  scored.sort(function (a, b) { return b.s - a.s; });
+  PAL.view = scored.map(function (x) { return x.c; });
+  if (PAL.idx >= PAL.view.length) PAL.idx = 0;
+  if (!PAL.view.length) {
+    list.innerHTML = '<div class="palette-empty">' + h(tr('没有匹配的命令')) + '</div>';
+    return;
+  }
+  var html = '', group = null;
+  PAL.view.forEach(function (c, i) {
+    if (c.group !== group) { html += '<div class="palette-group">' + h(c.group) + '</div>'; group = c.group; }
+    html += '<div class="palette-item" role="option" id="pal-opt-' + i + '" data-i="' + i + '"'
+      + ' aria-selected="' + (i === PAL.idx ? 'true' : 'false') + '">'
+      + '<span class="pi-icon" aria-hidden="true">' + h(c.icon || '') + '</span>'
+      + '<span class="pi-label">' + h(c.label) + '</span>'
+      + (c.hint ? '<span class="pi-hint">' + h(c.hint) + '</span>' : '')
+      + '</div>';
+  });
+  list.innerHTML = html;
+  var input = document.getElementById('paletteInput');
+  if (input) input.setAttribute('aria-activedescendant', 'pal-opt-' + PAL.idx);
+  paletteScrollIntoView(PAL.idx);
+}
+
+function paletteMove(delta) {
+  if (!PAL.view.length) return;
+  PAL.idx = (PAL.idx + delta + PAL.view.length) % PAL.view.length;
+  var input = document.getElementById('paletteInput');
+  paletteRender(input ? input.value : '');
+}
+
+function paletteRun(i) {
+  var c = PAL.view[i == null ? PAL.idx : i];
+  if (!c) return;
+  closePalette();
+  try { c.run(); } catch (e) { /* 单个命令失败不影响面板本身 */ }
+}
+
+/* 鼠标悬停只改高亮，不重建列表（重建会打断 hover 造成抖动） */
+function paletteHighlight(i) {
+  PAL.idx = i;
+  var list = document.getElementById('paletteList');
+  if (list) {
+    list.querySelectorAll('.palette-item').forEach(function (el) {
+      el.setAttribute('aria-selected', el.getAttribute('data-i') === String(i) ? 'true' : 'false');
+    });
+  }
+  var input = document.getElementById('paletteInput');
+  if (input) input.setAttribute('aria-activedescendant', 'pal-opt-' + i);
+  paletteScrollIntoView(i);
+}
+
+/* 键盘移动后把选中项滚进可视区（列表超过一屏时必需） */
+function paletteScrollIntoView(i) {
+  var list = document.getElementById('paletteList');
+  if (!list || !list.querySelector) return;
+  var el = list.querySelector('#pal-opt-' + i);
+  if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' });
+}
+
+function initPalette() {
+  var input = document.getElementById('paletteInput');
+  if (!input) return;
+  input.addEventListener('keydown', function (e) {
+    var k = e.key;
+    if (k === 'ArrowDown') { e.preventDefault(); paletteMove(1); }
+    else if (k === 'ArrowUp') { e.preventDefault(); paletteMove(-1); }
+    else if (k === 'Home') { e.preventDefault(); PAL.idx = 0; paletteRender(input.value); }
+    else if (k === 'End') { e.preventDefault(); PAL.idx = PAL.view.length - 1; paletteRender(input.value); }
+    else if (k === 'Enter') { e.preventDefault(); paletteRun(); }
+    else if (k === 'Escape') { e.preventDefault(); closePalette(); }
+  });
+  input.addEventListener('input', function () { PAL.idx = 0; paletteRender(input.value); });
+  var list = document.getElementById('paletteList');
+  if (!list) return;
+  list.addEventListener('click', function (e) {
+    var item = e && e.target && e.target.closest ? e.target.closest('.palette-item') : null;
+    if (item) paletteRun(Number(item.getAttribute('data-i')));
+  });
+  list.addEventListener('mousemove', function (e) {
+    var item = e && e.target && e.target.closest ? e.target.closest('.palette-item') : null;
+    if (!item) return;
+    var i = Number(item.getAttribute('data-i'));
+    if (i !== PAL.idx) paletteHighlight(i);
+  });
+}
+
+/* ═══════ 全局快捷键 + 帮助 ═══════ */
+const SHORTCUT_ROWS = [
+  { group: '全局快捷键', keys: ['Ctrl', 'K'], label: '打开命令面板' },
+  { group: '全局快捷键', keys: ['/'], label: '聚焦查询输入框' },
+  { group: '全局快捷键', keys: ['1', '–', '5'], label: '切换视图标签' },
+  { group: '全局快捷键', keys: ['←', '→'], label: '标签行切换视图' },
+  { group: '全局快捷键', keys: ['?'], label: '打开本帮助' },
+  { group: '全局快捷键', keys: ['Esc'], label: '关闭当前浮层' }
+];
+
+function renderHelp() {
+  var box = document.getElementById('helpBody');
+  if (!box) return;
+  var html = '', group = null;
+  SHORTCUT_ROWS.forEach(function (r) {
+    if (r.group !== group) { html += '<div class="help-group">' + h(tr(r.group)) + '</div>'; group = r.group; }
+    html += '<div class="help-row"><span>' + h(tr(r.label)) + '</span><span>'
+      + r.keys.map(function (k) { return '<kbd class="kbd">' + h(k) + '</kbd>'; }).join(' ')
+      + '</span></div>';
+  });
+  box.innerHTML = html;
+}
+
+function openShortcuts() {
+  var el = document.getElementById('shortcuts');
+  if (!el) return;
+  renderHelp();
+  el.hidden = false;
+}
+
+function closeShortcuts() {
+  var el = document.getElementById('shortcuts');
+  if (el) el.hidden = true;
+}
+
+/* 输入类控件聚焦时让位给控件本身，避免快捷键抢按键 */
+function isTypingTarget(t) {
+  if (!t) return false;
+  var tag = String(t.tagName || '').toLowerCase();
+  return tag === 'input' || tag === 'textarea' || tag === 'select' || t.isContentEditable === true;
+}
+
+function initShortcuts() {
+  document.addEventListener('keydown', function (e) {
+    var k = e.key;
+    if ((e.ctrlKey || e.metaKey) && (k === 'k' || k === 'K')) {
+      e.preventDefault();
+      if (PAL.open) closePalette(); else openPalette();
+      return;
+    }
+    if (k === 'Escape') {
+      if (PAL.open) { closePalette(); return; }
+      var sh = document.getElementById('shortcuts');
+      if (sh && !sh.hidden) { closeShortcuts(); return; }
+      return;
+    }
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (isTypingTarget(e.target)) return;
+    if (k === '/') {
+      e.preventDefault();
+      switchTab('nlq');
+      var input = document.getElementById('nlqInput');
+      if (input && input.focus) input.focus();
+      return;
+    }
+    if (k === '?') { e.preventDefault(); openShortcuts(); return; }
+    var n = Number(k);
+    if (n >= 1 && n <= TAB_IDS.length) { e.preventDefault(); switchTab(TAB_IDS[n - 1]); }
+  });
+}
+
+/* ═══════ 指标卡迷你趋势 ═══════
+   卡片只展示当前年数值；这里用一次公开接口取该经济体的跨年序列，在每张卡
+   footer 右侧画 72×22 折线（纯装饰，对读屏隐藏，title 给出起止值与单位）。
+   取数失败完全静默——趋势是增强信息，不能影响卡片本身。 */
+async function loadSparks(dimKey, cards) {
+  try {
+    if (!dimKey || !cards || !cards.length) return;
+    var r = await fetch(API + '/api/indicators?dimension=' + enc(dimKey) + '&' + langQ());
+    var rows = await r.json();
+    if (!Array.isArray(rows) || !rows.length) return;
+    var series = {};
+    rows.forEach(function (row) {
+      var key = row.indicator_key || row.indicator;
+      var v = Number(row.value);
+      if (!key || row.value == null || row.value === '' || !isFinite(v)) return;
+      (series[key] = series[key] || []).push({ year: Number(row.year), value: v });
+    });
+    var grid = document.getElementById('metricsGrid');
+    if (!grid) return;
+    var boxes = grid.querySelectorAll('.metric-spark');
+    cards.forEach(function (c, i) {
+      var pts = (series[c.label_key || c.label] || []).sort(function (a, b) { return a.year - b.year; });
+      var box = boxes[i];
+      if (!box || pts.length < 2) return;
+      box.innerHTML = sparkSvg(pts);
+      box.setAttribute('title', sparkTitle(pts, c.unit));
+    });
+  } catch (e) { /* 静默：趋势失败不波及卡片 */ }
+}
+
+function sparkSvg(pts) {
+  var W = 72, H = 22, pad = 2.5;
+  var xMin = pts[0].year, xMax = pts[pts.length - 1].year;
+  var yMin = Infinity, yMax = -Infinity;
+  pts.forEach(function (p) { if (p.value < yMin) yMin = p.value; if (p.value > yMax) yMax = p.value; });
+  var spanX = (xMax - xMin) || 1, spanY = (yMax - yMin) || 1;
+  var d = pts.map(function (p, i) {
+    var x = pad + ((p.year - xMin) / spanX) * (W - pad * 2);
+    var y = H - pad - ((p.value - yMin) / spanY) * (H - pad * 2);
+    return (i ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1);
+  }).join(' ');
+  var last = pts[pts.length - 1];
+  var lx = pad + ((last.year - xMin) / spanX) * (W - pad * 2);
+  var ly = H - pad - ((last.value - yMin) / spanY) * (H - pad * 2);
+  return '<svg viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '" aria-hidden="true" focusable="false">'
+    + '<path d="' + d + '" fill="none" stroke="var(--blue-500)" stroke-width="1.5"'
+    + ' stroke-linecap="round" stroke-linejoin="round"/>'
+    + '<circle cx="' + lx.toFixed(1) + '" cy="' + ly.toFixed(1) + '" r="2" fill="var(--blue-600)"/>'
+    + '</svg>';
+}
+
+function sparkTitle(pts, unit) {
+  var a0 = pts[0], b0 = pts[pts.length - 1];
+  return tr('迷你趋势') + ' ' + a0.year + '–' + b0.year + ' · '
+    + fmtNum(a0.value) + ' → ' + fmtNum(b0.value) + (unit ? ' ' + unit : '');
 }
 
 /* ═══════ 图表（自绘 SVG，无图表库依赖） ═══════ */
