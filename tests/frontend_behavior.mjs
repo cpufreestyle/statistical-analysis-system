@@ -72,6 +72,10 @@ function makeEl(id, tag = "div") {
 }
 
 const elements = new Map();
+/* document 级监听：记录后可由 dispatchEvent 派发。
+   加载期绑定（initShortcuts 的 document keydown）必须有路可测，否则「增强能力
+   初始化顺序写错、抛错被 try/catch 吞掉」这类回归只能靠人工按键盘才发现。 */
+const docListeners = {};
 const documentStub = {
   getElementById(id) {
     if (!elements.has(id)) elements.set(id, makeEl(id, id === "globalYear" || id === "indCat" ? "select" : "div"));
@@ -80,7 +84,14 @@ const documentStub = {
   querySelector() { return null; },
   querySelectorAll() { return []; },
   createElement: (tag) => makeEl("", tag),
-  addEventListener() {}, removeEventListener() {},
+  addEventListener(type, fn) { (docListeners[type] = docListeners[type] || []).push(fn); },
+  removeEventListener(type, fn) {
+    docListeners[type] = (docListeners[type] || []).filter((f) => f !== fn);
+  },
+  dispatchEvent(ev) {
+    (docListeners[ev.type] || []).forEach((fn) => fn(ev));
+    return true;
+  },
   body: makeEl("body"),
   documentElement: makeEl("html"),
   activeElement: null,
@@ -180,6 +191,32 @@ const DRIVER = `
 (async function drive() {
   var results = [];
   function check(name, ok, detail) { results.push({ name: name, ok: !!ok, detail: detail == null ? "" : String(detail) }); }
+
+  /* ── 加载期初始化（顺序回归防线） ──
+     app.js 末尾的 initTheme/initShortcuts/initPalette 必须在所有 const 声明之后执行。
+     放早了会在暂时死区抛 ReferenceError 又被 try/catch 吞掉：页面看着正常，
+     快捷键、命令面板、主题按钮同步全都不工作。这三条就是那条回归的哨兵。 */
+  var themeBtnEl = document.getElementById('themeToggle');
+  check('加载即同步主题按钮',
+    String(themeBtnEl.title).indexOf('Theme') >= 0 && String(themeBtnEl.title).length > 4,
+    String(themeBtnEl.title));
+  check('加载即落地 data-theme',
+    document.documentElement.getAttribute('data-theme') === 'light',
+    String(document.documentElement.getAttribute('data-theme')));
+  var keyEvt = function (key, mod) {
+    return { type: 'keydown', key: key, ctrlKey: !!mod, metaKey: false, altKey: false,
+      target: document.body, preventDefault: function () {} };
+  };
+  var paletteEl = document.getElementById('palette');
+  var helpEl0 = document.getElementById('shortcuts');
+  document.dispatchEvent(keyEvt('k', true));
+  check('Ctrl+K 能打开命令面板', paletteEl && paletteEl.hidden === false, String(paletteEl && paletteEl.hidden));
+  document.dispatchEvent(keyEvt('Escape'));
+  check('Esc 能关闭命令面板', paletteEl && paletteEl.hidden === true, String(paletteEl && paletteEl.hidden));
+  document.dispatchEvent(keyEvt('?'));
+  check('问号键能打开帮助浮层', helpEl0 && helpEl0.hidden === false, String(helpEl0 && helpEl0.hidden));
+  document.dispatchEvent(keyEvt('Escape'));
+  check('Esc 能关闭帮助浮层', helpEl0 && helpEl0.hidden === true, String(helpEl0 && helpEl0.hidden));
   var grid = document.getElementById('metricsGrid');
 
   function payload(over) {

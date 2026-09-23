@@ -42,6 +42,7 @@ def test_pages_module_has_all_assets():
     import src.pages as pages
 
     for name in ("PAGE_INDEX", "PAGE_APP", "STYLE_CSS", "APP_JS", "I18N_JS",
+                 "THEME_CSS",
                  "ROBOTS_TXT", "SITEMAP_XML", "OG_IMAGE_PNG_B64"):
         assert hasattr(pages, name), f"src.pages 缺少 {name}"
     # SEO 内容真实可用

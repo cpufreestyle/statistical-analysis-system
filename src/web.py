@@ -48,11 +48,11 @@ DEFAULT_YEAR = 2024
 #: 避免把 vercel.app 写死在索引与分享元数据里。
 _BASE_URL = _os.environ.get("QU_STAT_BASE_URL", "https://qu-stat-system.vercel.app").rstrip("/")
 
-#: 静态资源版本号 = 三份前端资源的内容哈希（前 12 位）。改了任一资源，哈希自动变，
+#: 静态资源版本号 = 四份前端资源的内容哈希（前 12 位）。改了任一资源，哈希自动变，
 #: 页面里的 ``?v=`` 随之变，浏览器必然拉新文件——这样才能给静态资源上「一年 immutable」
 #: 的长缓存，同时 HTML / 接口保持 no-store（见 :func:`_apply_headers` 的说明）。
 _ASSET_VER = hashlib.sha256(
-    (pages.STYLE_CSS + pages.APP_JS + pages.I18N_JS).encode("utf-8")
+    (pages.THEME_CSS + pages.STYLE_CSS + pages.APP_JS + pages.I18N_JS).encode("utf-8")
 ).hexdigest()[:12]
 
 #: 静态资源缓存（URL 已带内容哈希版本号，可安全长缓存）。
@@ -344,6 +344,16 @@ def serve_og_image():
 def serve_css():
     return pages.STYLE_CSS, 200, {"Content-Type": "text/css; charset=utf-8",
                                   "Cache-Control": _STATIC_CACHE}
+
+@app.route("/theme.css")
+def serve_theme_css():
+    """全站主题令牌（light / dark 双入口的唯一事实来源）。
+
+    ``/`` 与 ``/app`` 都在自己的样式表之前引入它，两个页面因此共用同一套灰阶、
+    底色与深色覆盖；用户手动选的主题（localStorage ``qu_theme_v1``）也才能在两页间生效。
+    """
+    return pages.THEME_CSS, 200, {"Content-Type": "text/css; charset=utf-8",
+                                "Cache-Control": _STATIC_CACHE}
 
 
 @app.route("/app.js")

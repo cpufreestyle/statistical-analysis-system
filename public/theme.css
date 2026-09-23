@@ -1,0 +1,209 @@
+/* =============================================
+   全站主题令牌 —— 唯一事实来源
+
+   由两个页面在各自样式之前引入：
+     · /app   -> theme.css 然后 style.css（看板组件样式）
+     · /      -> theme.css 然后页面内联样式（落地页组件样式）
+   令牌必须先立、组件后取，故 <link> 顺序不可调换。
+
+   本文件取代了原先两处各自为政的定义（public/style.css 的 :root 与
+   public/index.html 内联 :root/深色块）——那两处灰度值不同、深色覆盖范围也不同，
+   导致同一站点在两个页面间灰度不一致，且落地页拿不到用户手动选的主题。
+
+   深色有两个入口、共用同一份值（CSS 没有「复用一份声明」的机制，只能各写一遍）：
+     · :root[data-theme="dark"]            —— 手动切到深色。两个页面的 <head> 内联
+                                              脚本按 localStorage(qu_theme_v1) + 系统偏好
+                                              提前写入，无闪白；
+     · @media (prefers-color-scheme: dark) 下的 :root:not([data-theme="light"])
+                                              —— 禁用 JS 时仍跟随系统。
+   改令牌只改这里；两个入口必须同步改。
+   ============================================= */
+
+:root {
+  color-scheme: light;
+
+  /* 蓝色体系（主色 --blue-600） */
+  --blue-50:  #F0F7FF;
+  --blue-100: #E0EFFF;
+  --blue-200: #C7DDFF;
+  --blue-300: #A0C4FF;
+  --blue-400: #6EA8FE;
+  --blue-500: #4080F0;
+  --blue-600: #2B6BDB;
+  --blue-700: #1B56C4;
+  --blue-800: #1540A0;
+  --blue-900: #0D2B6E;
+
+  /* 辅助色 tint */
+  --teal-50:  #EFFDF6;
+  --teal-500: #14B8A6;
+  --green-50:  #ECFDF5;
+  --green-500: #22C55E;
+  --green-600: #16A34A;
+  --amber-50:  #FFFBEB;
+  --amber-500: #F59E0B;
+  --red-50:   #FEF2F2;
+  --red-500:  #EF4444;
+
+  /* 灰阶（浅色：深字浅底） */
+  --gray-25:  #FCFDFE;
+  --gray-50:  #F9FAFB;
+  --gray-100: #F3F4F6;
+  --gray-150: #EEF0F2;
+  --gray-200: #E5E7EB;
+  --gray-300: #D1D5DB;
+  --gray-400: #9CA3AF;
+  --gray-500: #6B7280;
+  --gray-600: #4B5563;
+  --gray-700: #374151;
+  --gray-800: #1F2937;
+  --gray-900: #111827;
+
+  /* 中性底色 */
+  --surface:   #ffffff;
+  --surface-2: var(--gray-25);
+
+  /* 字体：不拉外部 CDN（纯离线定位），中文优先苹方/微软雅黑 */
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Source Han Sans SC", "Noto Sans SC", "Helvetica Neue", Arial, sans-serif;
+  --num: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.04);
+
+  /* 图表序列色板（app.js 的 CHART_COLORS 按序引用）。
+     浅色取 600 级（白底对比度 ≥ 3:1，满足 WCAG 1.4.11 非文本对比）；
+     深色在下方换成 300/400 级亮色，避免深底上糊成一团。 */
+  --ch-1:  #2563EB;
+  --ch-2:  #0D9488;
+  --ch-3:  #D97706;
+  --ch-4:  #DC2626;
+  --ch-5:  #7C3AED;
+  --ch-6:  #0284C7;
+  --ch-7:  #16A34A;
+  --ch-8:  #DB2777;
+  --ch-9:  #9333EA;
+  --ch-10: #EA580C;
+  --ch-11: #059669;
+  --ch-12: #4F46E5;
+  --ch-13: #65A30D;
+  --ch-14: #E11D48;
+
+  /* 语义令牌：随主题翻转的组件底色。组件只引用它们，不再各自覆写 :root，
+     落地页与看板因此自动保持一致。 */
+  /* 落地页固定导航的半透明底（毛玻璃） */
+  --nav-bg: rgba(255, 255, 255, 0.92);
+  /* 深色带（技术栈 / 页脚）：设计上恒为深底白字，不参与灰阶反相，
+     否则深色模式下会翻成白底白字而整块消失 */
+  --band-bg:  #111827;
+  --on-band:  rgba(255, 255, 255, 0.5);
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --surface: #131A27;
+  --surface-2: #0F1621;
+
+  --gray-25:  #0E1420;
+  --gray-50:  #0A0F18;
+  --gray-100: #161D2A;
+  --gray-150: #1B2331;
+  --gray-200: #28313F;
+  --gray-300: #3A4658;
+  --gray-400: #6C7A8F;
+  --gray-500: #8B97AA;
+  --gray-600: #AEB9C9;
+  --gray-700: #CBD3DF;
+  --gray-800: #E1E7EF;
+  --gray-900: #F3F6FA;
+
+  --blue-50:  #142138;
+  --blue-100: #17263F;
+  --blue-200: #1E3054;
+
+  --teal-50:  #0F2A27;
+  --green-50: #0E2A1F;
+  --amber-50: #2A2210;
+  --red-50:   #2C1717;
+
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.45);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.55), 0 1px 2px rgba(0,0,0,0.45);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.6), 0 2px 4px -2px rgba(0,0,0,0.45);
+
+  /* 图表色板：深底上改用 300/400 级亮色（600 级在深色背景上对比不足） */
+  --ch-1:  #60A5FA;
+  --ch-2:  #2DD4BF;
+  --ch-3:  #FBBF24;
+  --ch-4:  #F87171;
+  --ch-5:  #A78BFA;
+  --ch-6:  #38BDF8;
+  --ch-7:  #4ADE80;
+  --ch-8:  #F472B6;
+  --ch-9:  #C084FC;
+  --ch-10: #FB923C;
+  --ch-11: #34D399;
+  --ch-12: #818CF8;
+  --ch-13: #A3E635;
+  --ch-14: #FB7185;
+
+  --nav-bg:  rgba(10, 15, 24, 0.85);
+  --band-bg: #060B14;
+
+}
+
+/* 无 JS（或内联脚本被隐私模式挡住）时仍跟随系统；已显式选浅色则不进场。 */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+  --surface: #131A27;
+  --surface-2: #0F1621;
+
+  --gray-25:  #0E1420;
+  --gray-50:  #0A0F18;
+  --gray-100: #161D2A;
+  --gray-150: #1B2331;
+  --gray-200: #28313F;
+  --gray-300: #3A4658;
+  --gray-400: #6C7A8F;
+  --gray-500: #8B97AA;
+  --gray-600: #AEB9C9;
+  --gray-700: #CBD3DF;
+  --gray-800: #E1E7EF;
+  --gray-900: #F3F6FA;
+
+  --blue-50:  #142138;
+  --blue-100: #17263F;
+  --blue-200: #1E3054;
+
+  --teal-50:  #0F2A27;
+  --green-50: #0E2A1F;
+  --amber-50: #2A2210;
+  --red-50:   #2C1717;
+
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.45);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.55), 0 1px 2px rgba(0,0,0,0.45);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.6), 0 2px 4px -2px rgba(0,0,0,0.45);
+
+  /* 图表色板：深底上改用 300/400 级亮色（600 级在深色背景上对比不足） */
+  --ch-1:  #60A5FA;
+  --ch-2:  #2DD4BF;
+  --ch-3:  #FBBF24;
+  --ch-4:  #F87171;
+  --ch-5:  #A78BFA;
+  --ch-6:  #38BDF8;
+  --ch-7:  #4ADE80;
+  --ch-8:  #F472B6;
+  --ch-9:  #C084FC;
+  --ch-10: #FB923C;
+  --ch-11: #34D399;
+  --ch-12: #818CF8;
+  --ch-13: #A3E635;
+  --ch-14: #FB7185;
+
+  --nav-bg:  rgba(10, 15, 24, 0.85);
+  --band-bg: #060B14;
+
+  }
+}

@@ -23,44 +23,35 @@
 <link rel="alternate" hreflang="en" href="https://qu-stat-system.vercel.app/?lang=en">
 <link rel="alternate" hreflang="zh-CN" href="https://qu-stat-system.vercel.app/?lang=zh">
 <link rel="alternate" hreflang="x-default" href="https://qu-stat-system.vercel.app/">
+<script>
+/* 主题预置：在样式表生效前同步决定 light / dark，深色偏好用户不会看到闪白。
+   存储值：auto（跟随系统，此处解析成具体值）/ light / dark，
+   键名与 /app 的 app.js 一致（localStorage: qu_theme_v1）。 */
+(function () {
+  try {
+    var v = localStorage.getItem('qu_theme_v1');
+    var dark = v === 'dark' || (v !== 'light' && !!window.matchMedia
+      && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  } catch (e) { /* 隐私模式等取不到存储时保持默认浅色 */ }
+})();
+</script>
+<link rel="stylesheet" href="/theme.css?v=__ASSET_VER__">
 <style>
 /* =============================================
    全国统计分析系统 · Landing Page
    ============================================= */
 
+/* 页面级形状令牌（圆角）。
+   颜色 / 字体 / 阴影 / 图表色板等主题令牌全部来自 <head> 引入的 theme.css ——
+   落地页原先自带一整套灰阶与蓝色，取值（#F8FAFC / #E2E8F0 / …）与看板的
+   style.css（#F9FAFB / #E5E7EB / …）不同，同一站点两个页面灰度不一致；现已删除。
+   圆角两页有意不同（看板 8/12，落地页 10/16），故留在此处。
+   原 --radius-xl 已确认无人引用，删除。 */
 :root {
-  --blue-50:  #F0F7FF;
-  --blue-100: #E0EFFF;
-  --blue-200: #C7DDFF;
-  --blue-300: #A0C4FF;
-  --blue-400: #6EA8FE;
-  --blue-500: #4080F0;
-  --blue-600: #2B6BDB;
-  --blue-700: #1B56C4;
-  --blue-800: #1540A0;
-  --blue-900: #0D2B6E;
-
-  --gray-50:  #F8FAFC;
-  --gray-100: #F1F5F9;
-  --gray-150: #E8ECF1;
-  --gray-200: #E2E8F0;
-  --gray-300: #CBD5E1;
-  --gray-400: #94A3B8;
-  --gray-500: #64748B;
-  --gray-600: #475569;
-  --gray-700: #334155;
-  --gray-800: #1E293B;
-  --gray-900: #0F172A;
-
-  --surface: #ffffff;
-
-  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Source Han Sans SC", "Noto Sans SC", "Helvetica Neue", Arial, sans-serif;
-  --num: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
-
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 16px;
-  --radius-xl: 24px;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -89,7 +80,7 @@ body {
   left: 0;
   right: 0;
   z-index: 100;
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--nav-bg);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--gray-100);
   padding: 0 48px;
@@ -543,7 +534,7 @@ body {
 
 /* ============ Tech Stack ============ */
 .tech-stack {
-  background: var(--gray-900);
+  background: var(--band-bg);
   padding: 100px 48px;
   color: white;
 }
@@ -606,10 +597,10 @@ body {
 
 /* ============ Footer ============ */
 .footer {
-  background: var(--gray-900);
+  background: var(--band-bg);
   padding: 48px;
   text-align: center;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--on-band);
   font-size: 14px;
 }
 
@@ -667,31 +658,6 @@ body {
   }
 }
 
-/* ============ 深色模式（跟随系统 prefers-color-scheme） ============ */
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-    --surface: #131A27;
-    --gray-50:  #0A0F18;
-    --gray-100: #161D2A;
-    --gray-150: #1B2331;
-    --gray-200: #28313F;
-    --gray-300: #3A4658;
-    --gray-400: #6C7A8F;
-    --gray-500: #8B97AA;
-    --gray-600: #AEB9C9;
-    --gray-700: #CBD3DF;
-    --gray-800: #E1E7EF;
-    --gray-900: #F3F6FA;
-    --blue-50:  #142138;
-    --blue-100: #17263F;
-    --blue-200: #1E3054;
-  }
-  /* 两个「深色带」在深色模式下仍保持深底白字（否则灰阶反相会让白字消失） */
-  .tech-stack, .footer { background: #060B14; }
-  /* 顶部固定导航的白色半透明底 → 深色半透明 */
-  .nav { background: rgba(10, 15, 24, 0.85); }
-}
 </style>
 <script type="application/ld+json">
 {
@@ -741,6 +707,7 @@ body {
     <li><a href="#tech" data-i18n="技术栈">技术栈</a></li>
     <li><a href="/docs" data-i18n="API 文档">API 文档</a></li>
   </ul>
+  <button id="themeToggle" class="lang-toggle" type="button" onclick="cycleTheme()" aria-label="切换主题 / Switch theme" title="主题：跟随系统 / Theme: Match system">🌗</button>
   <button id="langToggle" class="lang-toggle" type="button" onclick="toggleLang()" aria-label="切换语言 / Switch language">EN</button>
   <a href="/app" class="nav-cta" data-i18n="进入系统 →">进入系统 →</a>
   </div>
@@ -1033,6 +1000,64 @@ fetch('/api/stats')
     if (el) el.textContent = Number(d.indicator_rows || 0).toLocaleString();
   })
   .catch(() => {});
+
+/* ── 主题：跟随系统 / 浅色 / 深色 ──
+   与 /app 的 app.js 同一套约定：同一个 localStorage 键（qu_theme_v1）、同一个
+   三态顺序、同样在系统偏好变化时跟随。令牌本身在 theme.css，这里只管按钮图标、
+   持久化与 aria 文案；落地页没有 toast，档位变化由按钮 title/aria-label 体现。 */
+const THEME_KEY = 'qu_theme_v1';
+const THEME_ORDER = ['auto', 'light', 'dark'];
+const THEME_META = {
+  auto:  { icon: '🌗', zh: '跟随系统', en: 'Match system' },
+  light: { icon: '☀️', zh: '浅色',   en: 'Light' },
+  dark:  { icon: '🌙', zh: '深色',   en: 'Dark' }
+};
+
+function themeMode() {
+  try {
+    var v = localStorage.getItem(THEME_KEY);
+    return THEME_ORDER.indexOf(v) >= 0 ? v : 'auto';
+  } catch (e) { return 'auto'; }
+}
+
+function themeIsDarkSystem() {
+  try { return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); }
+  catch (e) { return false; }
+}
+
+function themeApply(mode) {
+  var meta = THEME_META[mode] || THEME_META.auto;
+  var dark = mode === 'auto' ? themeIsDarkSystem() : mode === 'dark';
+  var root = document.documentElement;
+  if (root) root.setAttribute('data-theme', dark ? 'dark' : 'light');
+  var btn = document.getElementById('themeToggle');
+  if (btn) {
+    btn.textContent = meta.icon;
+    var label = '主题：' + meta.zh + ' / Theme: ' + meta.en;
+    btn.title = label;
+    btn.setAttribute('aria-label', label);
+  }
+}
+
+function cycleTheme() {
+  var next = THEME_ORDER[(THEME_ORDER.indexOf(themeMode()) + 1) % THEME_ORDER.length];
+  try { localStorage.setItem(THEME_KEY, next); }
+  catch (e) { /* 隐私模式取不到存储时仅本次会话生效 */ }
+  themeApply(next);
+}
+
+function initTheme() {
+  themeApply(themeMode());
+  try {
+    var mq = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
+    if (!mq) return;
+    var onChange = function () { if (themeMode() === 'auto') themeApply('auto'); };
+    if (mq.addEventListener) mq.addEventListener('change', onChange);
+    else if (mq.addListener) mq.addListener(onChange);   // 旧版 Safari
+  } catch (e) { /* 忽略 */ }
+}
+initTheme();
 </script>
 </body>
 </html>
+

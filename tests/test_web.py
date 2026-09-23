@@ -121,7 +121,7 @@ def test_html_is_no_store(client):
 
 
 def test_static_asset_long_cache(client):
-    for path in ("/style.css", "/app.js", "/i18n.js"):
+    for path in ("/theme.css", "/style.css", "/app.js", "/i18n.js"):
         cc = client.get(path).headers.get("Cache-Control", "")
         assert "max-age=31536000" in cc and "immutable" in cc, path
 
@@ -165,6 +165,83 @@ def test_asset_version_is_content_hash(client):
     html = client.get("/app").get_data(as_text=True)
     versions = set(re.findall(r"\?v=([0-9a-f]{6,})", html))
     assert versions == {web._ASSET_VER}
+
+
+def _token_names(block: str) -> set[str]:
+    """取出一段 CSS 里定义过的自定义属性名（value 不重要，只比集合）。"""
+    import re
+
+    return set(re.findall(r"(--[a-z0-9-]+)\s*:", block))
+
+
+def test_theme_css_is_the_single_source_of_tokens(client):
+    """主题令牌唯一来源：深浅两个入口都在 theme.css，页面样式不得再自建色阶。
+
+    历史上 public/style.css 与 public/index.html 各有一套灰阶/蓝色，取值还不一样
+    （#F9FAFB/#E5E7EB vs #F8FAFC/#E2E8F0），同一站点两个页面灰度不一致。
+    """
+    theme = client.get("/theme.css").get_data(as_text=True)
+    assert ':root[data-theme="dark"]' in theme, "theme.css 缺少手动深色入口"
+    assert "@media (prefers-color-scheme: dark)" in theme, "theme.css 缺少跟随系统的深色入口"
+    # 每个灰阶/底色令牌 = 浅色 1 次 + 两个深色入口各 1 次
+    assert theme.count("--gray-500:") == 3, "灰阶令牌未在三个入口各定义一次"
+    assert theme.count("--surface:") == 3, "底色令牌未在三个入口各定义一次"
+    # 蓝色不随主题反相，只应定义一次
+    assert theme.count("--blue-600:") == 1, "主色不应被深色入口重复定义"
+    # 语义令牌：落地页深色带与半透明导航靠它们随主题翻转
+    assert "--band-bg:" in theme and "--nav-bg:" in theme, "缺少语义令牌"
+    # 两个深色入口必须定义完全相同的令牌集合，否则「手动切深色」与「跟随系统」会走到两套外观
+    manual = theme.split(':root[data-theme="dark"] {')[1].split("}")[0]
+    system = theme.split(':root:not([data-theme="light"]) {')[1].split("}")[0]
+    assert _token_names(manual) == _token_names(system), (
+        "两个深色入口的令牌集合不一致：",
+        sorted(_token_names(manual) ^ _token_names(system)))
+
+    for page in ("/", "/app"):
+        html = client.get(page).get_data(as_text=True)
+        assert "--gray-500:" not in html, f"{page} 仍在自建灰阶令牌（应只保留在 theme.css）"
+        assert "--blue-600:" not in html, f"{page} 仍在自建蓝色令牌"
+        head = html.split("<style>")[0]
+        assert "prefers-color-scheme: dark) {" not in head, f"{page} 在 <style> 前又挂了深色覆写"
+
+
+def test_theme_css_loads_before_page_styles(client):
+    """令牌必须先立、组件后取：theme.css 必须排在页面自己的样式之前。"""
+    app = client.get("/app").get_data(as_text=True)
+    assert app.index("/theme.css?v=") < app.index("/style.css?v="), "看板里 theme.css 排在 style.css 之后"
+    index = client.get("/").get_data(as_text=True)
+    assert index.index("/theme.css?v=") < index.index("<style>"), "落地页里 theme.css 排在内联样式之后"
+
+
+def test_landing_page_shares_the_workbench_theme_contract(client):
+    """落地页必须与看板同一套主题约定：同一个 storage 键、防闪白脚本、三态按钮。
+
+    此前落地页只跟随系统偏好、读不到用户手动选的主题——在看板切到深色后回到首页，
+    首页仍是一片白。
+    """
+    html = client.get("/").get_data(as_text=True)
+    assert "qu_theme_v1" in html, "落地页没有沿用 qu_theme_v1 这个主题存储键"
+    assert 'id="themeToggle"' in html, "落地页缺少主题切换按钮"
+    assert 'onclick="cycleTheme()"' in html, "落地页主题按钮未接三态循环"
+    assert "document.documentElement.setAttribute('data-theme'" in html, "落地页缺少防闪白预置脚本"
+    # 防闪白脚本必须出现在样式表之前，否则深色偏好用户仍会闪一下白
+    assert html.index("qu_theme_v1") < html.index("/theme.css?v="), "防闪白脚本排在 theme.css 之后"
+
+
+def test_landing_theme_dark_band_uses_tokens(client):
+    """落地页两块「深色带」必须走语义令牌，不能再写死灰阶——否则深色下反相成白底白字。"""
+    import re
+
+    html = client.get("/").get_data(as_text=True)
+    style = html.split("<style>")[1].split("</style>")[0]
+    for sel in (".tech-stack", ".footer"):
+        block = re.search(re.escape(sel) + r"\s*\{([^}]*)\}", style)
+        assert block, f"{sel} 规则缺失"
+        assert "var(--band-bg)" in block.group(1), f"{sel} 未改用 --band-bg 语义令牌"
+    nav = re.search(r"\.nav\s*\{([^}]*)\}", style)
+    assert nav and "var(--nav-bg)" in nav.group(1), ".nav 未改用 --nav-bg 语义令牌"
+
+
 
 
 # ---------------------------------------------------------------------------

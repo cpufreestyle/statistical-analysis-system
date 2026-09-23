@@ -7,6 +7,11 @@
 这里用 Node 的 ``vm`` 在沙箱里执行**仓库里那份原始 JS**（零依赖、零构建、
 无 package.json），由 ``tests/frontend_behavior.mjs`` 驱动并断言输出。
 JS 侧细节改坏了会在 ``.mjs`` 里报出具体场景；本机 / CI 无 node 时整节跳过。
+
+``public/index.html`` 是自包含页面（不引 app.js），它的主题三态在文件末尾的内联
+``<script>`` 里，由 ``tests/landing_theme_behavior.mjs`` 单独抽取执行——落地页与
+看板必须共用同一套主题约定（同一个 ``qu_theme_v1`` 键、同一个三态顺序），
+单测看板会漏掉只改首页造成的回归。
 """
 from __future__ import annotations
 
@@ -62,6 +67,31 @@ SCENARIOS = [
     "洞察含名次变动",
     "洞察含覆盖计数",
     "无洞察给空态",
+    # 加载期初始化顺序（app.js 末尾的增强能力初始化必须在所有 const 声明之后）
+    "加载即同步主题按钮",
+    "加载即落地 data-theme",
+    "Ctrl+K 能打开命令面板",
+    "Esc 能关闭命令面板",
+    "问号键能打开帮助浮层",
+    "Esc 能关闭帮助浮层",
+]
+
+
+# 落地页主题场景（public/index.html 自包含，不走 app.js，故单独一个 harness）
+LANDING_HARNESS = BASE_DIR / "tests" / "landing_theme_behavior.mjs"
+
+LANDING_SCENARIOS = [
+    "落地页默认主题为 auto",
+    "系统深色时 auto 解析为 dark",
+    "手动浅色优先于系统深色",
+    "手动深色优先于系统浅色",
+    "主题按钮有可读标签",
+    "落地页主题循环顺序 auto/light/dark",
+    "深色档位落在 system 浅色下的 dark",
+    "落地页主题选择已持久化",
+    "落地页监听系统配色变化",
+    "系统变深后 auto 跟随到 dark",
+    "手动档位不跟随系统变化",
 ]
 
 
@@ -106,3 +136,39 @@ def test_harness_goes_red_when_the_empty_state_guard_is_broken(node: str, tmp_pa
     output = (proc.stdout or "") + (proc.stderr or "")
     assert proc.returncode != 0, "破坏空态兜底后 harness 仍全绿，检查已失去防线作用"
     assert "[FAIL] 兜底带切回亚太的出口" in output, output
+
+
+def test_landing_theme_behavior_checks_pass(node: str) -> None:
+    """落地页（/）必须与看板（/app）同一套主题约定。
+
+    落地页不引 app.js，主题三态实现在 index.html 末尾的内联脚本里；
+    改动只落在 public/index.html 时同样要有机检，而不是靠人工点浏览器。
+    """
+    proc = subprocess.run(
+        [node, str(LANDING_HARNESS)], capture_output=True, text=True,
+        encoding="utf-8", errors="replace", timeout=120, cwd=str(BASE_DIR),
+    )
+    output = (proc.stdout or "") + (proc.stderr or "")
+    assert proc.returncode == 0, f"落地页主题行为检查未通过：\n{output}"
+    assert "0 项未通过" in output, output
+    for name in LANDING_SCENARIOS:
+        assert f"[PASS] {name}" in output, f"缺少落地页场景结果「{name}」：\n{output}"
+
+
+def test_landing_harness_goes_red_when_persistence_is_broken(node: str, tmp_path: Path) -> None:
+    """harness 本身必须可失败：改坏主题持久化时要红，而不是静默少跑。"""
+    original = (BASE_DIR / "public" / "index.html").read_text(encoding="utf-8")
+    guard = "localStorage.setItem(THEME_KEY, next)"
+    assert guard in original, "public/index.html 的主题持久化语句已变化，请同步本测试"
+
+    broken = tmp_path / "index_broken.html"
+    broken.write_text(original.replace(guard, "/* persist disabled */"), encoding="utf-8")
+
+    proc = subprocess.run(
+        [node, str(LANDING_HARNESS)], capture_output=True, text=True, encoding="utf-8",
+        errors="replace", timeout=120, cwd=str(BASE_DIR),
+        env={**os.environ, "QU_STAT_INDEX_HTML": str(broken)},
+    )
+    output = (proc.stdout or "") + (proc.stderr or "")
+    assert proc.returncode != 0, "破坏主题持久化后 harness 仍全绿，检查已失去防线作用"
+    assert "[FAIL] 落地页主题循环顺序 auto/light/dark" in output, output

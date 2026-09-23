@@ -70,10 +70,10 @@ ENDPOINTS: list[dict[str, object]] = [
         "example": "curl -s \"$BASE/privacy?lang=en\"",
     },
     {
-        "group": "pages", "method": "GET", "path": "/style.css · /app.js · /i18n.js",
+        "group": "pages", "method": "GET", "path": "/theme.css · /style.css · /app.js · /i18n.js",
         "auth": False,
         "title": ("前端资源", "Frontend assets"),
-        "desc": ("三份前端资源（样式 / 逻辑 / 词表）。页面引用时带内容哈希版本号 "
+        "desc": ("四份前端资源（主题令牌 / 样式 / 逻辑 / 词表）。页面引用时带内容哈希版本号 "
                  "``?v=<sha256 前 12 位>``，因此可以放心长缓存。",
                  "The three frontend assets (styles / logic / word list). Pages reference "
                  "them with a content-hash version, ``?v=<sha256[:12]>``, which makes the "

@@ -37,6 +37,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
   `@media (prefers-color-scheme:dark)` 双入口、同一份令牌。
 - **指标卡迷你趋势 sparkline。** 一次 `/api/indicators?dimension=KEY` 取跨年序列并按 `indicator_key`
   分组绘制；纯装饰（`aria-hidden`），取数失败静默降级。
+- **新增 `public/theme.css`（全站主题令牌的唯一事实来源）与只读路由 `GET /theme.css`。**
+  把原先分散在两处的令牌收敛到一份文件：`public/style.css` 的 `:root` 与 `public/index.html`
+  内联 `:root` 各自定义了一整套灰阶/蓝色，取值还不一样（`#F9FAFB`/`#E5E7EB` vs
+  `#F8FAFC`/`#E2E8F0`），同一站点两个页面灰度不一致。现在 `/` 与 `/app` 都在自己的样式
+  之前引入它；深色保留「手动 + 跟随系统」两个入口、同一份值，并新增 `--nav-bg` / `--band-bg`
+  语义令牌让落地页组件随主题翻转。
+- **落地页接入三态主题。** 补上与 `/app` 一致的 `<head>` 防闪白预置脚本、导航栏主题切换按钮
+  与三态循环逻辑，沿用同一个 `qu_theme_v1` 存储键——此前落地页只跟随系统偏好，在看板切到
+  深色后回到首页仍是一片白。
 
 ### Changed
 
@@ -65,10 +74,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
 - **看板 UI 细节收尾。** `.wb-tabs` 吸顶（`position:sticky; top:var(--header-h)`）；
   `public/i18n.js` 的 `ZH2EN` 补齐命令面板 / 快捷键 / 主题 / 洞察约 40 个键；
   删除 `.mini-chart` / `.mini-bar` 死代码，新增 `.insight-*` / `.section-desc` 样式。
+- **主题令牌统一下沉。** `style.css` 不再自带 `:root` 深色覆写（删掉 105 行重复定义），
+  只留页面级布局令牌；`index.html` 删掉自己的灰度/蓝色定义与半套深色规则，圆角两页取值
+  本就不同（看板 8/12、落地页 10/16），仍留在各自页面。原 `--radius-xl` 确认无人引用后删除。
+- **落地页深色带与导航改走语义令牌。** `.tech-stack` / `.footer` 原先写死 `var(--gray-900)`，
+  深色模式下灰阶反相会让它们翻成白底白字而整块消失；`.nav` 的半透明底同理。
 
 ### Docs
 
 - 新增根目录 **`INFINISYNAPSE_INTEGRATION.md`**（人读）与 **`AGENT_CHANGES.json`**（机读）变更记录。
+- 新增根目录 **`HANDOFF-2026-09-23.md`** 项目交接（自包含）。
 
 ### Fixed
 
@@ -76,13 +91,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
   `Cache-Control: no-store` 改成 `no-cache`，违反「页面永不缓存」契约——现**仅对 JSON 接口**启用；
   ② 新增路由 `/api/infini_skill` 未登记进 `src/api_docs.py::ENDPOINTS`，触发文档一致性门禁——已补齐。
   全量 `pytest`（125 项）恢复全绿。
+- **修复看板「增强能力」加载即失效的回归（真实浏览器验证时发现）。** `app.js` 里
+  `try { initTheme(); initShortcuts(); initPalette(); }` 写在 `init()` 内、位于 `THEME_KEY` /
+  `THEME_ORDER` / `THEME_META` 等 `const` 声明之前，一执行就踩暂时死区抛 `ReferenceError`，
+  又被 `try/catch` 静默吞掉——页面看着毫无异常，但 `Ctrl`/`⌘`+`K`、`?`、`1`–`5`、`/` 全部失效，
+  主题按钮的图标与文案也不同步。现已移到文件末尾执行，且失败要 `console.error` 留痕；
+  `tests/frontend_behavior.mjs` 新增 6 条「加载即初始化」哨兵场景守住这个顺序。
 - **小号文字对比度不达 WCAG AA。** 29 处 10–12px 灰字由 `--gray-400` 升至 `--gray-500`
   （白底 2.54:1 → 4.83:1，深色底 4.0:1 → 5.9:1），`.metric-tag` 底色同步改浅；
   另修 `compactNum()` 对空值返回「0」而非「—」的边界缺陷。
-
-### Docs
-
-- 新增根目录 **`HANDOFF-2026-09-23.md`** 项目交接（自包含）。
 
 ## v1.5.2 — 2026-09-22 — UI quality pass (`3b00c03`…`d07cf55`)
 

@@ -169,8 +169,7 @@ function exportChartCsv() {
   loadCustomList();
   loadDbStats();
   loadInsights();
-  /* 主题预设 / 全局快捷键 / 命令面板：增强能力，单独 try 避免影响主流程 */
-  try { initTheme(); initShortcuts(); initPalette(); } catch (e) { /* 忽略 */ }
+
 })();
 
 /* ───── 下拉框填充（统一入口，保证语言切换后可重填） ───── */
@@ -1645,4 +1644,19 @@ function renderRank() {
   svg += '</svg>';
   box.innerHTML = svg;
   attachRankTip(box, rows, CHART.unit);
+}
+
+/* ───── 增强能力初始化：必须放在所有声明之后 ─────
+   initTheme / initShortcuts / initPalette 的函数体内引用本文件下方的 const
+   （THEME_KEY / THEME_ORDER / THEME_META / SHORTCUT_ROWS …）。const 的绑定虽被提升，
+   但处于暂时死区——早先把这行放在上面的 init() 里，一执行就抛 ReferenceError，
+   又被 try/catch 静默吞掉：快捷键、命令面板、主题按钮同步全部失效，而页面看起来毫无异常。
+   现在移到文件末尾执行，且失败必须留痕，不能再被无声吞掉。
+   tests/frontend_behavior.mjs 的「加载即初始化主题/快捷键/命令面板」守住这个顺序。 */
+try {
+  initTheme();
+  initShortcuts();
+  initPalette();
+} catch (e) {
+  console.error("增强能力初始化失败（快捷键/命令面板/主题切换会不可用）", e);
 }
