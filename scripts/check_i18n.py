@@ -65,6 +65,7 @@ CHECKS: list[tuple[str, str, dict]] = [
     ("/api/indicator_keys", "可绑定指标键", {}),
     ("/api/report", "统计公报", {"format": "json", "year": 2024, "dimension": "亚太"}),
     ("/api/report", "统计公报", {"format": "json", "year": 2024, "dimension": "中国"}),
+    ("/api/ai-cache", "解读缓存指标", {}),
     ("/api/ask", "自然语言查询", {"text": "2024 GDP", "dimension": "亚太"}),
     ("/api/ask", "自然语言查询", {"text": "GDP growth", "dimension": "亚太"}),
     ("/api/ask", "自然语言查询", {"text": "工业增加值", "dimension": "中国"}),

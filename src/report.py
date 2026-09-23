@@ -148,15 +148,15 @@ def _extract_cloud_text(result: object) -> str:
     return json.dumps(result, ensure_ascii=False)
 
 
-def _cloud_interpret(bulletin: str, lang: str) -> tuple[str, str]:
-    """调用 InfiniSynapse 对公报做解读。返回 (解读文本, 备注/错误)。"""
+def _cloud_interpret(bulletin: str, lang: str) -> tuple[str, str, bool]:
+    """调用云端 AI 对公报做解读。返回 (解读文本, 备注/错误, 是否命中缓存)。"""
     en = not lang.startswith("zh")
     from src.analyzer import get_analyzer, AgentInfiniError
     try:
         az = get_analyzer(lang=lang)
         if az is None:
             return ("", "Cloud AI is not enabled; local bulletin only." if en
-                    else "云端分析未启用，仅输出本地统计公报。")
+                    else "云端分析未启用，仅输出本地统计公报。", False)
         kb_ctx = knowledge.retrieve_context(bulletin, limit=5, lang=lang)
         knowledge_block = (f"\n\n[Knowledge-base caliber notes]\n{kb_ctx}\n"
                            if (kb_ctx and en) else
@@ -176,11 +176,12 @@ def _cloud_interpret(bulletin: str, lang: str) -> tuple[str, str]:
             )
         bulletin_file = [{"name": ("统计公报.md" if not en else "bulletin.md"),
                           "content": bulletin + knowledge_block}]
-        out = az.analyze(prompt, files=bulletin_file)
-        return (_extract_cloud_text(out.get("result")), "")
+        from src import ai_cache
+        out, cached = ai_cache.analyze_cached(az, prompt, files=bulletin_file, lang=lang)
+        return (_extract_cloud_text(out.get("result")), "", cached)
     except AgentInfiniError as e:
         return ("", f"Cloud interpretation failed: {e}" if en
-                else f"云端解读失败：{e}")
+                else f"云端解读失败：{e}", False)
 
 
 def build_report(year: int, use_cloud: bool = False, dimension: str = "亚太",
@@ -189,9 +190,10 @@ def build_report(year: int, use_cloud: bool = False, dimension: str = "亚太",
     data = build_bulletin_data(year, dimension, lang)
     data["ai"] = ""
     data["ai_note"] = ""
+    data["ai_cached"] = False
     if use_cloud:
         text = _render_text(data, year, dimension, lang)
-        data["ai"], data["ai_note"] = _cloud_interpret(text, lang)
+        data["ai"], data["ai_note"], data["ai_cached"] = _cloud_interpret(text, lang)
     return data
 
 
@@ -202,7 +204,7 @@ def generate_report(year: int, use_cloud: bool = False,
     if not use_cloud:
         return bulletin
     en = not lang.startswith("zh")
-    ai, note = _cloud_interpret(bulletin, lang)
+    ai, note, _cached = _cloud_interpret(bulletin, lang)
     if note:
         return bulletin + ("\n\n[Note] " if en else "\n\n[注] ") + note
     head = "\n[AI Interpretation]\n" if en else "\n【AI 解读】\n"

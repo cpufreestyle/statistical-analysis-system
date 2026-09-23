@@ -325,6 +325,60 @@ select.query-input:focus {
   color: var(--blue-600);
 }
 
+/* ═══════ 最近提问（本机历史问题，点一下重跑）═══════ */
+.query-recent {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.query-recent-label {
+  font-size: 12px;
+  color: var(--gray-500);
+  flex-shrink: 0;
+}
+
+.recent-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* 与示例问题同款外形，用虚线边区分「这是你刚才问过的」 */
+.recent-chip {
+  border-style: dashed;
+  background: var(--surface);
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.recent-clear {
+  font-family: var(--font);
+  font-size: 11px;
+  color: var(--gray-500);
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.recent-clear:hover {
+  color: var(--red-500);
+  text-decoration: underline;
+}
+
+.recent-chip:focus-visible,
+.recent-clear:focus-visible {
+  outline: 2px solid var(--blue-500);
+  outline-offset: 1px;
+}
+
 /* 按钮系统 */
 .btn {
   font-family: var(--font);
@@ -1078,6 +1132,28 @@ select.query-input:focus {
 .ai-body { font-size: 13px; line-height: 1.7; color: var(--gray-700); }
 .ai-body b { color: var(--gray-900); }
 .ai-foot { margin-top: 8px; font-size: 11px; color: var(--gray-500); font-family: var(--num); }
+/* AI 解读来自缓存：省下的是真金白银的 token 与 5-20 秒等待，必须让人看见 */
+.cache-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ok-fg);
+  background: var(--ok-bg);
+  border: 1px solid var(--ok-bd);
+  border-radius: 10px;
+  padding: 1px 8px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.ai-elapsed {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--gray-500);
+  font-family: var(--num);
+  margin-left: 8px;
+}
+
 
 /* ═══════ 统计公报输出 ═══════ */
 .bulletin-out {

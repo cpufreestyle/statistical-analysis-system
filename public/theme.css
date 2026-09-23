@@ -98,6 +98,10 @@
      否则深色模式下会翻成白底白字而整块消失 */
   --band-bg:  #111827;
   --on-band:  rgba(255, 255, 255, 0.5);
+  /* 「来自缓存」徽标：缓存命中时的正向强调色（浅色深字浅底，深色入口换成亮字） */
+  --ok-fg: #166534;
+  --ok-bg: #ECFDF5;
+  --ok-bd: #BBF7D0;
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
@@ -149,6 +153,9 @@
 
   --nav-bg:  rgba(10, 15, 24, 0.85);
   --band-bg: #060B14;
+  --ok-fg: #4ADE80;
+  --ok-bg: #0E2A1F;
+  --ok-bd: #14532D;
 
 }
 
@@ -204,6 +211,9 @@
 
   --nav-bg:  rgba(10, 15, 24, 0.85);
   --band-bg: #060B14;
+  --ok-fg: #4ADE80;
+  --ok-bg: #0E2A1F;
+  --ok-bd: #14532D;
 
   }
 }

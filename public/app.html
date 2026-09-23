@@ -139,6 +139,12 @@
             <span class="suggestion-chip" data-i18n="chip.invest" data-q-en="fixed asset investment" data-q-zh="固定资产投资总额" onclick="fillQueryI18n(this)">固定资产投资总额</span>
             <span class="suggestion-chip" data-i18n="chip.pop" data-q-en="total population of Japan" data-q-zh="日本人口" onclick="fillQueryI18n(this)">常住人口数据</span>
           </div>
+          <!-- 最近提问：localStorage 记住本机问过的问题，点一下直接重跑；无记录时整块隐藏 -->
+          <div class="query-recent" id="nlqRecent" hidden>
+            <span class="query-recent-label" data-i18n="最近提问">最近提问</span>
+            <span class="recent-chips" id="nlqRecentChips"></span>
+            <button type="button" class="recent-clear" id="nlqRecentClear" data-i18n="清空" onclick="clearRecentQueries()">清空</button>
+          </div>
           <div id="nlqResult" class="ans-box" aria-live="polite"></div>
         </div>
 

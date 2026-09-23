@@ -32,6 +32,7 @@ from src import knowledge as kb
 from src import collect as collector
 from src import labels
 from src import api_docs
+from src import ai_cache
 from src import error_pages
 from src import privacy_page
 from src.stats import indicators as ind
@@ -705,7 +706,9 @@ def api_ask():
         # 云端提示词喂原始（中文规范键）事实，避免本地化后再回溯口径
         from src.analyzer import build_facts_files
         facts = build_facts_files(local, lang)
-        out = az.analyze(_cloud_prompt(text, local, lang), files=facts)
+        prompt = _cloud_prompt(text, local, lang)
+        # 缓存：同一问题 + 同一份事实 -> 复用上一次解读，不重复打云端
+        out, cached = ai_cache.analyze_cached(az, prompt, files=facts, lang=lang)
         answer = str(out.get("result") or "").strip()
         if answer:
             local["AI 解读"] = answer
@@ -713,6 +716,8 @@ def api_ask():
             local["task_id"] = out["task_id"]
         if out.get("console_url"):
             local["console_url"] = out["console_url"]
+        if cached:
+            local["cached"] = True
         return jsonify(labels.localize_payload(local, lang))
     except AgentInfiniError as e:
         local["注"] = (f"Cloud analysis failed: {e}" if lang == "en"
@@ -804,6 +809,14 @@ def api_infini_skill():
         "workflow": infini_skill.recommended_workflow(),
         "preflight": infini_skill.preflight(db_ids, rag_ids),
     })
+
+@app.route("/api/ai-cache")
+def api_ai_cache():
+    """AI 解读缓存的运行指标：命中数 / 未命中 / L1 容量 / L2 是否可用。
+
+    只读、无副作用，用于验证「重复提问真的没有重复打云端」。
+    """
+    return jsonify(ai_cache.cache_stats())
 
 
 def _is_legacy_dataset(dims: set[str]) -> bool:

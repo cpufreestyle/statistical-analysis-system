@@ -351,6 +351,18 @@ ENDPOINTS: list[dict[str, object]] = [
         ],
         "example": "curl -s \"$BASE/api/infini_skill\"",
     },
+    {
+        "group": "ai", "method": "GET", "path": "/api/ai-cache", "auth": False,
+        "title": ("解读缓存指标", "Interpretation cache metrics"),
+        "desc": ("AI 解读缓存的运行指标：命中 / 未命中计数、L1 容量、Redis 是否可用。"
+                 "只读、无副作用，用来验证「重复提问真的没有重复打云端」。",
+                 "Runtime metrics for the interpretation cache: hit / miss counters, "
+                 "L1 capacity and whether Redis is available. Read-only and "
+                 "side-effect free — it proves a repeated question never re-hit the "
+                 "cloud."),
+        "params": [],
+        "example": "curl -s \"$BASE/api/ai-cache\"",
+    },
 
     # ── 知识库接口 ────────────────────────────────────────────────────
     {

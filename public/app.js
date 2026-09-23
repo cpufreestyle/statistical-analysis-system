@@ -122,6 +122,64 @@ function exportChartCsv() {
   showToast(tr('已导出 CSV'), 'success');
 }
 
+/* ═══════ 最近提问 ═══════
+   把本机最近问过的问题记在 localStorage，点一下直接重跑——与命令面板互补：
+   面板适合「想到什么搜什么」，这里适合「刚才那个再问一遍」。
+   只存纯文本；隐私模式下存取抛错时整体静默降级，不影响主链路。
+
+   位置说明：这两个 const 必须留在 init() 之前。init() 是文件中部的一个 IIFE，
+   一加载就跑；本文件历史上的回归就是「增强能力」的 const 声明在 init() 之后，
+   一执行就踩暂时死区、又被 try/catch 吞掉。后来者请把这个顺序守住。 */
+const RECENT_KEY = 'qu_recent_q_v1';
+const RECENT_MAX = 6;
+
+function readRecentQueries() {
+  try {
+    var raw = localStorage.getItem(RECENT_KEY);
+    var arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr)
+      ? arr.filter(function (x) { return typeof x === 'string' && x.trim(); }).slice(0, RECENT_MAX)
+      : [];
+  } catch (e) { return []; }
+}
+
+function writeRecentQueries(list) {
+  try {
+    localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, RECENT_MAX)));
+  } catch (e) { /* 隐私模式：不记忆、不报错 */ }
+}
+
+function pushRecentQuery(text) {
+  var q = String(text || '').trim();
+  var cur = readRecentQueries();
+  if (!q) return cur;
+  var next = [q].concat(cur.filter(function (x) { return x !== q; })).slice(0, RECENT_MAX);
+  writeRecentQueries(next);
+  return next;
+}
+
+function clearRecentQueries() {
+  writeRecentQueries([]);
+  renderRecentQueries();
+  showToast(tr('已清空最近提问'), 'success');
+}
+
+function renderRecentQueries() {
+  var box = document.getElementById('nlqRecent');
+  var chips = document.getElementById('nlqRecentChips');
+  if (!box || !chips) return;
+  var list = readRecentQueries();
+  if (!list.length) { box.hidden = true; chips.innerHTML = ''; return; }
+  box.hidden = false;
+  chips.innerHTML = list.map(function (q) {
+    return '<span class="suggestion-chip recent-chip" role="button" tabindex="0"'
+      + ' data-q="' + a(q) + '" title="' + a(q) + '"'
+      + ' onclick="fillQuery(this.dataset.q);runAnalyze()"'
+      + ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();'
+      + 'fillQuery(this.dataset.q);runAnalyze();}">' + h(q) + '</span>';
+  }).join('');
+}
+
 /* ───── 页面入口 ───── */
 (function init() {
   initShareState();   // 从 URL 还原分享状态（年份/维度/语言/图表指标）后再取数
@@ -169,6 +227,7 @@ function exportChartCsv() {
   loadCustomList();
   loadDbStats();
   loadInsights();
+  renderRecentQueries();   // 有历史提问才显示「最近提问」一行
 
 })();
 
@@ -440,12 +499,21 @@ async function runAnalyze() {
   try {
     var u = API + '/api/ask?text=' + enc(input) + '&lang=' + (isZh() ? 'zh' : 'en')
       + '&dimension=' + enc(STATE.dimension) + (useCloud ? '&cloud=1' : '');
+    var t0 = Date.now();
     var r = await fetch(u);
+    var ms = Date.now() - t0;
     var d = await r.json();
     var html = '';
     var ai = pick(d, 'AI 解读', 'ai_interpretation');
     if (ai) {
-      html += '<div class="ai-card"><div class="ai-head">🤖 ' + tr('AI 云端解读') + '</div>'
+      /* 命中缓存要让人看见：省下的是真金白银的 token 与 5-20 秒等待 */
+      var badge = d.cached
+        ? ' <span class="cache-badge" title="' + a(tr('同一问题与同一份数据')) + '">⚡ '
+          + h(tr('来自缓存')) + '</span>'
+        : '';
+      html += '<div class="ai-card"><div class="ai-head">🤖 ' + tr('AI 云端解读') + badge
+        + ' <span class="ai-elapsed">' + h(tr('耗时')) + ' ' + (ms / 1000).toFixed(1)
+        + 's</span></div>'
         + '<div class="ai-body">' + mdToHtml(ai) + '</div>'
         + (d.task_id ? '<div class="ai-foot">' + tr('task_id') + ': ' + h(d.task_id) + '</div>' : '')
         + '</div>';
@@ -454,6 +522,9 @@ async function runAnalyze() {
     var ref = pick(d, '知识库参考', 'kb_reference');
     if (ref) html += '<div class="kb-ref"><b>' + tr('知识库参考') + '</b>' + mdToHtml(ref) + '</div>';
     el.innerHTML = html || '<div class="rk">' + tr('无结果') + '</div>';
+    /* 记进「最近提问」：重复提问正是缓存能发挥作用的场景，顺手把入口铺出来 */
+    pushRecentQuery(input);
+    renderRecentQueries();
     showToast(tr('分析完成'), 'success');
   } catch (e) {
     el.innerHTML = '<div style="color:var(--red-500)">' + tr('请求失败') + ': ' + h(e) + '</div>';
@@ -736,8 +807,12 @@ function renderBulletin(d) {
     });
   });
   if (d.ai) {
-    html += '<div class="ai-card"><div class="ai-head">🤖 ' + tr('AI 云端解读') + '</div>'
-      + '<div class="ai-body">' + mdToHtml(d.ai) + '</div></div>';
+      var aiBadge = d.ai_cached
+        ? ' <span class="cache-badge" title="' + a(tr('同一问题与同一份数据')) + '">⚡ '
+          + h(tr('来自缓存')) + '</span>'
+        : '';
+      html += '<div class="ai-card"><div class="ai-head">🤖 ' + tr('AI 云端解读') + aiBadge + '</div>'
+        + '<div class="ai-body">' + mdToHtml(d.ai) + '</div></div>';
   } else if (d.ai_note) {
     html += '<div class="ai-note">' + h(d.ai_note) + '</div>';
   }
