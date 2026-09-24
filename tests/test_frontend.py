@@ -70,12 +70,18 @@ SCENARIOS = [
     # 加载期初始化顺序（app.js 末尾的增强能力初始化必须在所有 const 声明之后）
     "加载即同步主题按钮",
     "加载即落地 data-theme",
-    # 代码分割（app.js → core + 按需分块）：任一条被删都意味着懒加载名存实亡
+    # 代码分割（app.js → core + 五个按需分块）：任一条被删都意味着懒加载名存实亡
     "首屏不预加载图表分块",
     "首屏不预加载命令面板分块",
+    "首屏不预加载指标/自定义/公报分块",
     "命令面板分块按需加载并自初始化",
     "重复 loadChunk 复用已兑现的 Promise",
+    "命令面板按钮按名字解析并打开面板",
+    "切换年份不炸未加载的指标分块",
     "图表分块按需加载成功",
+    "指标总分块按需加载成功",
+    "自定义分析分块按需加载成功",
+    "统计公报分块按需加载成功",
     "loadChunk 对没有分块的 tab 直接兑现",
     "Ctrl+K 能打开命令面板",
     "Esc 能关闭命令面板",
@@ -143,6 +149,53 @@ def test_harness_goes_red_when_the_empty_state_guard_is_broken(node: str, tmp_pa
     output = (proc.stdout or "") + (proc.stderr or "")
     assert proc.returncode != 0, "破坏空态兜底后 harness 仍全绿，检查已失去防线作用"
     assert "[FAIL] 兜底带切回亚太的出口" in output, output
+
+
+def test_harness_goes_red_when_tabaction_resolves_names_too_early(node: str, tmp_path: Path) -> None:
+    """tabAction 必须在分块到位之后才按名字解析处理函数。
+
+    内联 onclick 写裸函数名会在点击瞬间求值：分块没加载就是 ReferenceError。
+    头部命令面板按钮是 palette 分块的唯一入口（快捷键绑定也在分块里），
+    这样一炸，命令面板在首访彻底死锁——曾经真实发生过。
+    """
+    original = (BASE_DIR / "public" / "app.js").read_text(encoding="utf-8")
+    resolve = "var fn = typeof fnName === 'function' ? fnName : window[fnName];"
+    assert resolve in original, "public/app.js 的 tabAction 名字解析语句已变化，请同步本测试"
+
+    broken = tmp_path / "app_byname.js"
+    broken.write_text(original.replace(resolve, "var fn = fnName;"), encoding="utf-8")
+
+    proc = subprocess.run(
+        [node, str(HARNESS)], capture_output=True, text=True, encoding="utf-8",
+        errors="replace", timeout=120, cwd=str(BASE_DIR),
+        env={**os.environ, "QU_STAT_APP_JS": str(broken)},
+    )
+    output = (proc.stdout or "") + (proc.stderr or "")
+    assert proc.returncode != 0, "tabAction 提前求值后 harness 仍全绿，检查已失去防线作用"
+    assert "[FAIL] 命令面板按钮按名字解析并打开面板" in output, output
+
+
+def test_harness_goes_red_when_syncyear_touches_an_unloaded_chunk(node: str, tmp_path: Path) -> None:
+    """syncYear/syncDimension 刷新指标总表前必须 typeof 守卫。
+
+    指标总表已拆成按需分块：用户没打开过该 tab 时 loadIndicators 不存在，
+    裸调用会 ReferenceError，并把剩下的 toast、分享URL 一起炸掉。
+    """
+    original = (BASE_DIR / "public" / "app.js").read_text(encoding="utf-8")
+    guard = "  if (typeof loadIndicators === 'function') loadIndicators();"
+    assert guard in original, "public/app.js 的指标刷新守卫已变化，请同步本测试"
+
+    broken = tmp_path / "app_unguard.js"
+    broken.write_text(original.replace(guard, "  loadIndicators();"), encoding="utf-8")
+
+    proc = subprocess.run(
+        [node, str(HARNESS)], capture_output=True, text=True, encoding="utf-8",
+        errors="replace", timeout=120, cwd=str(BASE_DIR),
+        env={**os.environ, "QU_STAT_APP_JS": str(broken)},
+    )
+    output = (proc.stdout or "") + (proc.stderr or "")
+    assert proc.returncode != 0, "去掉 typeof 守卫后 harness 仍全绿，检查已失去防线作用"
+    assert "[FAIL] 切换年份不炸未加载的指标分块" in output, output
 
 
 def test_landing_theme_behavior_checks_pass(node: str) -> None:

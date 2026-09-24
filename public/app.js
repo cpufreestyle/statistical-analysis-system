@@ -117,19 +117,6 @@ function exportCsv(url) {
   document.body.removeChild(a);
 }
 
-/* 指标总表：按当前年份 / 维度 / 专业 / 关键词导出 */
-function exportIndicatorsCsv() {
-  var cat = (document.getElementById('indCat') || {}).value || '';
-  var q = (document.getElementById('indSearch') || {}).value || '';
-  var u = API + '/api/export.csv?year=' + enc(STATE.year)
-    + '&dimension=' + enc(STATE.dimension)
-    + (cat ? '&category=' + enc(cat) : '')
-    + (q ? '&q=' + enc(q.trim()) : '')
-    + '&' + langQ();
-  exportCsv(u);
-  showToast(tr('已导出 CSV'), 'success');
-}
-
 /* 图表：导出当前选中指标的完整跨年 × 全经济体序列（不传 year/dimension = 全部） */
 function exportChartCsv() {
   if (!CHART.currentKey) { showToast(tr('请先选择指标'), 'error'); return; }
@@ -200,18 +187,9 @@ function renderRecentQueries() {
 (function init() {
   initShareState();   // 从 URL 还原分享状态（年份/维度/语言/图表指标）后再取数
   document.querySelectorAll('.wb-tab').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.wb-tab').forEach(b => {
-        const on = b === btn;
-        b.classList.toggle('active', on);
-        b.setAttribute('aria-selected', on ? 'true' : 'false');
-      });
-      document.querySelectorAll('.wb-panel').forEach(p => p.classList.remove('active'));
-      const panel = document.getElementById('panel-' + btn.dataset.tab);
-      if (!panel) return;
-      panel.classList.add('active');
-      if (btn.dataset.tab === 'indicators' || btn.dataset.tab === 'charts') openTab(btn.dataset.tab);
-    });
+    /* 只做转发：激活态、懒加载、分享链接同步都写在 switchTab() 里一份，
+       两边各写一遍必然漂移（这里此前就重复过一整套 class 切换）。 */
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
 
   /* WAI-ARIA tablist 键盘导航：ArrowLeft/Right + Home/End，roving tabindex */
@@ -239,7 +217,9 @@ function renderRecentQueries() {
     });
   }
   loadOverview();
-  loadCustomList();
+  /* 不在这里预取自定义分析下拉：loadCustomList() 在自定义分析分块里，首访就调
+     会 ReferenceError（其实现已按需加载）。首次打开该 tab 时 initCustom() 会
+     fill 下拉，预取反而让懒加载名存实亡。 */
   loadDbStats();
   loadInsights();
   renderRecentQueries();   // 有历史提问才显示「最近提问」一行
@@ -277,12 +257,20 @@ function fillSelectOptions(id, options, current) {
 }
 
 /* ───── 年份 / 维度切换 ───── */
+/* 指标总表已拆成按需分块：没打开过该 tab 时 loadIndicators 还不存在，直接调会
+   ReferenceError 并把 syncYear/syncDimension 剩下的 toast、分享链接一起炸掉。
+   typeof 守卫：打开过就刷新，没打开过就跳过——下次打开 tab 时 openTab 会拉下
+   分块并按当时最新的年份/维度渲染，不会有脏数据。 */
+function refreshIndicatorsIfLoaded() {
+  if (typeof loadIndicators === 'function') loadIndicators();
+}
+
 function syncYear(y) {
   STATE.year = String(y);
   const gy = document.getElementById('globalYear');
   if (gy) gy.value = STATE.year;
   loadOverview();
-  loadIndicators();
+  refreshIndicatorsIfLoaded();
   loadInsights();
   updateShareUrl();
   showToast(tr('年份已切换至') + ' ' + STATE.year + (isZh() ? '年' : ''), 'success');
@@ -293,7 +281,7 @@ function syncDimension(d) {
   const gd = document.getElementById('globalDimension');
   if (gd) gd.value = d;
   loadOverview();
-  loadIndicators();
+  refreshIndicatorsIfLoaded();
   loadInsights();
   updateShareUrl();
   showToast(tr('维度已切换至') + ' ' + tr(d), 'success');
@@ -315,12 +303,31 @@ function syncDimension(d) {
    浏览器也会继续用旧文件。读不到注入时退回裸路径，保证不白屏。 */
 var CHUNK_SRC = {
   charts: (window.__CHUNK_URLS || {}).charts || '/app.charts.js',
-  palette: (window.__CHUNK_URLS || {}).palette || '/app.palette.js'
+  palette: (window.__CHUNK_URLS || {}).palette || '/app.palette.js',
+  indicators: (window.__CHUNK_URLS || {}).indicators || '/app.indicators.js',
+  custom: (window.__CHUNK_URLS || {}).custom || '/app.custom.js',
+  bulletin: (window.__CHUNK_URLS || {}).bulletin || '/app.bulletin.js'
 };
 var CHUNK_LOADING = {};
 
+/* 每个 tab 自己的「语言切换后刷新什么」：分块在加载末尾调用 onLangRefresh 注册。
+   core 的 refreshLang() 据此按当前激活的面板刷新，**不点名任何 tab 专属函数**——
+   那既是加载顺序地雷，也让分块拆不出去。
+
+   hasCache 回答「我这个面板现在有没有值得重刷的内容」：没有就只在被激活时才刷，
+   免得为看不见的空面板白发请求（上一版是无条件全刷）。 */
+var LANG_HOOKS = {};
+function onLangRefresh(tabId, refresh, hasCache) {
+  LANG_HOOKS[tabId] = { refresh: refresh, hasCache: hasCache || function () { return false; } };
+}
+
+function activeTabId() {
+  var el = document.querySelector('.wb-panel.active');
+  return el && el.id ? el.id.replace(/^panel-/, '') : 'nlq';
+}
+
 function loadChunk(name) {
-  /* 没有登记分块的 tab（例如指标表——loadIndicators() 的实现就在 core 里）直接兑现：
+  /* 没有登记分块的 tab（nlq 的实现整块就在 core 里）直接兑现：
      否则会给一个不存在的 URL 造 <script>，浏览器 404 → onerror → reject，
      openTab 的 catch 随即弹「加载失败」，而该面板真正的初始化永远不跑。 */
   if (!CHUNK_SRC[name]) return Promise.resolve();
@@ -346,9 +353,30 @@ function openTab(tabId) {
   return loadChunk(tabId).then(function () {
     if (tabId === 'charts') return initCharts();
     if (tabId === 'indicators') return loadIndicators();
+    if (tabId === 'custom') return initCustom();
+    // bulletin 的内容由「生成公报」按钮按需生成，打开面板时无需初始化
   }).catch(function (e) {
     console.error('打开 ' + tabId + ' 面板失败', e);
     showToast(tr('加载失败，请重试'), 'error');
+  });
+}
+
+/* 面板内按钮的统一入口。分块是懒加载的：用户点了 tab 就立刻点里面的按钮时，
+   分块可能还没下来，直接 onclick="loadBulletin()" 会撞上 undefined。
+   先把分块拉下来（已加载则同步兑现），再跑真正的处理函数。
+   fn 传**函数名的字符串**（HTML 里写作 tabAction('custom','saveCustom')），
+   在 .then 里、分块到位之后才按名字解析——内联 onclick 若直接写裸函数名，
+   点击瞬间就会把它当标识符求值，分块没加载就是 ReferenceError：头部命令面板
+   按钮就这样在首访永远打不开（分块还没加载，面板又只能靠它打开，死锁）。
+   额外参数原样转发（removeVarRow 要拿当前行、fillExpr 要拿公式种类）。 */
+function tabAction(tabId, fnName) {
+  var args = Array.prototype.slice.call(arguments, 2);
+  return openTab(tabId).then(function () {
+    var fn = typeof fnName === 'function' ? fnName : window[fnName];
+    if (typeof fn !== 'function') {
+      throw new Error('tab action missing: ' + tabId + '/' + fnName);
+    }
+    return fn.apply(null, args);
   });
 }
 function switchTab(tabId) {
@@ -358,8 +386,11 @@ function switchTab(tabId) {
     b.setAttribute('aria-selected', on ? 'true' : 'false');
   });
   document.querySelectorAll('.wb-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tabId));
-  var task = null;
-  if (tabId === 'indicators' || tabId === 'charts') task = openTab(tabId);
+  /* 统一走 openTab：有分块的 tab 先把代码拉下来、再在 .then 里初始化；
+     没有分块的（nlq）由 loadChunk 短路、立刻兑现。
+     别再另起一份「哪些 tab 要懒加载」的名单——名单漏项正是上一轮
+     指标面板静默失效的成因。 */
+  var task = openTab(tabId);
   updateShareUrl();
   return task;
 }
@@ -644,256 +675,6 @@ function renderAsk(d) {
   return html;
 }
 
-/* ═══════ 指标总表 ═══════ */
-async function loadIndicators() {
-  var cat = (document.getElementById('indCat') || {}).value || '';
-  var q = (document.getElementById('indSearch') || {}).value || '';
-  var u = API + '/api/indicators?year=' + enc(STATE.year)
-    + '&dimension=' + enc(STATE.dimension)
-    + (cat ? '&category=' + enc(cat) : '')
-    + (q ? '&q=' + enc(q.trim()) : '')
-    + '&' + langQ();
-  var tb = document.querySelector('#indTable tbody');
-  if (!tb) return;
-  /* 二次查询也给加载态：骨架 + aria-busy，避免「点了没反应」 */
-  var indTable = document.getElementById('indTable');
-  if (indTable) indTable.setAttribute('aria-busy', 'true');
-  tb.innerHTML = '<tr aria-hidden="true"><td colspan="7">'
-    + '<div class="skeleton skeleton-line" style="width:70%"></div>'
-    + '<div class="skeleton skeleton-line" style="width:50%"></div></td></tr>';
-  try {
-    var r = await fetch(u);
-    var rows = await r.json();
-    var cnt = document.getElementById('indCount');
-    if (cnt) cnt.textContent = rows.length ? rows.length + (isZh() ? ' 条' : ' rows') : '';
-    if (!rows.length) {
-      tb.innerHTML = '<tr><td colspan="7">' + emptyState('📭', tr('无可展示数据')) + '</td></tr>';
-      if (indTable) indTable.removeAttribute('aria-busy');
-      return;
-    }
-    // 数据字段（indicator/category/dimension/unit/note）已由服务端按 lang 本地化；
-    // 单选钮的 data-* 存**规范键**（*_key），供新增自定义分析时回填稳定标识。
-    tb.innerHTML = rows.map(function (r) { return '<tr>'
-      + '<td><input type=radio name=selrow class=selrow data-c="' + a(r.category_key || r.category) + '" data-i="' + a(r.indicator_key || r.indicator) + '" data-d="' + a(r.dimension_key || r.dimension) + '" onclick="toggleCb(this,event)"></td>'
-      + '<td class="ind-name" title="' + a(r.note || '') + '">' + h(r.indicator) + '</td>'
-      + '<td><span class="tag tag-blue">' + h(r.category) + '</span></td>'
-      + '<td>' + h(r.dimension) + '</td>'
-      + '<td class="num">' + (r.value !== null && r.value !== undefined ? Number(r.value).toLocaleString() : '—') + '</td>'
-      + '<td>' + h(r.unit || '') + '</td>'
-      + '<td class="note-cell" style="color:var(--gray-500)" title="' + a(r.note || '') + '">' + h(r.note || '') + '</td>'
-      + '</tr>'; }).join('');
-    if (indTable) indTable.removeAttribute('aria-busy');
-  } catch (e) {
-    tb.innerHTML = '<tr><td colspan="7" style="color:var(--red-500)">' + tr('加载失败') + '</td></tr>';
-    if (indTable) indTable.removeAttribute('aria-busy');
-  }
-}
-
-function toggleCb(el, ev) {
-  ev.stopPropagation();
-  document.querySelectorAll('#indTable .selrow').forEach(function (r) { r.checked = false; });
-  el.checked = true;
-}
-
-function createFromSelected() {
-  var sel = document.querySelector('#indTable .selrow:checked');
-  if (!sel) { showToast(tr('请先选中一个指标'), 'error'); return; }
-  switchTab('custom');
-  openAddCustom();
-  var vr = document.getElementById('varRows');
-  vr.innerHTML = '';
-  addVarRow();
-  var row = vr.lastElementChild;
-  row.querySelector('.vname').value = 'x';
-  row.querySelector('.vcat').value = sel.dataset.c || '';
-  row.querySelector('.vind').value = sel.dataset.i || '';
-  row.querySelector('.vdim').value = sel.dataset.d || '';
-  document.getElementById('caddMsg').textContent = tr('已带入所选指标，填好名称与公式即可保存');
-}
-
-/* ═══════ 自定义分析 ═══════ */
-async function loadCustomList() {
-  try {
-    var r = await fetch(API + '/api/custom?' + langQ());
-    var list = await r.json();
-    var sel = document.getElementById('customSelect');
-    if (!sel) return;
-    // value 用规范名（name_key）：跨语言稳定，切换界面语言后已选项仍然有效
-    sel.innerHTML = '<option value="">' + tr('选择已有分析…') + '</option>'
-      + list.map(function (a2) {
-          var val = a2.name_key || a2.name;
-          return '<option value="' + a(val) + '">' + h(a2.name)
-            + (a2.description ? ' — ' + h(a2.description) : '') + '</option>';
-        }).join('');
-  } catch (e) { /* 忽略 */ }
-}
-
-async function runCustom() {
-  var sel = document.getElementById('customSelect');
-  if (!sel || !sel.value) { showToast(tr('请先选择一个分析'), 'error'); return; }
-  window._lastCustom = sel.value;
-  var btn = document.getElementById('btnRunCustom');
-  btn.classList.add('loading');
-  var el = document.getElementById('customResult');
-  el.setAttribute('aria-busy', 'true');
-  try {
-    var r = await fetch(API + '/api/custom?name=' + enc(sel.value) + '&year=' + enc(STATE.year) + '&' + langQ());
-    var d = await r.json();
-    if (d.error) {
-      el.innerHTML = '<div class="rk" style="color:var(--red-500)">' + h(d.error) + '</div>';
-      return;
-    }
-    el.innerHTML = '<div class="custom-card">'
-      + '<div class="custom-value" title="' + a(d.value) + '">' + (d.value !== undefined && d.value !== null ? compactNum(d.value) : '—')
-      + (d.unit ? ' <span class="custom-unit">' + h(tr(d.unit)) + '</span>' : '') + '</div>'
-      + (d.yoy !== undefined ? '<div class="custom-yoy ' + (d.yoy >= 0 ? 'up' : 'down') + '">'
-          + (d.yoy >= 0 ? '▲' : '▼') + ' ' + tr('同比') + ' ' + d.yoy + '%</div>' : '')
-      + (d.expr ? '<div class="custom-expr">' + tr('公式：') + h(d.expr) + '</div>' : '')
-      + '</div>';
-    showToast(tr('分析完成'), 'success');
-  } catch (e) {
-    el.innerHTML = '<div style="color:var(--red-500)">' + tr('请求失败') + '</div>';
-  } finally {
-    el.removeAttribute('aria-busy');
-    btn.classList.remove('loading');
-  }
-}
-
-function openAddCustom() {
-  document.getElementById('customAdd').style.display = 'block';
-  document.getElementById('customResult').innerHTML = '';
-}
-function closeAddCustom() { document.getElementById('customAdd').style.display = 'none'; }
-
-function addVarRow() {
-  var tpl = document.getElementById('varTpl').content.cloneNode(true);
-  document.getElementById('varRows').appendChild(tpl);
-  // 新增行的 placeholder 来自模板（中文），需按当前语言重新应用一次
-  if (typeof window.applyLang === 'function') window.applyLang(window.CUR_LANG);
-}
-function removeVarRow(btn) { var row = btn.closest('.var-row'); if (row) row.remove(); }
-
-function fillExpr(kind) {
-  var vars = [].map.call(document.querySelectorAll('#varRows .vname'), function (i) { return i.value.trim(); }).filter(Boolean);
-  var x = vars[0] || 'x', y = vars[1] || 'y';
-  var map = { share: x + ' / ' + y + ' * 100', diff: x + ' - ' + y, ratio: x + ' / ' + y, sum: x + ' + ' + y };
-  document.getElementById('customExpr').value = map[kind] || '';
-}
-
-async function saveCustom() {
-  var name = document.getElementById('customName').value.trim();
-  var expr = document.getElementById('customExpr').value.trim();
-  if (!name || !expr) { showToast(tr('名称和表达式必填'), 'error'); return; }
-  var vars = {};
-  var valid = true;
-  document.querySelectorAll('#varRows .var-row').forEach(function (row) {
-    var vn = row.querySelector('.vname').value.trim();
-    var vc = row.querySelector('.vcat').value.trim();
-    var vi = row.querySelector('.vind').value.trim();
-    if (!vn || !vc || !vi) { valid = false; return; }
-    vars[vn] = [vc, vi, row.querySelector('.vdim').value.trim() || STATE.dimension];
-  });
-  if (!valid || Object.keys(vars).length === 0) {
-    showToast(tr('请至少填一个有效变量（名称/专业/指标）'), 'error');
-    return;
-  }
-  var body = {
-    name: name, expr: expr,
-    name_en: (document.getElementById('customNameEn') || {}).value ? document.getElementById('customNameEn').value.trim() : '',
-    unit: document.getElementById('customUnit').value.trim(),
-    description: document.getElementById('customDesc').value.trim(),
-    description_en: (document.getElementById('customDescEn') || {}).value ? document.getElementById('customDescEn').value.trim() : '',
-    compare: document.getElementById('customCmp').checked,
-    variables: vars
-  };
-  try {
-    var r = await fetch(API + '/api/custom?' + langQ(), {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
-    });
-    var d = await r.json();
-    if (d.ok) {
-      showToast(isZh() ? '已保存「' + name + '」' : 'Saved "' + name + '"', 'success');
-      closeAddCustom();
-      loadCustomList();
-    } else {
-      showToast(d.error || tr('保存失败'), 'error');
-    }
-  } catch (e) {
-    showToast(tr('保存失败') + ': ' + e, 'error');
-  }
-}
-
-/* ═══════ 统计公报 ═══════ */
-async function loadBulletin() {
-  var out = document.getElementById('bulletinOut');
-  if (!out) return;
-  var btn = document.getElementById('btnBulletin');
-  var useCloud = !!(document.getElementById('bulletinCloud') || {}).checked;
-  out.setAttribute('aria-busy', 'true');
-  btn.classList.add('loading');
-  btn.disabled = true;
-  out.textContent = tr('正在生成…');
-  try {
-    // 取结构化数据，用与页面同一份 i18n 字典渲染 —— 中英文都不会漏译
-    var u = API + '/api/report?format=json&year=' + enc(STATE.year)
-      + '&dimension=' + enc(STATE.dimension)
-      + '&lang=' + (isZh() ? 'zh' : 'en') + (useCloud ? '&cloud=1' : '');
-    var r = await fetch(u);
-    var d = await r.json();
-    window._lastBulletin = d;
-    out.innerHTML = renderBulletin(d);
-  } catch (e) {
-    out.textContent = tr('请求失败') + ': ' + e;
-  } finally {
-    out.removeAttribute('aria-busy');
-    btn.classList.remove('loading');
-    btn.disabled = false;
-  }
-}
-
-function renderBulletin(d) {
-  var zh = isZh();
-  var html = '';
-  // 公报的结构化字段已由服务端按 lang 本地化，这里不再做词条替换
-  html += '<div class="bul-title">' + h(d.dimension) + ' · '
-    + (zh ? '国民经济和社会发展统计公报（摘要）' : 'Economic and Social Development Statistical Bulletin (Summary)')
-    + ' — ' + h(d.year) + (zh ? '年' : '') + '</div>';
-  html += '<div class="bul-src">' + (zh
-    ? '数据来源：世界银行 Open Data · 国家统计局 · 海关总署（均为公开数据）'
-    : 'Sources: World Bank Open Data · National Bureau of Statistics · General Administration of Customs (all public)')
-    + '</div>';
-  (d.sections || []).forEach(function (sec) {
-    html += '<div class="bul-sec">' + h(sec.category) + '</div>';
-    (sec.rows || []).forEach(function (row) {
-      html += '<div class="bul-row">'
-        + '<span class="bul-ind">' + h(row.indicator) + '</span>'
-        + '<span class="bul-val">' + h(row.value)
-        + (row.unit === '%' ? '%' : (row.unit ? ' ' + h(row.unit) : '')) + '</span>'
-        + (row.yoy ? '<span class="bul-yoy">' + h(tr('同比')) + ' ' + h(row.yoy) + '</span>' : '')
-        + '</div>';
-    });
-  });
-  if (d.ai) {
-      var aiBadge = d.ai_cached
-        ? ' <span class="cache-badge" title="' + a(tr('同一问题与同一份数据')) + '">⚡ '
-          + h(tr('来自缓存')) + '</span>'
-        : '';
-      html += '<div class="ai-card"><div class="ai-head">🤖 ' + tr('AI 云端解读') + aiBadge + '</div>'
-        + '<div class="ai-body">' + mdToHtml(d.ai) + '</div></div>';
-  } else if (d.ai_note) {
-    html += '<div class="ai-note">' + h(d.ai_note) + '</div>';
-  }
-  if ((d.knowledge || []).length) {
-    html += '<div class="bul-kb"><b>' + tr('知识库参考') + '</b>';
-    d.knowledge.forEach(function (k) {
-      html += '<div class="bul-kb-item"><span class="bul-kb-t">' + h(k.title) + '</span>'
-        + '<span class="bul-kb-c">' + h(k.content) + '</span></div>';
-    });
-    html += '</div>';
-  }
-  return html;
-}
-
 /* ═══════ 公开数据采集 ═══════ */
 async function collectNow() {
   var src = (document.getElementById('collectSource') || {}).value || 'worldbank';
@@ -921,7 +702,7 @@ async function collectNow() {
     if (d.ok) {
       showToast(tr('已从公开数据源采集：新增') + ' ' + d.count + ' ' + tr('条记录'), 'success');
       loadOverview();
-      loadIndicators();
+      refreshIndicatorsIfLoaded();
       loadDbStats();
     } else {
       showToast(tr('采集失败') + ': ' + (d.error || ''), 'error');
@@ -1011,26 +792,31 @@ function showToast(msg, type) {
   window._toastTimer = setTimeout(function () { toast.className = 'toast'; }, 2600);
 }
 
-/* 切换语言后刷新依赖接口的动态区域 */
+/* 智能查询面板的语言刷新：runAnalyze 留在 core 里，所以这条由 core 自己注册。
+   没有 _lastQuery 说明从没问过，不必发请求。 */
+onLangRefresh('nlq', function refreshNlqLang() {
+  if (!window._lastQuery) return;
+  var qi = document.getElementById('nlqInput');
+  if (qi) { qi.value = window._lastQuery; runAnalyze(); }
+}, function () { return !!window._lastQuery; });
+
+/* 切换语言后刷新依赖接口的动态区域。
+   指标卡 / 洞察 / 数据规模是三块**常驻**内容（排在 tab 面板下方、不随 tab 隐藏），
+   任何语言下都要重取。其余只看当前激活的那一个面板，外加「真的生成过内容」的其它
+   面板——上一版无条件把指标总表、公报、自定义分析、图表全刷一遍，为看不见的
+   面板白发五六个请求。 */
 function refreshLang() {
   loadOverview();
-  loadIndicators();
-  loadDbStats();
   loadInsights();
-  var bo = document.getElementById('bulletinOut');
-  // 公报内容已由服务端按 lang 本地化，切换语言必须重新取数（缓存的是上一语言的文本）
-  if (bo && window._lastBulletin) loadBulletin();
-  if (window._lastQuery) {
-    var qi = document.getElementById('nlqInput');
-    if (qi) { qi.value = window._lastQuery; runAnalyze(); }
-  }
-  loadCustomList().then(function () {
-    if (!window._lastCustom) return;
-    var cs = document.getElementById('customSelect');
-    if (cs) { cs.value = window._lastCustom; runCustom(); }
+  loadDbStats();
+  var id = activeTabId();
+  var cur = LANG_HOOKS[id];
+  if (cur) cur.refresh();
+  Object.keys(LANG_HOOKS).forEach(function (k) {
+    if (k === id) return;
+    var h = LANG_HOOKS[k];
+    if (h.hasCache()) h.refresh();
   });
-  var pc = document.getElementById('panel-charts');
-  if (pc && pc.classList.contains('active') && typeof initCharts === 'function') initCharts();
   updateShareUrl();
   // 主题按钮图标之外的文案、快捷键帮助内容随语言重渲染
   themeApply(themeMode());

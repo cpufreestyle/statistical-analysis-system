@@ -269,6 +269,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
   并补 1 条哨兵。6 条代码分割哨兵此前只被「0 项未通过」间接兜住、未登记进
   `SCENARIOS`——删掉任意一条 `test_frontend.py` 不会红，现已全部补登。
 
+- **看板 JS 代码分割第二轮：`app.js` → core 加五个按需分块。** 指标总表 / 自定义分析 / 统计公报
+  三个 tab 拆到 `public/app.indicators.js` / `public/app.custom.js` / `public/app.bulletin.js`，
+  与图表 / 命令面板分块同一套约定（core 不引用分块声明；入口只有 `openTab()` 回调和
+  `onLangRefresh()` 语言钩子）。实测（gzip，HTML 加全部依赖资产、LF 归一化）看板首访
+  **48,055 → 46,746 B（−2.7%）**，其中 `app.js` **17,814 → 16,384 B（−8.0%）**；三个新分块各
+  **2,345 / 2,860 / 1,859 B（懒）**。如实记录代价：五个 tab 全部打开过的重度用户总字节
+  **+6,031 B** 且多 3 个 HTTP 请求，这是按需加载的固有成本。
+- **修掉拆分引入的三个真实回归（结构测试抓不到、只有行为测试能抓的那类）。**
+  ① `init()` 裸调已挪进自定义分析分块的 `loadCustomList()`，首屏即 ReferenceError、
+  整页初始化中断——改为不在首访预取，首次打开该 tab 时 `initCustom()` 自会填充下拉。
+  ② `syncYear()` / `syncDimension()` / 采集完成回调裸调 `loadIndicators()`，用户没打开过该 tab 时
+  ReferenceError，把 toast、分享链接一起炸掉——改为 `refreshIndicatorsIfLoaded()` 的 `typeof` 守卫。
+  ③ `tabAction()` 按引用传函数名：内联 onclick 在点击瞬间求值，头部命令面板按钮（palette 分块的
+  唯一入口，快捷键绑定也在分块里）首访必炸 ReferenceError，**命令面板彻底打不开**——改为按**名字**
+  在分块到位后解析（`tabAction('palette', 'openPalette')`），`app.html` 16 处调用点全部改传字符串。
+- **修掉 palette 分块对另两个分块的交叉引用。** 「导出指标 CSV」「生成统计公报」两条命令直接引用
+  `exportIndicatorsCsv` / `loadBulletin`：前者在 `paletteCommands()` 执行时就地求值，
+  **命令面板自己先打不开**；后者运行命令时才炸。改为 `tabAction` 按名字延迟执行；
+  `test_chunks_do_not_reference_each_other` 从 charts 与 palette 两两推广到全部分块对
+  （注释与名字字符串不算引用，裸标识符才算）。
+- **前端行为 harness 登记全部五个分块并新增 6 条哨兵**（首屏不预加载新分块、三个分块按需加载、
+  面板按钮按名字解析、切年份不炸未加载分块），配套 2 条红绿哨兵（破坏 `tabAction` 名字解析、
+  去掉 `typeof` 守卫都必须变红）与 1 条结构断言（`tabAction` 必须传名字字符串）。
+  全量 **260 项测试**全绿。
+
 ### Docs
 
 - 新增根目录 **`INFINISYNAPSE_INTEGRATION.md`**（人读）与 **`AGENT_CHANGES.json`**（机读）变更记录。

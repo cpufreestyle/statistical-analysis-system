@@ -1,6 +1,6 @@
 """代码分割的结构守卫。
 
-app.js 拆成 core + app.charts.js + app.palette.js 之后，真正会悄悄坏掉的只有两件事：
+app.js 拆成 core + app.charts.js / app.palette.js / app.indicators.js / app.custom.js / app.bulletin.js 之后，真正会悄悄坏掉的只有两件事：
 
 1. **同一个函数出现在两个文件里**——后加载的覆盖先加载的，行为随加载顺序漂移，
    而且肉眼看不出异常；
@@ -11,6 +11,7 @@ app.js 拆成 core + app.charts.js + app.palette.js 之后，真正会悄悄坏�
 """
 from __future__ import annotations
 
+import itertools
 import re
 import shutil
 import subprocess
@@ -26,6 +27,9 @@ SPLIT_FILES = {
     "app.js": "core",
     "app.charts.js": "charts",
     "app.palette.js": "palette",
+    "app.indicators.js": "indicators",
+    "app.custom.js": "custom",
+    "app.bulletin.js": "bulletin",
 }
 
 #: 顶层声明：函数声明 + const/let/var 赋值。分块之间只靠这些互相可达。
@@ -77,6 +81,12 @@ def _strip_comments(text: str) -> str:
     return re.sub(r"/\*.*?\*/|//[^\n]*", "", text, flags=re.S)
 
 
+def _strip_strings(text: str) -> str:
+    """去掉字符串字面量：tabAction('bulletin', 'loadBulletin') 传的是**名字**，
+    分块加载完之后才解析，不是对分块声明的引用；裸标识符才是。"""
+    return re.sub(r"'[^'\n]*'|\"[^\"\n]*\"", "", text)
+
+
 def _is_guarded(text: str, name: str) -> bool:
     """typeof X === 'function' 特特性探测：分块没拉下来就跳过，不会抛 ReferenceError。"""
     return bool(re.search(r"typeof\s+" + re.escape(name) + r"\b", text))
@@ -96,14 +106,19 @@ def test_no_declaration_is_defined_twice() -> None:
 def test_chunks_do_not_reference_each_other() -> None:
     """分块之间一旦互相引用，就多出一条加载顺序约束：先打开的面板会把
     后一个分块的函数拖下来，懒加载名存实亡。这里钉死「彼此不可见」。"""
-    charts = _read("app.charts.js")
-    palette = _read("app.palette.js")
-    pal_decls = _decls(palette)
-    chart_decls = _decls(charts)
-    bad = sorted(n for n in _IDENT_RE.findall(charts) if n in pal_decls)
-    assert not bad, f"app.charts.js 引用了命令面板分块的声明：{bad}"
-    bad = sorted(n for n in _IDENT_RE.findall(palette) if n in chart_decls)
-    assert not bad, f"app.palette.js 引用了图表分块的声明：{bad}"
+    chunks = {label: _read(name) for name, label in SPLIT_FILES.items() if label != "core"}
+    decls = {label: _decls(text) for label, text in chunks.items()}
+    leaks: list[tuple[str, str, str]] = []
+    for a, b in itertools.combinations(sorted(decls), 2):
+        # 注释里提名字是文档；tabAction('x', 'fn') 的名字字符串是**有意**的间接
+        # （分块加载完后才解析）——两者都不是引用，裸标识符才是。
+        code = {label: _strip_strings(_strip_comments(text)) for label, text in chunks.items()}
+        leaks += [(a, b, n) for n in _IDENT_RE.findall(code[a]) if n in decls[b]]
+        leaks += [(b, a, n) for n in _IDENT_RE.findall(code[b]) if n in decls[a]]
+    assert not leaks, (
+        "分块之间互相引用（先打开的面板会把后一个分块也拖下来，懒加载名存实亡）："
+        + "; ".join(f"{a} 引用了 {b} 的 {n}" for a, b, n in leaks)
+    )
 
 
 def test_core_only_references_chunk_code_where_it_is_safe() -> None:
@@ -118,7 +133,10 @@ def test_core_only_references_chunk_code_where_it_is_safe() -> None:
     open_body = _function_body(core, "function openTab(tabId) {")
     rest = _strip_comments(core.replace(open_body, "", 1))
 
-    chunk_decls = _decls(_read("app.charts.js")) | _decls(_read("app.palette.js"))
+    chunk_decls: set[str] = set()
+    for name, label in SPLIT_FILES.items():
+        if label != "core":
+            chunk_decls |= _decls(_read(name))
     leaks = sorted(
         {
             n
@@ -132,7 +150,8 @@ def test_core_only_references_chunk_code_where_it_is_safe() -> None:
 def test_chunk_urls_are_versioned_in_the_dashboard() -> None:
     """分块带 immutable 一年缓存，URL 不带内容哈希就永远顶不失效。"""
     html = _read("app.html")
-    for stem in ("app.charts.js", "app.palette.js"):
+    for stem in ("app.charts.js", "app.palette.js", "app.indicators.js",
+                 "app.custom.js", "app.bulletin.js"):
         assert "/" + stem + "?v=__" in html, f"app.html 没有给 {stem} 带版本号占位符"
 
 
@@ -146,6 +165,20 @@ def test_behavior_harness_really_executes_chunks() -> None:
     )
     assert "if (c.onload) c.onload()" in src, (
         "harness 执行完分块后没有兑现 onload"
+    )
+
+
+def test_tab_action_targets_are_quoted_names() -> None:
+    """HTML 里的 tabAction 必须传函数**名字的字符串**。
+
+    内联 onclick 写裸标识符会在点击瞬间求值：分块还没加载就是
+    ReferenceError。头部命令面板按钮是 palette 分块的唯一入口（快捷键绑定
+    也在分块里），首次访问就这样永远打不开——行为测试抓过，这里结构上钉死。
+    """
+    html = _read("app.html")
+    bare = re.findall(r"tabAction\('[a-z]+',\s*([A-Za-z_$][\w$]*)", html)
+    assert not bare, (
+        f"app.html 里 tabAction 传了裸函数名（点击瞬间 ReferenceError，分块永远拉不起来）：{bare}"
     )
 
 

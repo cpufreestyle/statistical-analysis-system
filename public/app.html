@@ -32,7 +32,10 @@
   } catch (e) { /* 隐私模式等取不到存储时保持默认浅色 */ }
 })();
 
-window.__CHUNK_URLS = { charts: '/app.charts.js?v=__APP_CHARTS_JS_VER__', palette: '/app.palette.js?v=__APP_PALETTE_JS_VER__' };
+window.__CHUNK_URLS = { charts: '/app.charts.js?v=__APP_CHARTS_JS_VER__', palette: '/app.palette.js?v=__APP_PALETTE_JS_VER__',
+    indicators: '/app.indicators.js?v=__APP_INDICATORS_JS_VER__',
+    custom: '/app.custom.js?v=__APP_CUSTOM_JS_VER__',
+    bulletin: '/app.bulletin.js?v=__APP_BULLETIN_JS_VER__' };
 </script>
 <link rel="stylesheet" href="/theme.css?v=__THEME_CSS_VER__">
 <link rel="stylesheet" href="/style.css?v=__STYLE_CSS_VER__">
@@ -97,7 +100,7 @@ window.__CHUNK_URLS = { charts: '/app.charts.js?v=__APP_CHARTS_JS_VER__', palett
     <button id="langToggle" class="lang-toggle" type="button" onclick="toggleLang()" aria-label="切换语言 / Switch language">EN</button>
     <button id="shareBtn" class="lang-toggle" type="button" onclick="copyShareLink()" data-i18n="分享" aria-label="复制分享链接 / Copy share link" title="复制当前筛选条件下的分享链接">分享</button>
     <button id="themeToggle" class="lang-toggle theme-toggle" type="button" onclick="cycleTheme()" aria-label="切换主题 / Switch theme" title="主题：跟随系统 / Theme: Match system">🌗</button>
-    <button id="paletteBtn" class="lang-toggle" type="button" onclick="openPalette()" title="命令面板 Ctrl+K / Command palette (Ctrl+K)" aria-label="命令面板 / Command palette"><span aria-hidden="true">⌘</span> <span data-i18n="命令面板">命令面板</span></button>
+    <button id="paletteBtn" class="lang-toggle" type="button" onclick="tabAction('palette', 'openPalette')" title="命令面板 Ctrl+K / Command palette (Ctrl+K)" aria-label="命令面板 / Command palette"><span aria-hidden="true">⌘</span> <span data-i18n="命令面板">命令面板</span></button>
   </div>
 </header>
 
@@ -158,9 +161,9 @@ window.__CHUNK_URLS = { charts: '/app.charts.js?v=__APP_CHARTS_JS_VER__', palett
               <option value="" data-i18n="全部专业">全部专业</option>
             </select>
             <input type="text" class="query-input" id="indSearch" data-i18n-ph="关键词搜索指标 / 说明 / 维度" placeholder="关键词搜索指标 / 说明 / 维度" onkeydown="if(event.key==='Enter')loadIndicators()" />
-            <button class="btn btn-primary" data-i18n="查询" onclick="loadIndicators()">查询</button>
-            <button class="btn btn-secondary" data-i18n="用所选指标创建分析" onclick="createFromSelected()">用所选指标创建分析</button>
-            <button class="btn btn-secondary" data-i18n="⬇ 导出 CSV" onclick="exportIndicatorsCsv()">⬇ 导出 CSV</button>
+            <button class="btn btn-primary" data-i18n="查询" onclick="tabAction('indicators', 'loadIndicators')">查询</button>
+            <button class="btn btn-secondary" data-i18n="用所选指标创建分析" onclick="tabAction('indicators', 'createFromSelected')">用所选指标创建分析</button>
+            <button class="btn btn-secondary" data-i18n="⬇ 导出 CSV" onclick="tabAction('indicators', 'exportIndicatorsCsv')">⬇ 导出 CSV</button>
             <span id="indCount" style="color:var(--gray-500);font-size:.8rem;flex-shrink:0"></span>
           </div>
           <div class="data-table-wrap">
@@ -190,11 +193,11 @@ window.__CHUNK_URLS = { charts: '/app.charts.js?v=__APP_CHARTS_JS_VER__', palett
             <select class="query-input" style="flex:1" id="customSelect">
               <option value="" data-i18n="选择已有分析…">选择已有分析…</option>
             </select>
-            <button class="btn btn-primary" id="btnRunCustom" onclick="runCustom()">
+            <button class="btn btn-primary" id="btnRunCustom" onclick="tabAction('custom', 'runCustom')">
               <span class="spinner"></span>
               <span class="btn-label" data-i18n="运行">运行</span>
             </button>
-            <button class="btn btn-secondary" data-i18n="＋ 新建" onclick="openAddCustom()">＋ 新建</button>
+            <button class="btn btn-secondary" data-i18n="＋ 新建" onclick="tabAction('custom', 'openAddCustom')">＋ 新建</button>
           </div>
           <div id="customResult" class="ans-box" aria-live="polite">
             <div class="empty-state">
@@ -220,17 +223,17 @@ window.__CHUNK_URLS = { charts: '/app.charts.js?v=__APP_CHARTS_JS_VER__', palett
               <div style="font-size:.85rem;font-weight:600;color:var(--gray-700);margin:.5rem 0 .3rem" data-i18n="变量绑定">变量绑定</div>
               <table style="width:100%;font-size:.82rem;margin-bottom:6px"><thead><tr><th data-i18n="变量">变量</th><th data-i18n="专业">专业</th><th data-i18n="指标">指标</th><th data-i18n="维度（可选）">维度（可选）</th><th></th></tr></thead></table>
               <div id="varRows"></div>
-              <button class="btn btn-ghost" style="font-size:.8rem" data-i18n="＋ 增加变量" onclick="addVarRow()">＋ 增加变量</button>
+              <button class="btn btn-ghost" style="font-size:.8rem" data-i18n="＋ 增加变量" onclick="tabAction('custom', 'addVarRow')">＋ 增加变量</button>
 
               <div class="query-row" style="margin-top:10px">
                 <input type="text" class="query-input" id="customExpr" data-i18n-ph="表达式，如 x / y * 100" placeholder="表达式，如 x / y * 100" style="flex:1" />
               </div>
               <div class="query-row" style="margin-top:6px;gap:6px;flex-wrap:wrap">
                 <span style="font-size:.8rem;color:var(--gray-500)" data-i18n="常用公式：">常用公式：</span>
-                <button class="btn btn-ghost" style="padding:4px 8px;font-size:.8rem" data-i18n="占比 x/y×100" onclick="fillExpr('share')">占比 x/y×100</button>
-                <button class="btn btn-ghost" style="padding:4px 8px;font-size:.8rem" data-i18n="差值 x−y" onclick="fillExpr('diff')">差值 x−y</button>
-                <button class="btn btn-ghost" style="padding:4px 8px;font-size:.8rem" data-i18n="倍数 x/y" onclick="fillExpr('ratio')">倍数 x/y</button>
-                <button class="btn btn-ghost" style="padding:4px 8px;font-size:.8rem" data-i18n="合计 x+y" onclick="fillExpr('sum')">合计 x+y</button>
+                <button class="btn btn-ghost" style="padding:4px 8px;font-size:.8rem" data-i18n="占比 x/y×100" onclick="tabAction('custom', 'fillExpr', 'share')">占比 x/y×100</button>
+                <button class="btn btn-ghost" style="padding:4px 8px;font-size:.8rem" data-i18n="差值 x−y" onclick="tabAction('custom', 'fillExpr', 'diff')">差值 x−y</button>
+                <button class="btn btn-ghost" style="padding:4px 8px;font-size:.8rem" data-i18n="倍数 x/y" onclick="tabAction('custom', 'fillExpr', 'ratio')">倍数 x/y</button>
+                <button class="btn btn-ghost" style="padding:4px 8px;font-size:.8rem" data-i18n="合计 x+y" onclick="tabAction('custom', 'fillExpr', 'sum')">合计 x+y</button>
                 <label style="font-size:.85rem;margin-left:8px;display:flex;align-items:center;gap:4px">
                   <input type="checkbox" id="customCmp"> <span data-i18n="计算同比">计算同比</span>
                 </label>
@@ -238,8 +241,8 @@ window.__CHUNK_URLS = { charts: '/app.charts.js?v=__APP_CHARTS_JS_VER__', palett
               <div class="query-row" style="margin-top:10px;justify-content:space-between">
                 <span id="caddMsg" style="font-size:.8rem;color:var(--blue-600)"></span>
                 <span>
-                  <button class="btn btn-secondary" data-i18n="取消" onclick="closeAddCustom()">取消</button>
-                  <button class="btn btn-primary" data-i18n="保存分析" onclick="saveCustom()">保存分析</button>
+                  <button class="btn btn-secondary" data-i18n="取消" onclick="tabAction('custom', 'closeAddCustom')">取消</button>
+                  <button class="btn btn-primary" data-i18n="保存分析" onclick="tabAction('custom', 'saveCustom')">保存分析</button>
                 </span>
               </div>
             </div>
@@ -250,7 +253,7 @@ window.__CHUNK_URLS = { charts: '/app.charts.js?v=__APP_CHARTS_JS_VER__', palett
         <div class="wb-panel" id="panel-bulletin">
           <p style="font-size:.8rem;color:var(--gray-500);margin:0 0 .6rem" data-i18n="点击「生成公报」按当前年份与维度输出真实数据公报">点击「生成公报」按当前年份与维度输出真实数据公报</p>
           <div class="query-row">
-            <button class="btn btn-primary" id="btnBulletin" onclick="loadBulletin()">
+            <button class="btn btn-primary" id="btnBulletin" onclick="tabAction('bulletin', 'loadBulletin')">
               <span class="spinner"></span>
               <span class="btn-label" data-i18n="生成公报">生成公报</span>
             </button>
@@ -266,7 +269,7 @@ window.__CHUNK_URLS = { charts: '/app.charts.js?v=__APP_CHARTS_JS_VER__', palett
         <div class="wb-panel" id="panel-charts">
           <p style="font-size:.8rem;color:var(--gray-500);margin:0 0 .6rem" data-i18n="选择指标后可查看跨年趋势与分经济体排名（自绘 SVG，无图表库依赖）">选择指标后可查看跨年趋势与分经济体排名（自绘 SVG，无图表库依赖）</p>
           <div class="query-row" style="margin-bottom:10px">
-            <select class="query-input" style="flex:none;max-width:260px" id="chartIndicator" onchange="loadChartSeries()">
+            <select class="query-input" style="flex:none;max-width:260px" id="chartIndicator" onchange="tabAction('charts', 'loadChartSeries')">
               <option value="" data-i18n="选择指标…">选择指标…</option>
             </select>
             <span id="chartUnit" style="color:var(--gray-500);font-size:.8rem;align-self:center"></span>
@@ -401,7 +404,7 @@ window.__CHUNK_URLS = { charts: '/app.charts.js?v=__APP_CHARTS_JS_VER__', palett
     <input type="text" class="query-input vcat" data-i18n-ph="专业" placeholder="专业" style="flex:1" />
     <input type="text" class="query-input vind" data-i18n-ph="指标" placeholder="指标" style="flex:1.5" />
     <input type="text" class="query-input vdim" data-i18n-ph="维度（可选）" placeholder="维度（可选）" style="flex:1" />
-    <button class="btn btn-ghost" style="padding:4px 8px;color:var(--red-500)" onclick="removeVarRow(this)">✕</button>
+    <button class="btn btn-ghost" style="padding:4px 8px;color:var(--red-500)" onclick="tabAction('custom', 'removeVarRow', this)">✕</button>
   </div>
 </template>
 

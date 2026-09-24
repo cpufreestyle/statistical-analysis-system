@@ -69,10 +69,16 @@ function paletteCommands() {
   cmds.push({ group: tr('外观'), icon: '🔤', label: tr('切换语言'),
     hint: isZh() ? '中文 → EN' : 'EN → 中文', keywords: 'language lang', run: function () { toggleLang(); } });
   cmds.push({ group: tr('操作'), icon: '🔗', label: tr('复制分享链接'), keywords: 'share link copy', run: copyShareLink });
-  cmds.push({ group: tr('操作'), icon: '⬇️', label: tr('导出指标 CSV'), keywords: 'export csv download', run: exportIndicatorsCsv });
+  /* 导出指标 CSV 的实现在指标总分块里：不能在 paletteCommands() 执行时就地引用
+     ——那时分块还没加载，裸引用会 ReferenceError，命令面板自己先打不开。
+     改为按名字延迟解析，tabAction 会先把分块拉下来再跑。 */
+  cmds.push({ group: tr('操作'), icon: '⬇️', label: tr('导出指标 CSV'), keywords: 'export csv download',
+    run: function () { tabAction('indicators', 'exportIndicatorsCsv'); } });
   cmds.push({ group: tr('操作'), icon: '⬇️', label: tr('导出当前指标 CSV'), keywords: 'export csv chart indicator', run: exportChartCsv });
+  /* 同理：loadBulletin() 在统计公报分块里。switchTab 的返回值就是分块加载
+     任务，等它兑现后再按名字解析执行，分块没加载时运行命令也不会 ReferenceError。 */
   cmds.push({ group: tr('操作'), icon: '📄', label: tr('生成统计公报'), keywords: 'bulletin report',
-    run: function () { switchTab('bulletin'); loadBulletin(); } });
+    run: function () { switchTab('bulletin').then(function () { tabAction('bulletin', 'loadBulletin'); }); } });
   cmds.push({ group: tr('操作'), icon: '⌨️', label: tr('键盘快捷键'), hint: '?',
     keywords: 'shortcuts help keyboard', run: openShortcuts });
   Array.prototype.slice.call(document.querySelectorAll('.suggestion-chip')).forEach(function (el) {

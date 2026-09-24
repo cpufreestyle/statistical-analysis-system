@@ -26,6 +26,9 @@ const APP_JS = process.env.QU_STAT_APP_JS || path.join("public", "app.js");
 const CHUNK_FILES = {
   "/app.charts.js": process.env.QU_STAT_APP_CHARTS_JS || path.join("public", "app.charts.js"),
   "/app.palette.js": process.env.QU_STAT_APP_PALETTE_JS || path.join("public", "app.palette.js"),
+  "/app.indicators.js": process.env.QU_STAT_APP_INDICATORS_JS || path.join("public", "app.indicators.js"),
+  "/app.custom.js": process.env.QU_STAT_APP_CUSTOM_JS || path.join("public", "app.custom.js"),
+  "/app.bulletin.js": process.env.QU_STAT_APP_BULLETIN_JS || path.join("public", "app.bulletin.js"),
 };
 
 /* ───────────────────────── 最小浏览器桩 ───────────────────────── */
@@ -247,10 +250,14 @@ const DRIVER = `
     String(document.documentElement.getAttribute('data-theme')));
 
   /* ── 代码分割哨兵 ──
-     这三条必须在第一个 await 之前：此刻还没有任何微任务跑过，所以「分块尚未
+     这些必须在第一个 await 之前：此刻还没有任何微任务跑过，所以「分块尚未
      加载」是确定状态，不是竞态。放进 await 之后就会时红时绿。 */
   check('首屏不预加载图表分块', typeof initCharts !== 'function', typeof initCharts);
   check('首屏不预加载命令面板分块', typeof openPalette !== 'function', typeof openPalette);
+  check('首屏不预加载指标/自定义/公报分块',
+    typeof loadIndicators !== 'function' && typeof runCustom !== 'function'
+      && typeof loadBulletin !== 'function',
+    [typeof loadIndicators, typeof runCustom, typeof loadBulletin].join('/'));
 
   var palOk = true, palErr = '';
   try { await loadChunk('palette'); } catch (e) { palOk = false; palErr = String((e && e.message) || e); }
@@ -259,16 +266,51 @@ const DRIVER = `
       && typeof renderHelp === 'function', palErr);
   check('重复 loadChunk 复用已兑现的 Promise', (await loadChunk('palette')) === undefined);
 
+  /* 头部命令面板按钮是 palette 分块的唯一入口（快捷键绑定 initShortcuts 也在
+     分块里），而它常驻顶栏、首访就可见。tabAction 必须在分块到位之后才按名字
+     解析处理函数：若内联 onclick 把裸函数名当参数传，点击瞬间就 ReferenceError，
+     分块永远拉不下来，命令面板在首访彻底死锁（快捷键同样绑死在分块里）。 */
+  var palBtnOk = true, palBtnErr = '';
+  try { await tabAction('palette', 'openPalette'); }
+  catch (e) { palBtnOk = false; palBtnErr = String((e && e.message) || e); }
+  check('命令面板按钮按名字解析并打开面板',
+    palBtnOk && document.getElementById('palette').hidden === false, palBtnErr);
+  /* 收尾：把面板恢复成关闭态。paletteCommands() 在打开时就地求值所有命令的
+     run——palette 曾直接引用指标/公报分块的函数，分块没加载时这里就会炸。
+     不恢复的话后面的 Ctrl+K 切换断言看到的就不是 closed→open。 */
+  try { closePalette(); } catch (e) { /* 恢复失败只影响后续断言，不吞本次结论 */ }
+
+  /* syncYear 也会刷新指标总表（其实现已按需加载）。此刻指标分块还没拉，
+     直接调用会 ReferenceError 并把后面的 toast、分享链接一起炸掉。 */
+  var syOk = true, syErr = '';
+  try { syncYear(STATE.year); } catch (e) { syOk = false; syErr = String((e && e.message) || e); }
+  check('切换年份不炸未加载的指标分块', syOk, syErr);
+
   var chOk = true, chErr = '';
   try { await loadChunk('charts'); } catch (e) { chOk = false; chErr = String((e && e.message) || e); }
   check('图表分块按需加载成功', chOk && typeof initCharts === 'function', chErr);
 
+  var inOk = true, inErr = '';
+  try { await loadChunk('indicators'); } catch (e) { inOk = false; inErr = String((e && e.message) || e); }
+  check('指标总分块按需加载成功',
+    inOk && typeof loadIndicators === 'function' && typeof exportIndicatorsCsv === 'function', inErr);
+
+  var cuOk = true, cuErr = '';
+  try { await loadChunk('custom'); } catch (e) { cuOk = false; cuErr = String((e && e.message) || e); }
+  check('自定义分析分块按需加载成功',
+    cuOk && typeof runCustom === 'function' && typeof initCustom === 'function', cuErr);
+
+  var buOk = true, buErr = '';
+  try { await loadChunk('bulletin'); } catch (e) { buOk = false; buErr = String((e && e.message) || e); }
+  check('统计公报分块按需加载成功',
+    buOk && typeof loadBulletin === 'function' && typeof renderBulletin === 'function', buErr);
+
   /* ── 没有分块的 tab 必须直接放行 ──
-     indicators 的实现就在 core 里（loadIndicators，app.js:644），从没有对应分块文件。
+     nlq（智能查询）的实现整块在 core 里，CHUNK_SRC 从没有这个键。
      若 loadChunk() 也给这种名字造一个 <script>，浏览器会 404 → onerror → reject，
-     openTab 的 catch 弹「加载失败」而 loadIndicators() 永远不跑，指标面板静默失效。 */
+     openTab 的 catch 弹「加载失败」而首屏查询永远不跑。 */
   var uncOk = true, uncErr = '';
-  try { await loadChunk('indicators'); } catch (e) { uncOk = false; uncErr = String((e && e.message) || e); }
+  try { await loadChunk('nlq'); } catch (e) { uncOk = false; uncErr = String((e && e.message) || e); }
   check('loadChunk 对没有分块的 tab 直接兑现', uncOk, uncErr);
   var keyEvt = function (key, mod) {
     return { type: 'keydown', key: key, ctrlKey: !!mod, metaKey: false, altKey: false,

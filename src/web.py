@@ -62,6 +62,9 @@ _ASSET_FILES = {
     "app.js": "APP_JS",
     "app.charts.js": "APP_CHARTS_JS",
     "app.palette.js": "APP_PALETTE_JS",
+    "app.indicators.js": "APP_INDICATORS_JS",
+    "app.custom.js": "APP_CUSTOM_JS",
+    "app.bulletin.js": "APP_BULLETIN_JS",
     "i18n.js": "I18N_JS",
     "i18n-dict.js": "I18N_DICT",
     "i18n-dict-landing.js": "I18N_DICT_LANDING",
@@ -490,6 +493,39 @@ def serve_palette_js():
     """
     return pages.APP_PALETTE_JS, 200, {"Content-Type": "application/javascript; charset=utf-8",
                                      "Cache-Control": _STATIC_CACHE}
+
+@app.route("/app.indicators.js")
+def serve_indicators_js():
+    """看板「指标总表」tab 的代码分块。
+
+    首次打开该 tab 时才由 core 动态拉取，因此不在首访载荷里。core 侧的入口只有
+    openTab('indicators') 回调与语言切换钩子：core 不引用本文件里的任何声明，
+    所以本文件加载失败时首屏与其它 tab 完全不受影响。
+    """
+    return pages.APP_INDICATORS_JS, 200, {"Content-Type": "application/javascript; charset=utf-8",
+                                     "Cache-Control": _STATIC_CACHE}
+
+
+@app.route("/app.custom.js")
+def serve_custom_js():
+    """「自定义分析」tab 的代码分块，同样首次打开才拉。
+
+    入口是 openTab('custom') 回调里的 initCustom()（灌下拉 + 消费从指标总表
+    带过来的待建分析）与语言切换钩子。
+    """
+    return pages.APP_CUSTOM_JS, 200, {"Content-Type": "application/javascript; charset=utf-8",
+                                  "Cache-Control": _STATIC_CACHE}
+
+
+@app.route("/app.bulletin.js")
+def serve_bulletin_js():
+    """「统计公报」tab 的代码分块，同样首次打开才拉。
+
+    公报内容本身由页面里的「生成公报」按钮按需请求，所以这个分块只承载渲染与
+    取数逻辑，打开面板时不需要额外初始化。
+    """
+    return pages.APP_BULLETIN_JS, 200, {"Content-Type": "application/javascript; charset=utf-8",
+                                   "Cache-Control": _STATIC_CACHE}
 
 @app.route("/i18n.js")
 def serve_i18n():
