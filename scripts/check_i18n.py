@@ -55,6 +55,7 @@ def leaks(node: object, path: str = "") -> list[str]:
 
 CHECKS: list[tuple[str, str, dict]] = [
     ("/api/stats", "数据规模（公开）", {}),
+    ("/healthz", "健康检查", {}),
     ("/api/overview", "概览卡片", {"year": 2024, "dimension": "亚太"}),
     ("/api/overview", "概览卡片", {"year": 2024, "dimension": "中国"}),
     ("/api/insights", "数据洞察", {"year": 2024, "dimension": "亚太"}),

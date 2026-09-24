@@ -453,6 +453,20 @@ ENDPOINTS: list[dict[str, object]] = [
                     "  -d '{\"source\":\"worldbank\",\"year\":2024,"
                     "\"indicators\":\"NY.GDP.MKTP.CD\"}'"),
     },
+    {
+        "group": "ops", "method": "GET", "path": "/healthz", "auth": False,
+        "title": ("健康检查", "Health check"),
+        "desc": ("探活端点：始终返回 200，用 ``status`` 区分健康与降级。不播种、不鉴权，"
+                 "适合部署平台的存活探针与外部监控；``version`` 用来确认线上跑的是哪一版，"
+                 "``uptime_s`` 则暴露「刚刚重启过」这个排查线索。",
+                 "Liveness probe: always 200, with ``status`` telling healthy from "
+                 "degraded. Triggers no seeding and needs no auth, so platform probes "
+                 "and external monitors can call it as-is. ``version`` identifies the "
+                 "live build, while ``uptime_s`` surfaces a just-restarted process "
+                 "as a clue."),
+        "params": [],
+        "example": "curl -s \"$BASE/healthz\"",
+    },
 ]
 
 #: 分组元数据（顺序即页面顺序）。
@@ -462,6 +476,7 @@ GROUPS: dict[str, tuple[str, str]] = {
     "ai": ("解读接口", "Interpretation"),
     "kb": ("知识库接口", "Knowledge base"),
     "admin": ("管理接口（需令牌）", "Admin endpoints (token required)"),
+    "ops": ("运维接口", "Operations"),
 }
 
 _ZH = {

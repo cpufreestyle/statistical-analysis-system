@@ -10,13 +10,17 @@
 - **写入**：``upsert_indicators`` 采用 ``INSERT ... ON CONFLICT DO UPDATE``（写次数减半）。
 - **连接调优**：SQLite 逐项设置 WAL / synchronous=NORMAL / 内存临时表 /
   大页缓存 / mmap / busy_timeout 等 PRAGMA（逐条容错，受限环境自动跳过）。
+- **可观测**：单条语句耗时超过 ``QU_STAT_SLOW_QUERY_MS``（默认 200ms）时打
+  ``src.db`` WARNING，并附单行截断后的语句——Serverless 日志里即可定位慢查询。
 - **幂等迁移**：``init_db()`` 建表后执行 ``_ensure_indexes()``，全部 ``IF NOT EXISTS``，
   重复执行安全；若历史数据存在重复自然键，则跳过唯一索引创建、不抛错。
 """
 from __future__ import annotations
 
 from pathlib import Path
+import logging
 import os
+import time
 from sqlalchemy import (
     create_engine, Column, String, Float, Integer, MetaData, Table, Text,
     event, func, select, text,
@@ -154,6 +158,70 @@ if engine.dialect.name == "sqlite":
             cur.close()
         except Exception:  # noqa: BLE001
             pass
+
+
+# ---------------------------------------------------------------------------
+# 慢查询告警
+# ---------------------------------------------------------------------------
+def _float_env(name: str, default: float) -> float:
+    """读浮点环境变量；缺失或非法时返回默认值——配置错误绝不影响可用性。"""
+    raw = os.environ.get(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        return default
+
+
+#: 慢查询阈值（毫秒），环境变量 ``QU_STAT_SLOW_QUERY_MS`` 覆盖；``<=0`` 关闭。
+#: 故意做成运行期可改的模块级变量而非 import 期常量：监听器逐次读取它，改阈值不必
+#: 重连引擎，测试也能直接 monkeypatch。
+SLOW_QUERY_MS: float = _float_env("QU_STAT_SLOW_QUERY_MS", 200.0)
+
+_sql_logger = logging.getLogger(__name__)
+
+
+def _one_line(sql: str, limit: int = 200) -> str:
+    """多行 SQL 压成单行并按长度截断——一行一条才方便 grep 与日志聚合。"""
+    flat = " ".join(sql.split())
+    return flat if len(flat) <= limit else flat[:limit] + " ..."
+
+
+def _started_stack(conn: Any) -> list[float] | None:  # noqa: ANN401
+    """取该连接上的执行起始时间栈；结构不符预期时返回 None（放弃观测，不影响执行）。"""
+    info = getattr(conn, "info", None)
+    stack = info.get("qu_stat_query_started") if isinstance(info, dict) else None
+    return stack if isinstance(stack, list) else None
+
+
+@event.listens_for(engine, "before_cursor_execute")
+def _push_query_start(conn: Any, _cursor: Any, _statement: str,      # noqa: ANN401
+                      _parameters: Any, _context: Any, _executemany: Any) -> None:  # noqa: ANN401
+    """执行前压栈一个时间戳。用栈而非单值：同一条连接上可能存在嵌套执行。"""
+    info = getattr(conn, "info", None)
+    if isinstance(info, dict):
+        info.setdefault("qu_stat_query_started", []).append(time.perf_counter())
+
+
+@event.listens_for(engine, "after_cursor_execute")
+def _warn_on_slow_query(conn: Any, _cursor: Any, statement: str,      # noqa: ANN401
+                        _parameters: Any, _context: Any, _executemany: Any) -> None:  # noqa: ANN401
+    """超阈值打 WARNING。无论是否超时都先出栈，否则长连接上的时间栈会无限增长。"""
+    stack = _started_stack(conn)
+    if not stack:
+        return
+    cost_ms = (time.perf_counter() - stack.pop()) * 1000.0
+    if 0 < SLOW_QUERY_MS <= cost_ms:
+        _sql_logger.warning("slow query %.1fms: %s", cost_ms, _one_line(statement))
+
+
+@event.listens_for(engine, "handle_error")
+def _pop_query_start(exc_context: Any) -> None:  # noqa: ANN401
+    """执行抛错时 ``after_cursor_execute`` 不会触发，这里出栈对应时间戳保持配对。"""
+    stack = _started_stack(getattr(exc_context, "connection", None))
+    if stack:
+        stack.pop()
 
 
 # ---------------------------------------------------------------------------

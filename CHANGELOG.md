@@ -62,6 +62,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
   点一下直接重跑；与命令面板互补——面板适合「想到什么搜什么」，这里适合「刚才那个
   再问一遍」。隐私模式下存取抛错时整体静默降级，不影响主链路。
 
+- **新增可观测性三件套：`GET /healthz` 探活 + 慢查询告警 + 慢请求告警。**
+  `/healthz` 始终返回 200，用响应体的 `status`（`ok` / `degraded`）表达健康程度：
+  扁平 JSON、字段集合恒定，与 `/api/stats` 同风格。**永不触发播种、永不鉴权**，
+  库不可达时 `status` 退化为 `degraded`、两个行数给 0（键仍在），监控端不必判
+  「这个键这次有没有」。附带 `version`（读自 `pyproject.toml`——手写常量会与发布版本
+  漂移，`importlib.metadata` 在非 editable 安装下拿到的是打包时的旧号，两者都会在排查时
+  指错版本）与 `uptime_s`。
+  - **慢查询**：`before_cursor_execute` / `after_cursor_execute` 配对计时，超过
+    `QU_STAT_SLOW_QUERY_MS`（默认 200ms）打 `src.db` WARNING，语句压成单行并按 200 字
+    截断；`handle_error` 里同步出栈，失败语句不会让长连接上的时间栈无限增长。`<=0` 关闭。
+  - **慢请求**：`before_request` / `after_request` 计时，超过 `QU_STAT_SLOW_REQUEST_MS`
+    （默认 1000ms）打 `src.web` WARNING，输出 `method=… path=… status=… ms=…` 平铺字段。
+    与慢查询告警配对：前者说「这条请求慢」，后者说「慢在哪一句 SQL」。
+  - 观测代码一律不得影响主流程：阈值解析失败静默回落默认值，探针 try/except 兜底。
+  - 新增 `tests/test_obslog.py` 14 条；`/healthz` 已登记 `src/api_docs.py::ENDPOINTS`
+    （新增 `ops` 分组）与 `scripts/check_i18n.py`。
+
 ### Changed
 
 - **批量指标写入从逐行 execute 改为单条 executemany（约 23 倍）。** `upsert_indicators()`

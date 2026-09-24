@@ -629,7 +629,7 @@ def _dimensions() -> set[str]:
 
 def test_coldstart_purges_legacy_kv_snapshot_in_order(
         clean_indicators, fake_kv, monkeypatch, caplog):
-    """旧快照 → 清表 → 重播种 → 清 KV，三个副作用按序发生，且全程无告警。"""
+    """旧快照 → 清表 → 重播种 → 清 KV，三个副作用按序发生，且 web 层全程无告警。"""
     import src.kv_sync as kv_sync
     import src.loader as loader
     from src.web import _ensure_data
@@ -655,7 +655,11 @@ def test_coldstart_purges_legacy_kv_snapshot_in_order(
     with caplog.at_level(logging.WARNING, logger="src.web"):
         _ensure_data()
 
-    assert [r.getMessage() for r in caplog.records if r.levelno >= logging.WARNING] == []
+    # 只算 src.web 自己的告警：别处（例如 src.db 的慢查询告警）的噪音不该记在这条
+    # 契约的账上——本测试要钉住的是「启动流程不降级」，不是「全世界都别打日志」。
+    web_warnings = [r.getMessage() for r in caplog.records
+                    if r.levelno >= logging.WARNING and r.name == "src.web"]
+    assert web_warnings == []
     assert fake_kv["events"] == ["restore", "reseed", "kv_delete"]
     assert fake_kv["deleted_keys"] == ["qu_stat_ap:indicators"]
     dims = _dimensions()

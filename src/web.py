@@ -11,6 +11,7 @@ import hashlib
 import hmac
 import json
 import os as _os
+import time
 import gzip as _gzip
 from typing import cast
 
@@ -25,10 +26,10 @@ if "127.0.0.1" not in _os.environ.get("NO_PROXY", ""):
 
 from functools import wraps
 
-from flask import Flask, request, jsonify, Response
+from flask import Flask, g, jsonify, request, Response
 
 from src import report
-from src.db import query_indicators, db_info, init_db
+from src.db import BASE_DIR, db_info, init_db, query_indicators
 from src import knowledge as kb
 from src import collect as collector
 from src import labels
@@ -66,6 +67,46 @@ _GZIP_MIN_BYTES = 500
 _GZIP_MIMES = ("text/", "application/json", "application/javascript",
                "application/xml", "image/svg+xml")
 
+
+def _float_env(name: str, default: float) -> float:
+    """读浮点环境变量；缺失或非法时返回默认值——配置错误绝不影响服务可用性。"""
+    raw = _os.environ.get(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        return default
+
+
+#: 慢请求阈值（毫秒），环境变量 ``QU_STAT_SLOW_REQUEST_MS`` 覆盖；``<=0`` 关闭。
+#: 与 :data:`src.db.SLOW_QUERY_MS` 配对：前者说「这条请求整体慢」，后者说「慢在哪
+#: 一句 SQL」。两条同时出现即可直接定位到具体语句；只出现前者，说明时间花在 Python
+#: 侧（渲染 / 本地化 / 拼 JSON），该往哪里查也就清楚了。
+SLOW_REQUEST_MS: float = _float_env("QU_STAT_SLOW_REQUEST_MS", 1000.0)
+
+#: 进程启动时刻，供 ``/healthz`` 报 uptime（秒）——「刚刚重启过」本身就是排查线索。
+_STARTED_AT = time.time()
+
+
+def _read_version() -> str:
+    """从 ``pyproject.toml`` 读版本号；读不到返回 ``unknown``。
+
+    为什么不手写常量、也不用 ``importlib.metadata``：前者会与发布版本漂移，后者在
+    非 editable 安装下拿到的是打包那一刻的旧版本号——两者都会在线上排查时指错版本。
+    """
+    try:
+        with open(BASE_DIR / "pyproject.toml", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("version"):
+                    return line.partition("=")[2].strip().strip('"') or "unknown"
+    except OSError:
+        pass
+    return "unknown"
+
+
+#: 应用版本。``/healthz`` 会带出来，运维才能确认「线上跑的到底是哪一版」。
+_APP_VERSION = _read_version()
 
 def _client_accepts_gzip() -> bool:
     """客户端是否声明支持 gzip（Accept-Encoding）。"""
@@ -170,6 +211,36 @@ def _apply_headers(resp):
                 resp.headers["Content-Encoding"] = "gzip"
                 resp.headers["Content-Length"] = str(len(_compressed))
                 resp.vary.add("Accept-Encoding")
+    return resp
+
+
+@app.before_request
+def _mark_request_start():
+    """记下请求开始时刻，供 :func:`_warn_on_slow_request` 计算耗时。"""
+    g.started_at = time.perf_counter()
+
+
+@app.after_request
+def _warn_on_slow_request(resp):
+    """整条请求超过 :data:`SLOW_REQUEST_MS` 时打 WARNING，附带扁平的关键字段。
+
+    与 ``src.db`` 的慢查询告警成对使用（见该处的说明）。这里刻意用
+    ``method=… status=… ms=…`` 的平铺形状而不是嵌一层 JSON 对象：日志系统按
+    等号切分即可聚合，读起来也还是人话。
+
+    只统计到处理器返回为止——后面的安全头 / ETag / gzip 是固定开销，
+    计入只会稀释信号。处理器抛错时 Flask 走异常路径、本钩子不执行，
+    那种情况本身已有 500 与 traceback，不必重复报。
+    """
+    started = getattr(g, "started_at", None)
+    if started is None:
+        return resp
+    cost_ms = (time.perf_counter() - started) * 1000.0
+    if 0 < SLOW_REQUEST_MS <= cost_ms:
+        app.logger.warning(
+            "slow request method=%s path=%s status=%s ms=%.0f",
+            request.method, request.path, resp.status_code, cost_ms,
+        )
     return resp
 
 
@@ -466,6 +537,49 @@ def api_stats():
         "year_count": len(years),
         "years": years,
         "dimensions": dims,
+    })
+
+
+@app.route("/healthz")
+def healthz():
+    """探活端点：**始终 200**，用 ``status`` 区分健康与降级。
+
+    取向与平台存活探针对齐：
+
+    * **永不 500**。进程能回 HTTP 就说明它活着；库里有没有数据是 ``status`` 的事，
+      不该由探针判定——把「有数据」写成存活条件，会让播种失败的部署被平台反复
+      重启，反而更难排查。
+    * **不播种**。探针可能被每分钟调一次，绝不能触发 ``load_seed_data``；下面只走
+      幂等的 ``init_db()``（进程内第二次起直接返回）。
+    * **不鉴权**。平台探针不会带 ``X-Admin-Token``。
+    * **扁平 JSON**、字段集合恒定，与 ``/api/stats`` 同风格：监控端可以直接取值，
+      不必判「这个键这次有没有」。
+
+    库不可达时 ``status`` 为 ``degraded``、``db_ok`` 为 false，两个行数给 0。
+    KV 未配置**不算**降级——本地部署本来就没有 KV。
+    """
+    from src.kv_store import kv_available
+
+    db_ok = True
+    indicator_rows = 0
+    knowledge_rows = 0
+    try:
+        info = db_info()          # 内部已 init_db()，但不播种
+        indicator_rows = int(info["indicator_rows"])
+        knowledge_rows = int(info["knowledge_rows"])
+    except Exception:  # noqa: BLE001 - 探针必须永不 500
+        db_ok = False
+
+    seeded = indicator_rows > 0
+    return jsonify({
+        "status": "ok" if (db_ok and seeded) else "degraded",
+        "version": _APP_VERSION,
+        "db_ok": db_ok,
+        "seeded": seeded,
+        "kv_configured": kv_available(),
+        "indicator_rows": indicator_rows,
+        "knowledge_rows": knowledge_rows,
+        "uptime_s": int(time.time() - _STARTED_AT),
     })
 
 
