@@ -64,6 +64,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
 
 ### Changed
 
+- **批量指标写入从逐行 execute 改为单条 executemany（约 23 倍）。** `upsert_indicators()`
+  原先为每一行单独 `execute`，每行都要重走一遍 SQLAlchemy 的语句编译；729 行种子数据
+  实测 **206.6ms**，冷启动播种与 `POST /api/reseed` 都走这条路。改为构建**一条**
+  `INSERT ... ON CONFLICT DO UPDATE` 后 `executemany(list_of_rows)`（一次编译、N 次绑定），
+  实测降到 **8.9ms**；`/api/reseed` 端到端约 10ms。
+  语义完全不变，由 `tests/test_import.py` 逐条钉住：写入条数、重复写入幂等、
+  同 (year, category, indicator, dimension) 自然键**更新而非新增**、以及唯一索引缺失时
+  的「逐行删除+插入」回退路径同样幂等。失败时整批回退并改走逐行路径
+  （原实现是逐行 try/except，粒度更细但最终结果一致）。
+- **`load_file()` 补齐导入校验，与种子数据共用同一套规则。** 原先它把 DataFrame 的记录
+  **直接 cast** 成 `IndicatorRow`：用户传错文件时会在数据库层炸出原始 `KeyError`，
+  或者更糟——静默写入垃圾。现在抽出 `_coerce_row()`，种子 CSV 与用户 CSV/Excel 共用；
+  必需列缺失 / 年份或数值不可解析 / 数值非有限（`inf`、`nan`）的行会被跳过并在日志里
+  报数，**整份文件都不可用时抛 `ValueError`** 而不是返回 0——用户传错文件时必须立刻
+  看到失败，而不是收到一句「已导入 0 条」还以为成功了。
+  顺带修掉两个隐蔽问题：pandas 的缺失单元格是 `float('nan')`，原先会写成字面量
+  `"nan"` 字符串；`inf` 这类非有限值原先能直接落库。
 - **冷启动瘦身：3 个可选重依赖改为函数内延迟导入。** `import src.web` 是 Vercel 每个冷容器
   的固定开销（实测约 330ms CPU）。三处只在特定分支才用得到的依赖原先都写在模块顶层：
   ① `src/kv_store.py` 的 `import requests`（连同 urllib3 / email / http 整棵树）——只在

@@ -12,10 +12,15 @@ from __future__ import annotations
 
 import csv
 import io
+import logging
+import math
+from collections.abc import Mapping
 from pathlib import Path
 from typing import cast
 
 from src.db import IndicatorRow, upsert_indicators
+
+logger = logging.getLogger(__name__)
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
@@ -36,21 +41,48 @@ def _seed_text(const_name: str) -> str:
     return cast("str", getattr(seed_data, const_name))
 
 
+def _opt_str(raw: Mapping[str, object], key: str) -> str:
+    """取可选字符串列；空值与 pandas 的 NaN 一律归一成空串。
+
+    pandas 读缺失单元格得到的是 ``float('nan')``，直接 ``str()`` 会写成字面量
+    "nan"——那是把缺失数据存成了字符串，比存空串更难排查。
+    """
+    value = raw.get(key)
+    if value is None or (isinstance(value, float) and math.isnan(value)):
+        return ""
+    return str(value).strip()
+
+
+def _coerce_row(raw: Mapping[str, object]) -> IndicatorRow | None:
+    """把一行原始映射转成 IndicatorRow；不可用时返回 None。
+
+    种子 CSV 与用户 CSV/Excel **共用**这一套规则（原先各写一份，容易漂移）。
+    判定「不可用」的条件：必需列缺失、年份/数值不可解析、数值非有限。
+    """
+    try:
+        year = int(str(raw["year"]).strip())
+        value = float(str(raw["value"]).strip())
+        if not math.isfinite(value):
+            return None
+        return IndicatorRow(
+            year=year,
+            category=str(raw["category"]).strip(),
+            indicator=str(raw["indicator"]).strip(),
+            dimension=str(raw["dimension"]).strip(),
+            value=value,
+            unit=_opt_str(raw, "unit"),
+            note=_opt_str(raw, "note"),
+        )
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
 def _parse_rows(text: str) -> list[IndicatorRow]:
     rows: list[IndicatorRow] = []
     for raw in csv.DictReader(io.StringIO(text.lstrip("\ufeff"))):
-        try:
-            rows.append(IndicatorRow(
-                year=int(str(raw["year"]).strip()),
-                category=str(raw["category"]).strip(),
-                indicator=str(raw["indicator"]).strip(),
-                dimension=str(raw["dimension"]).strip(),
-                value=float(str(raw["value"]).strip()),
-                unit=str(raw.get("unit") or "").strip(),
-                note=str(raw.get("note") or "").strip(),
-            ))
-        except (KeyError, TypeError, ValueError):
-            continue  # 跳过格式异常行，不阻断整批导入
+        row = _coerce_row(raw)
+        if row is not None:
+            rows.append(row)
     return rows
 
 
@@ -66,7 +98,13 @@ def load_seed_data(years: list[int] | None = None) -> int:
 
 
 def load_file(path: str) -> int:
-    """导入用户 CSV/Excel，要求列为 year,category,indicator,dimension,value,unit,note。"""
+    """导入用户 CSV/Excel，要求列为 year,category,indicator,dimension,value,unit,note。
+
+    逐行校验，规则与种子数据完全一致（``_coerce_row``）：必需列缺失、
+    年份/数值不可解析、数值非有限的行会被跳过并在日志里报数。
+    **整份文件都不可用时抛 ValueError** 而不是返回 0——用户传错文件时必须
+    立刻看到失败，而不是收到一句「已导入 0 条」还以为成功了。
+    """
     try:
         import pandas as pd
     except ImportError:
@@ -80,7 +118,23 @@ def load_file(path: str) -> int:
         # pandas-stubs 的 read_excel 签名含 Unknown 参数，触发 reportUnknownMemberType；
         # 此为库本身类型缺陷，针对性忽略。
         df = pd.read_excel(path)  # type: ignore[reportUnknownMemberType]
-    rows: list[IndicatorRow] = cast("list[IndicatorRow]", df.to_dict("records"))
+
+    records = cast("list[dict[str, object]]", df.to_dict("records"))
+    rows: list[IndicatorRow] = []
+    for record in records:
+        row = _coerce_row(record)
+        if row is not None:
+            rows.append(row)
+
+    if not rows:
+        raise ValueError(
+            f"{path}：{len(records)} 行全部不可用。需要 year / category / indicator / "
+            "dimension / value 五列（unit 与 note 可选），且年份与数值必须可解析。"
+        )
+    skipped = len(records) - len(rows)
+    if skipped:
+        logger.warning("%s：跳过 %d / %d 行（必需列缺失、数值不可解析或非有限）",
+                       Path(path).name, skipped, len(records))
     return upsert_indicators(rows)
 
 
