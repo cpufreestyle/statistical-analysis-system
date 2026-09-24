@@ -84,14 +84,28 @@ else:
 # 连接池（D1）：显式声明，避免默认值在 Serverless / 多线程下的隐性开销。
 # - check_same_thread=False：允许 Flask 多线程请求复用连接（标准做法）。
 # - pool_pre_ping=True：取用前探活，规避长时间空闲后的失效连接。
-# - Vercel（QU_STAT_DB_DIR 存在，落在 /tmp）：用 NullPool，避免跨请求句柄残留。
-# - 本地/容器：QueuePool，复用连接（5 + 10 溢出）。
+# - 连接**复用**（QueuePool，5 + 10 溢出）对本地与 Vercel 一视同仁，理由见下。
 _IS_SQLITE = DB_URL.startswith("sqlite")
 _engine_kwargs: dict[str, Any] = {"future": True}
 if _IS_SQLITE:
     _engine_kwargs["connect_args"] = {"check_same_thread": False}
     _engine_kwargs["pool_pre_ping"] = True
-    if _VERCEL_DB_DIR:
+    # 连接池类别：默认 QueuePool（复用连接）；`QU_STAT_DB_POOL=null` 退回 NullPool。
+    #
+    # Vercel / Serverless 早先用 NullPool，理由是「避免跨请求句柄残留」——
+    # 但那是**远程库**的经验：连接可能被服务端回收、被中间件踢掉。本项目的
+    # SQLite 库文件就在**同一个实例自己的 /tmp** 里，没有服务端会回收它；
+    # 万一实例被冻结再解冻导致连接失效，也由上面的 `pool_pre_ping=True` 兜住。
+    #
+    # 而 NullPool 的代价是每次查询都新建一条 SQLite 连接。同库、同查询的 A/B
+    # 实测（本次基准）：**1.57ms → 0.17ms**（约 9 倍），按请求算约占
+    # `/api/overview` 四成耗时、`/api/insights` 四成耗时。
+    #
+    # 并发安全由既有 PRAGMA 兜底：`journal_mode=WAL`（读不阻塞写）+
+    # `busy_timeout=30000`（30s 锁等待，见 _SQLITE_PRAGMAS）。
+    # `POST /api/reseed` 只 DELETE + 重载、不删库文件，因此不存在
+    # 「池里握着已删除 inode」的问题；全仓库也没有 engine.dispose() 调用。
+    if (os.environ.get("QU_STAT_DB_POOL") or "").strip().lower() == "null":
         _engine_kwargs["poolclass"] = NullPool
     else:
         _engine_kwargs["poolclass"] = QueuePool

@@ -184,6 +184,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
 - **前端接线顺带补上顺序护栏。** 「最近提问」的 `const` 声明放在 `init()` **之前**，
   并在注释里写明原因——本文件历史上的回归正是增强能力的 `const` 声明晚于 `init()`，
   一执行就踩暂时死区、异常又被 `try/catch` 吞掉，页面毫无异常但能力全失效。
+- **SQLite 连接池改为复用连接，Vercel 形态同样受益（约 4–7 倍）。** `src/db.py` 早先在
+  Vercel / Serverless 形态（`QU_STAT_DB_DIR` 已设）下用 `NullPool`，理由是
+  「避免跨请求句柄残留」——但那是**远程库**的经验（连接可能被服务端回
+  收）。本项目的 SQLite 库文件就在**同一个实例自己的 /tmp** 里，不存在服务端回收；
+  万一实例被冻结再解冻导致连接失效，也由既有的 `pool_pre_ping=True` 兜住。
+  NullPool 的真实代价是**每次查询都新建一条 SQLite 连接**：同库、同查询 A/B
+  实测 **1.57ms → 0.17ms**；按端点算（同一基准脚本、只切 poolclass）
+  `/api/insights` 4.77→0.99ms、`/api/overview` 3.79→0.80ms、
+  `/api/stats` 3.60→0.98ms、`POST /api/knowledge` 4.49→0.60ms。
+  并发安全由既有 PRAGMA 兜底（`journal_mode=WAL` 读不阻塞写 +
+  `busy_timeout=30000`）；12 线程（8 读 + 4 写）压测 23 万行读取 + 80 次并发写 **0 错误**。
+  保留应急开关 `QU_STAT_DB_POOL=null` 可退回 NullPool（线上免改代码）。
+  新增 `tests/test_db_pool.py` 9 条，其中用 `connect` 事件数**真实 DBAPI 连接**的新建次
+  数，把「连接被复用」钉成行为级守卫（改回 NullPool 时精确报「25 次查询新建
+  25 条连接」）。
+- **`/api/infini_skill` 从 56ms 降到 0.26ms（约 217 倍）。** 该端点每次请求要把 `agent_infini` CLI
+  路径解出 **3 遍**（`resolve_cli_path()` 被 web 层、`preflight`、`run_skill_cli`
+  各调一次），而每次都要 `shutil.which()` 逐个 stat PATH 里的目录——本机 PATH
+  有 51 项，单次实测 17.3ms，合计约 52ms。改为：PATH 扫描结果进程内缓存
+  （`functools.cache`；PATH 与环境变量在运行期不变，而 `AGENT_INFINI_CLI` 的优先级判断
+  仍在 `resolve_cli_path()` 里逐次求值、不进缓存），并让 `run_skill_cli()` 接受调用方
+  已解析好的 `cli`，消掉 `preflight` 里的重复解析。
 
 ### Docs
 
