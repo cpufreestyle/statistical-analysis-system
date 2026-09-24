@@ -427,6 +427,31 @@ def test_docs_declares_admin_endpoints_as_protected(client):
     assert admin_block.count("Admin token") >= 4
 
 
+def test_docs_english_page_has_no_chinese_comments(client):
+    """英文 /docs 的代码块注释必须也是英文。
+
+    只审注释行（``#`` / ``//``）：示例载荷里的中文是数据本身
+    （如 ``["国民经济", "GDP", "中国"]``、``"category": "通用"``），
+    调用方必须原样使用，不在翻译范围内；注释则是写给人看的说明，必须跟随语言。
+    """
+    import html as html_mod
+    import re
+
+    en = client.get("/docs?lang=en").get_data(as_text=True)
+    blocks = re.findall(r'<pre class="doc-pre">(.*?)</pre>', en, re.S)
+    assert blocks, "未找到任何 doc-pre 代码块"
+
+    leaked = []
+    for index, block in enumerate(blocks):
+        text = html_mod.unescape(block).replace("&quot;", '"')
+        for line in text.splitlines():
+            stripped = line.strip()
+            is_comment = stripped.startswith("#") or "//" in stripped
+            if is_comment and re.search(r"[\u4e00-\u9fff]", stripped):
+                leaked.append((index, stripped[:40]))
+    assert not leaked, f"英文页代码块里出现中文注释：{leaked}"
+
+
 # ---------------------------------------------------------------------------
 # 自定义错误页（品牌一致，且接口路径仍回 JSON）
 # ---------------------------------------------------------------------------

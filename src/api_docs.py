@@ -188,6 +188,9 @@ ENDPOINTS: list[dict[str, object]] = [
         ],
         "example": ("curl -s \"$BASE/api/indicators?indicator=GDP&year=2024&lang=en\"\n"
                     "# 或按关键词搜索（中英均可）\n"
+                    "curl -s \"$BASE/api/indicators?q=retail\" | head -40",
+                    "curl -s \"$BASE/api/indicators?indicator=GDP&year=2024&lang=en\"\n"
+                    "# or search by keyword (either language works)\n"
                     "curl -s \"$BASE/api/indicators?q=retail\" | head -40"),
     },
     {
@@ -717,9 +720,11 @@ def _endpoint_html(ep: dict, s: dict) -> str:
         body_zh, body_en = body  # type: ignore[misc]
         parts.append(f'<p class="doc-label">{_esc(s["label.body"])}</p>')
         parts.append(f'<pre class="doc-pre">{_esc(body_zh if s is _ZH else body_en)}</pre>')
-    if ep.get("example"):
+    ex = ep.get("example")
+    if ex:
         parts.append(f'<p class="doc-label" style="margin-top:10px">{_esc(s["label.example"])}</p>')
-        parts.append(f'<pre class="doc-pre">{_esc(str(ep["example"]))}</pre>')
+        ex_zh, ex_en = ex if isinstance(ex, tuple) else (ex, ex)  # type: ignore[misc]
+        parts.append(f'<pre class="doc-pre">{_esc(ex_zh if s is _ZH else ex_en)}</pre>')
     parts.append("</article>")
     return "".join(parts)
 

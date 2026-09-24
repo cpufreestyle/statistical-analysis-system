@@ -114,6 +114,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
 
 ### Fixed
 
+- **修复 `/docs` 英文页唯一一处真实漏译：curl 示例里的中文 shell 注释。**
+  `/api/indicators` 的 `example` 是单字符串（含 `# 或按关键词搜索（中英均可）`），渲染器
+  `_endpoint_html()` 原先直接 `str(ep["example"])` 输出，英文页因此跟着显示中文注释。
+  修复：渲染器改为兼容「单串 / `(zh, en)` 二元组」两种形态（与既有 `body` 字段同构），
+  该 `example` 拆成中英二元组，英文注释改为
+  `# or search by keyword (either language works)`。
+  说明：示例载荷里的中文（`["国民经济", …]`、`"category": "通用"`、`"GDP 口径"`）
+  是调用方必须原样使用的数据规范键，按设计不翻译。
+  新增回归测试 `test_docs_english_page_has_no_chinese_comments`：遍历 `/docs` 英文页所有
+  `<pre class="doc-pre">` 代码块，注释行（`#` / `//`）出现中文即失败（已验证「修复前红」）。
+
 - **修掉 3 处英文界面裸显中文的漏译。** ① / ② 自定义分析的两个英文输入框占位符
   （`public/app.html` 的 `data-i18n-ph="英文名称（可选…）"` / `"英文说明（可选）"`）；
   ③ 命令面板的分组标签 `tr('示例问题')`（`public/app.js`）。三者的共同根因：
