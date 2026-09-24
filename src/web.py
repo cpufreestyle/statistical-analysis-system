@@ -12,6 +12,7 @@ import hmac
 import json
 import os as _os
 import gzip as _gzip
+from typing import cast
 
 # 本地看板跑在 127.0.0.1，必须排除出系统 HTTP 代理（如 127.0.0.1:7897），
 # 否则代理会拦截本地请求导致预览/接口连接被拒。
@@ -422,11 +423,12 @@ def api_insights():
              value=m["value"], prev_value=m["prev_value"], change_pct=m["change_pct"])
         for m in data["movers"]           # type: ignore[union-attr]
     ]
-    shift = data["rank_shifts"]
+    shift = cast("dict[str, object]", data["rank_shifts"])
+    shift_rows = cast("list[dict[str, object]]", shift["rows"])
     shifts = [
-        dict(_row(str(shift["indicator"] or ""), str(shift["unit"] or ""), str(s["dimension"])),  # type: ignore[arg-type]
+        dict(_row(str(shift["indicator"] or ""), str(shift["unit"] or ""), str(s["dimension"])),
              rank_now=s["rank_now"], rank_prev=s["rank_prev"], delta=s["delta"], value=s["value"])
-        for s in shift["rows"]            # type: ignore[index]
+        for s in shift_rows
     ]
     return jsonify({
         "year": data["year"],

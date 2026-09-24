@@ -174,8 +174,9 @@ def _cloud_interpret(bulletin: str, lang: str) -> tuple[str, str, bool]:
                 "提炼 3-5 条经济亮点，并指出 1-2 个需关注的结构性问题与建议：\n\n"
                 + bulletin + knowledge_block
             )
-        bulletin_file = [{"name": ("统计公报.md" if not en else "bulletin.md"),
-                          "content": bulletin + knowledge_block}]
+        bulletin_file: list[dict[str, object]] = [
+            {"name": ("统计公报.md" if not en else "bulletin.md"),
+             "content": bulletin + knowledge_block}]
         from src import ai_cache
         out, cached = ai_cache.analyze_cached(az, prompt, files=bulletin_file, lang=lang)
         return (_extract_cloud_text(out.get("result")), "", cached)

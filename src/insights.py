@@ -12,6 +12,8 @@
 """
 from __future__ import annotations
 
+from typing import cast
+
 from src.db import query_indicators
 
 #: 每个榜单的默认条数：看板一屏放得下，也不至于把用户埋进数字里
@@ -54,7 +56,8 @@ def movers(year: int, dimension: str, limit: int = DEFAULT_LIMIT) -> list[dict[s
             "prev_value": before,
             "change_pct": pct,
         })
-    out.sort(key=lambda m: (-abs(float(m["change_pct"])), str(m["indicator"])))
+    out.sort(key=lambda m: (-abs(float(cast("float | int | str", m["change_pct"]))),
+                        str(m["indicator"])))
     return out[:limit]
 
 
@@ -92,7 +95,8 @@ def rank_shifts(year: int, limit: int = DEFAULT_LIMIT) -> dict[str, object]:
             "delta": prev_rank - rank_now,   # 正数 = 名次上升
             "value": value,
         })
-    rows.sort(key=lambda s: (-abs(int(s["delta"])), str(s["dimension"])))
+    rows.sort(key=lambda s: (-abs(int(cast("int", s["delta"]))),
+                            str(s["dimension"])))
     return {"indicator": indicator, "unit": unit, "rows": rows[:limit]}
 
 

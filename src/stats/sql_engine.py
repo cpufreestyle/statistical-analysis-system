@@ -136,7 +136,7 @@ def bind_variables(variables: dict[str, list[str]],
             out[var] = {}
             for year in years:
                 val = row[idx] if idx < len(row) else None
-                out[var][year] = None if val is None else float(cast("object", val))
+                out[var][year] = None if val is None else float(cast("float | int | str", val))
                 idx += 1
         return out
     for vi, var in enumerate(variables):
@@ -144,7 +144,7 @@ def bind_variables(variables: dict[str, list[str]],
         for year in years:
             alias = f"{_ALIAS}{vi}__{year}"
             val = result.get(alias)
-            out[var][year] = None if val is None else float(cast("object", val))
+            out[var][year] = None if val is None else float(cast("float | int | str", val))
     return out
 
 
