@@ -60,6 +60,8 @@ _ASSET_FILES = {
     "style.css": "STYLE_CSS",
     "landing.css": "LANDING_CSS",
     "app.js": "APP_JS",
+    "app.charts.js": "APP_CHARTS_JS",
+    "app.palette.js": "APP_PALETTE_JS",
     "i18n.js": "I18N_JS",
     "i18n-dict.js": "I18N_DICT",
     "i18n-dict-landing.js": "I18N_DICT_LANDING",
@@ -466,6 +468,28 @@ def serve_js():
     return pages.APP_JS, 200, {"Content-Type": "application/javascript; charset=utf-8",
                                "Cache-Control": _STATIC_CACHE}
 
+
+
+@app.route("/app.charts.js")
+def serve_charts_js():
+    """看板「图表」tab 的代码分块——core 首次打开该 tab 时按需拉取。
+
+    首屏（智能查询）用不到图表，所以它不占首访载荷；core 里的
+    updateShareUrl() / exportChartCsv() 只读 CHART 状态，不引用本文件。
+    """
+    return pages.APP_CHARTS_JS, 200, {"Content-Type": "application/javascript; charset=utf-8",
+                                     "Cache-Control": _STATIC_CACHE}
+
+
+@app.route("/app.palette.js")
+def serve_palette_js():
+    """命令面板 + 全局快捷键 + 帮助浮层的代码分块。
+
+    core 在主体初始化完之后调用 loadChunk("palette") 拉取，用户按第一个
+    快捷键之前文件早已就位；分块自己完成初始化。
+    """
+    return pages.APP_PALETTE_JS, 200, {"Content-Type": "application/javascript; charset=utf-8",
+                                     "Cache-Control": _STATIC_CACHE}
 
 @app.route("/i18n.js")
 def serve_i18n():

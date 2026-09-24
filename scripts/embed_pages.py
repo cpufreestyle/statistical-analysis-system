@@ -27,6 +27,8 @@ FILES = {
     "LANDING_CSS": "landing.css",
     "THEME_CSS": "theme.css",
     "APP_JS": "app.js",
+    "APP_CHARTS_JS": "app.charts.js",
+    "APP_PALETTE_JS": "app.palette.js",
     "I18N_JS": "i18n.js",
     "I18N_DICT": "i18n-dict.js",
     "I18N_DICT_LANDING": "i18n-dict-landing.js",

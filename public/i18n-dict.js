@@ -307,6 +307,7 @@ window.ZH2EN = {
     "进口": "Imports",
     "请先输入查询问题": "Enter a question first",
     "加载失败": "Load failed",
+    "加载失败，请重试": "Load failed — please retry",
     "分析完成": "Analysis complete",
     "请求失败": "Request failed",
     "无结果": "No result",

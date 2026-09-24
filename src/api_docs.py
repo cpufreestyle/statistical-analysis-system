@@ -70,19 +70,23 @@ ENDPOINTS: list[dict[str, object]] = [
         "example": "curl -s \"$BASE/privacy?lang=en\"",
     },
     {
-        "group": "pages", "method": "GET", "path": "/theme.css · /style.css · /landing.css · /app.js · /i18n.js"
-               " · /i18n-dict.js · /i18n-dict-landing.js",
+        "group": "pages", "method": "GET", "path": "/theme.css · /style.css · /landing.css · /app.js"
+               " · /app.charts.js · /app.palette.js · /i18n.js · /i18n-dict.js"
+               " · /i18n-dict-landing.js",
         "auth": False,
         "title": ("前端资源", "Frontend assets"),
-        "desc": ("七份前端资源：主题令牌 / 看板样式 / 落地页样式 / 看板逻辑 / 双语运行时 / "
-                 "全量词表 / 落地页词表。页面引用时**每个资产各带自己的**内容哈希版本号 "
-                 "``?v=<sha256 前 12 位>``，因此可以放心长缓存；改一个资产只换它自己的 "
-                 "URL，不会连带把别的资产也顶失效。",
-                 "Seven frontend assets: theme tokens / dashboard styles / landing styles / "
-                 "dashboard logic / bilingual runtime / full dictionary / landing "
-                 "dictionary. **Each asset carries its own** content-hash version, "
-                 "``?v=<sha256[:12]>``, which makes the long cache safe: changing one asset "
-                 "only invalidates that one URL."),
+        "desc": ("九份前端资源：主题令牌 / 看板样式 / 落地页样式 / 看板逻辑 / 图表分块 / "
+                 "命令面板分块 / 双语运行时 / 全量词表 / 落地页词表。页面引用时**每个资产各带自己的** "
+                 "内容哈希版本号 ``?v=<sha256 前 12 位>``，因此可以放心长缓存；改一个资产只换它自己的 "
+                 "URL，不会连带把别的资产也顶失效。``/app.charts.js`` 与 ``/app.palette.js`` 是 "
+                 "**按需加载**的分块：core（``/app.js``）只在首次用到时才动态拉取，首屏不下发。",
+                 "Nine frontend assets: theme tokens / dashboard styles / landing styles / "
+                 "dashboard logic / charts chunk / command-palette chunk / bilingual "
+                 "runtime / full dictionary / landing dictionary. **Each asset carries its own** "
+                 "content-hash version, ``?v=<sha256[:12]>``, which makes the long cache safe: "
+                 "changing one asset only invalidates that one URL. ``/app.charts.js`` and "
+                 "``/app.palette.js`` are **lazily loaded** chunks: the core (``/app.js``) "
+                 "fetches them on first use, so they are not part of the first-visit payload."),
         "params": [],
         "example": "curl -sI \"$BASE/style.css\" | grep -i cache-control",
     },

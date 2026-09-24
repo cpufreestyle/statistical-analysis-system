@@ -21,6 +21,13 @@ const I18N_JS = process.env.QU_STAT_I18N_JS || path.join("public", "i18n.js");
 const I18N_DICT_JS = process.env.QU_STAT_I18N_DICT_JS || path.join("public", "i18n-dict.js");
 const APP_JS = process.env.QU_STAT_APP_JS || path.join("public", "app.js");
 
+/* 代码分割后的分块：core 的 loadChunk() 会动态插入 <script> 拉它们。
+   支持与 APP_JS 同款的临时副本注入——「改坏看看」时不去动被跟踪的 public/ 文件。 */
+const CHUNK_FILES = {
+  "/app.charts.js": process.env.QU_STAT_APP_CHARTS_JS || path.join("public", "app.charts.js"),
+  "/app.palette.js": process.env.QU_STAT_APP_PALETTE_JS || path.join("public", "app.palette.js"),
+};
+
 /* ───────────────────────── 最小浏览器桩 ───────────────────────── */
 
 function makeEl(id, tag = "div") {
@@ -97,6 +104,11 @@ const documentStub = {
     return true;
   },
   body: makeEl("body"),
+  /* 动态 <script> 注入：core 的 loadChunk() 靠它拉分块。真实浏览器里 s.onload 会
+     兑现 Promise；这里不触发 onload，所以在 context 建好之后由下方覆盖版本的
+     chunkRunner 真的把分块读进同一个 vm 上下文执行，再手动调一次 onload——两条路
+     都通，与浏览器行为一致，不会把「分块没加载」伪装成「加载成功」。 */
+  head: makeEl("head"),
   documentElement: makeEl("html"),
   activeElement: null,
 };
@@ -153,6 +165,31 @@ sandbox.fetch = async (url) => {
 
 const context = vm.createContext(sandbox);
 
+/* loadChunk() 的注入路径：把分块读进**同一个** vm 上下文执行，分块顶层的
+   function / const 因此落到与 core 相同的全局词法环境里——这正是经典 <script>
+   在浏览器里的语义，也是分块能直接读写 core 的 STATE / API / THEME_* 的原因。
+   只有 context 建好之后才可能被调用，所以放在这里覆盖。 */
+const bodyAppend = sandbox.document.body.appendChild;
+sandbox.document.body.appendChild = function (c) {
+  /* 复刻真实浏览器对 <script src> 的语义：script.src = undefined 会把属性反映成
+     字符串 "undefined"，随后按该 URL 请求、404、走 onerror。
+     这里不静默什么都不做——那样 loadChunk() 的 Promise 永远悬着，「指向一个
+     不存在的分块」会被伪装成「还在加载中」，而浏览器里用户看到的是加载失败 toast。
+     整个 public/ 里只有 loadChunk() 会创建 <script>，所以这条路径没有别的调用方。 */
+  if (!c || c.tagName !== 'script') return bodyAppend.call(sandbox.document.body, c);
+  const raw = c.src == null ? 'undefined' : String(c.src);
+  const key = raw.split('?')[0];
+  if (!CHUNK_FILES[key]) {
+    Promise.resolve().then(() => { if (c.onerror) c.onerror(new Error('404 ' + raw)); });
+    return c;
+  }
+  Promise.resolve()
+    .then(() => vm.runInContext(read(CHUNK_FILES[key]), context, { filename: CHUNK_FILES[key] }))
+    .then(() => { if (c.onload) c.onload(); },
+          (e) => { if (c.onerror) c.onerror(e); });
+  return c;
+};
+
 /* ───────────────────────── Tab 测试 DOM 桩 ───────────────────────── */
 /* 在 app.js init() 跑之前建好最小 tablist，让 keydown handler 能挂上。
    真实渲染由 loadOverview 驱动，这里只测键盘导航逻辑。 */
@@ -197,9 +234,10 @@ const DRIVER = `
   function check(name, ok, detail) { results.push({ name: name, ok: !!ok, detail: detail == null ? "" : String(detail) }); }
 
   /* ── 加载期初始化（顺序回归防线） ──
-     app.js 末尾的 initTheme/initShortcuts/initPalette 必须在所有 const 声明之后执行。
-     放早了会在暂时死区抛 ReferenceError 又被 try/catch 吞掉：页面看着正常，
-     快捷键、命令面板、主题按钮同步全都不工作。这三条就是那条回归的哨兵。 */
+     initTheme 在 core 末尾同步执行，且必须排在所有 const 声明之后：THEME_KEY /
+     THEME_ORDER / THEME_META 都在它上方，const 的绑定虽被提升但处于暂时死区——
+     放早了会抛 ReferenceError 又被 try/catch 吞掉：主题切换全部失效而页面毫无异常。
+     下面两条就是那条回归的哨兵；再往下三条守代码分割本身。 */
   var themeBtnEl = document.getElementById('themeToggle');
   check('加载即同步主题按钮',
     String(themeBtnEl.title).indexOf('Theme') >= 0 && String(themeBtnEl.title).length > 4,
@@ -207,6 +245,31 @@ const DRIVER = `
   check('加载即落地 data-theme',
     document.documentElement.getAttribute('data-theme') === 'light',
     String(document.documentElement.getAttribute('data-theme')));
+
+  /* ── 代码分割哨兵 ──
+     这三条必须在第一个 await 之前：此刻还没有任何微任务跑过，所以「分块尚未
+     加载」是确定状态，不是竞态。放进 await 之后就会时红时绿。 */
+  check('首屏不预加载图表分块', typeof initCharts !== 'function', typeof initCharts);
+  check('首屏不预加载命令面板分块', typeof openPalette !== 'function', typeof openPalette);
+
+  var palOk = true, palErr = '';
+  try { await loadChunk('palette'); } catch (e) { palOk = false; palErr = String((e && e.message) || e); }
+  check('命令面板分块按需加载并自初始化',
+    palOk && typeof openPalette === 'function' && typeof initPalette === 'function'
+      && typeof renderHelp === 'function', palErr);
+  check('重复 loadChunk 复用已兑现的 Promise', (await loadChunk('palette')) === undefined);
+
+  var chOk = true, chErr = '';
+  try { await loadChunk('charts'); } catch (e) { chOk = false; chErr = String((e && e.message) || e); }
+  check('图表分块按需加载成功', chOk && typeof initCharts === 'function', chErr);
+
+  /* ── 没有分块的 tab 必须直接放行 ──
+     indicators 的实现就在 core 里（loadIndicators，app.js:644），从没有对应分块文件。
+     若 loadChunk() 也给这种名字造一个 <script>，浏览器会 404 → onerror → reject，
+     openTab 的 catch 弹「加载失败」而 loadIndicators() 永远不跑，指标面板静默失效。 */
+  var uncOk = true, uncErr = '';
+  try { await loadChunk('indicators'); } catch (e) { uncOk = false; uncErr = String((e && e.message) || e); }
+  check('loadChunk 对没有分块的 tab 直接兑现', uncOk, uncErr);
   var keyEvt = function (key, mod) {
     return { type: 'keydown', key: key, ctrlKey: !!mod, metaKey: false, altKey: false,
       target: document.body, preventDefault: function () {} };

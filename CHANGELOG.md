@@ -113,6 +113,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
 - **新增 `test_pages_module_is_in_sync_with_public_sources` 嵌入同步守卫。** 改过 `public/` 却忘了
   重跑 `scripts/embed_pages.py` 时直接红（此前只能靠人工记得）。
 
+- **新增 `tests/test_code_split.py` 6 条分割结构守卫。** 拆文件真正会悄悄坏掉的只有两件事：
+  同名声明跨文件重复定义（后者静默覆盖前者，行为随加载顺序漂移），以及 core 在分块加载
+  完成前引用分块专属声明（ReferenceError，或被 try/catch 吞掉后整块功能静默失效）。
+  行为由 `tests/frontend_behavior.mjs` 的 6 条哨兵把守，这里钉住结构：声明不重复、
+  两个分块互不引用、core 只在 `openTab()` 的 `.then` 回调里、或被 `typeof X === 'function'`
+  探测过的位置引用分块专属名字。
+
 ### Changed
 
 - **批量指标写入从逐行 execute 改为单条 executemany（约 23 倍）。** `upsert_indicators()`
@@ -234,6 +241,33 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
   `sha256[:12]`，页面占位符形如 `__STYLE_CSS_VER__`——只改落地页不再换掉看板的资产 URL。
 - **`/favicon.ico` 由 404 改为 301 跳 `/favicon.svg`。** 浏览器与部分爬虫仍会按惯例请求
   `/favicon.ico`，此前必然 404：既浪费一次往返，也在控制台留噪声。
+
+- **看板 JS 代码分割：`app.js` → core + 两个按需分块。** 首屏只留必需部分，图表与命令
+  面板拆到 `public/app.charts.js` / `public/app.palette.js`，首次用到时由 `loadChunk()`
+  动态注入 `<script>` 拉取——经典脚本共享全局词法环境，分块可以直接读写 core 里的 `const`，
+  不需要打包器。`CHART` / `CHART_COLORS`、`fmtNum` / `compactNum` / `emptyState` 必须留在
+  core：首屏指标卡与 sparkline 要用，`updateShareUrl()` / `exportChartCsv()` 也要读
+  `CHART.currentKey`。实测（gzip，HTML + 全部依赖资产）看板首访 **54,578 → 48,210 B
+  （−11.7%）**，其中 `app.js` **24,131 → 17,669 B（−26.7%）**；落地页首访
+  **18,753 → 18,753 B（零回归）**。分块各 **6,637 B / 4,104 B（懒）**，只有图表用户、
+  打开命令面板的用户才付。
+  **同时诚实记录懒加载的代价**：用户打开图表 tab 后总字节会略高于拆分前（多两个 HTTP 请求
+  分块各自的头部注释），这是按需加载的固有成本。
+- **`refreshLang()` 改为守卫式调用 `initCharts()`。** `switchTab()` 是**同步**给
+  `.wb-panel` 打上 `active` 的，而分块是异步拉的——一旦 `loadChunk('charts')` 失败，
+  `#panel-charts` 会停在 active 但 `initCharts` 还是 undefined，此时切换语言会让
+  `refreshLang()` 抛 ReferenceError，**后半段全部不执行**：`updateShareUrl()`、
+  `themeApply()`、帮助浮层重渲染一起静默失效。改为与已有的 `renderHelp()` 守卫同款写法
+  `typeof initCharts === 'function'`，并由 `tests/test_code_split.py` 钉住这类引用的安全位置。
+- **`loadChunk()` 对没有分块的 tab 直接兑现（修掉本批引入的回归）。** `openTab('indicators')`
+  会走 `loadChunk('indicators')`，但指标表的实现（`loadIndicators()`）本来就在 core 里、
+  从没有对应分块文件。原实现照旧造一个 `<script>`：浏览器对该 URL 404 → `onerror` →
+  reject，`openTab` 的 catch 随即弹「加载失败」，而 `loadIndicators()` 永远不跑——
+  **指标面板静默失效**。改为 `if (!CHUNK_SRC[name]) return Promise.resolve();`。
+  同时把 harness 的 `<script>` 桩改成复刻浏览器语义：未登记的 src 一律走 `onerror`，
+  不再静默什么都不做（否则该 Promise 永远悬着，这类 bug 会被伪装成「还在加载中」），
+  并补 1 条哨兵。6 条代码分割哨兵此前只被「0 项未通过」间接兜住、未登记进
+  `SCENARIOS`——删掉任意一条 `test_frontend.py` 不会红，现已全部补登。
 
 ### Docs
 
