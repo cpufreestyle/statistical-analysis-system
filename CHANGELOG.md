@@ -114,6 +114,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
 
 ### Fixed
 
+- **修复 InfiniSynapse SSE 中文乱码（既有隐患，正确性问题）。** `analyzer._iter_events()`
+  原先用 `iter_lines(decode_unicode=True)`，而服务端的 `text/event-stream` 并不声明
+  `charset`，requests 便按 ISO-8859-1 解码，把中文解读搅成乱码（已用假云端实测复现：
+  不开 charset 时结果与原文不等）。现改为读原始字节后显式
+  `decode("utf-8", errors="replace")`——SSE 规范规定该类型恒为 UTF-8，且行分隔符
+  `0x0A` 不会落在多字节序列中，逐行解码安全。`tests/test_analyzer.py` 新增 2 条回归
+  （其中一条用按 requests 真实语义伪造的 latin-1 假响应，确保修的不是假问题）。
+- **清掉 basedpyright 既有 9 个类型错。** `insights.py` 两处 `float()`/`int()` 入参、
+  `report.py` 的 `list[dict[str, str]]` 实参、`sql_engine.py` 两处无效
+  `cast("object", …)`、`web.py` 三处 `shift[...]` 索引（根源是 `dict[str, object]`）。
+  改为精确 `cast` + 显式注解，并删掉随之失效的 2 条 `# type: ignore`。本地 basedpyright
+  锁定 1.39.9（与 CI 同版本）后为 **0 errors / 0 warnings**。
 - **回归修复（本轮自查发现）。** ① ETag / 条件请求此前对所有 200 响应启用，会把 HTML 的
   `Cache-Control: no-store` 改成 `no-cache`，违反「页面永不缓存」契约——现**仅对 JSON 接口**启用；
   ② 新增路由 `/api/infini_skill` 未登记进 `src/api_docs.py::ENDPOINTS`，触发文档一致性门禁——已补齐。
