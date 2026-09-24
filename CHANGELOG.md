@@ -114,6 +114,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
 
 ### Fixed
 
+- **修掉 3 处英文界面裸显中文的漏译。** ① / ② 自定义分析的两个英文输入框占位符
+  （`public/app.html` 的 `data-i18n-ph="英文名称（可选…）"` / `"英文说明（可选）"`）；
+  ③ 命令面板的分组标签 `tr('示例问题')`（`public/app.js`）。三者的共同根因：
+  `i18n.js` 的 `data-i18n` / `-html` / `-ph` 三个处理器都只做**精确字典查表**、没有
+  `trData()` 兜底，所以「字典里没有」就等于「不翻译」。而 `scripts/check_i18n.py`
+  只审 API 响应，看不到 DOM 与前端拼装串，这类泄漏因此一直漏网。
+  修复：字典补 3 条（ZH2EN 332 → 335 条键），并新增 2 条覆盖测试把
+  `data-i18n*` 属性值与 `tr()` / `trData()` 字面量参数钉在字典上。
 - **修复 InfiniSynapse SSE 中文乱码（既有隐患，正确性问题）。** `analyzer._iter_events()`
   原先用 `iter_lines(decode_unicode=True)`，而服务端的 `text/event-stream` 并不声明
   `charset`，requests 便按 ISO-8859-1 解码，把中文解读搅成乱码（已用假云端实测复现：

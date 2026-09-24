@@ -266,3 +266,54 @@ def test_frontend_dictionary_has_no_conflicting_duplicate_keys():
             clashes.append((k, seen[k], v))
         seen[k] = v
     assert not clashes, f"ZH2EN 中同名键给出不同英文：{clashes}"
+
+# ---------------------------------------------------------------------------
+# 前端静态文案的字典覆盖
+# ``data-i18n`` / ``-html`` / ``-ph`` 的属性值，与 ``tr()`` / ``trData()`` 的字面量
+# 参数，都必须是 ZH2EN 的键——否则英文界面会裸显中文。``applyLang`` 的三个处理器
+# （见 i18n.js）都只做精确查表，没有 trData 兜底，所以「字典里没有」就等于「不翻译」。
+# 这类泄漏 scripts/check_i18n.py 查不到：它只审 API 响应，不看 DOM 与前端拼装串。
+# 曾因此让自定义分析的两个英文输入框占位符、以及命令面板的「示例问题」分组标签
+# 在英文下一直显示中文（2026-09-24 修）。
+# ---------------------------------------------------------------------------
+_I18N_ATTR_RE = re.compile(r'data-i18n(?:-html|-ph)?\s*=\s*"([^"]*)"')
+_TR_CALL_RE = re.compile(
+    r"""\btr(?:Data)?\(\s*(?:"([^"\\\n]*)"|'([^'\\\n]*)')\s*[,)]""")
+
+
+def _public_texts() -> list[tuple[str, str]]:
+    """public/ 下全部 .html / .js 的 (文件名, 文本)——静态文案与前端拼装串都在这里。"""
+    out: list[tuple[str, str]] = []
+    for path in sorted((BASE_DIR / "public").iterdir()):
+        if path.suffix in (".html", ".js"):
+            out.append((path.name, path.read_text(encoding="utf-8")))
+    assert out, "未在 public/ 找到 .html/.js，本检查已失效"
+    return out
+
+
+def test_static_i18n_attributes_are_dictionary_keys():
+    """data-i18n / -html / -ph 的值必须命中字典。"""
+    zh2en = _frontend_dict()
+    missing: dict[str, set[str]] = {}
+    for name, text in _public_texts():
+        for raw in _I18N_ATTR_RE.findall(text):
+            key = raw.strip()
+            if key and key not in zh2en:
+                missing.setdefault(name, set()).add(key)
+    assert not missing, (
+        f"data-i18n* 的值不在 ZH2EN 字典里，英文界面将裸显中文：{missing}"
+    )
+
+
+def test_dynamic_tr_calls_are_dictionary_keys():
+    """tr() / trData() 的字面量参数同理（命令面板、空态提示等动态文案）。"""
+    zh2en = _frontend_dict()
+    missing: set[str] = set()
+    for name, text in _public_texts():
+        for dquoted, squoted in _TR_CALL_RE.findall(text):
+            key = dquoted or squoted
+            if key and key not in zh2en:
+                missing.add(f"{name}:{key}")
+    assert not missing, (
+        f"tr()/trData() 的字面量参数不在 ZH2EN 字典里，英文界面将裸显中文：{sorted(missing)}"
+    )
