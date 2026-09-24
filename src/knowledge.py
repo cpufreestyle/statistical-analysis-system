@@ -4,7 +4,9 @@
 - 与指标宽表共用同一数据库（src/db.py 的 KNOWLEDGE 表），实现「数据 + 知识」本地一体化。
 - 提供增 / 查 / 删 / 搜 / 种子能力；并对外暴露 retrieve_context()，把与查询相关的
   知识条目拼成文本，供云端 AI 解读时作为上下文（RAG 轻量版，无外部向量库依赖）。
-- 仅做关键词召回，离线可用；未来可平滑替换为向量检索而不影响调用方。
+- 关键词召回 + **中英概念映射**：命中的概念整组加权，因此英文查询能召回中文条目、
+  中文查询也能召回英文条目（纯字面匹配做不到）。全部离线、零外部依赖；
+  真要接向量检索时，换掉 ``search_knowledge`` 一个函数即可，调用方无感。
 """
 from __future__ import annotations
 
@@ -109,15 +111,104 @@ def _extract_grams(text: str) -> list[str]:
     return [g for g in grams if g]
 
 
+# ---------------------------------------------------------------------------
+# 中英概念映射 —— 语义召回的核心
+# ---------------------------------------------------------------------------
+#: 每个概念一组「中英同义 / 别名」。召回时命上任一成员，就把整个概念算作命中，
+#: 于是**英文查询能召回中文条目、中文查询也能召回英文条目**——纯字面匹配做不到。
+#: 实测 35 条真实提问里 17 条因此落空（见 tests/test_knowledge.py 的回归用例）。
+#:
+#: 成员刻意只收「领域实体 / 关系」，不收「口径 / 定义 / 是什么」这类元词：
+#: 后者几乎每条正文都有，收进来只会给所有条目一起加分、稀释排序。
+_CONCEPTS: tuple[tuple[str, ...], ...] = (
+    ("GDP", "地区生产总值", "国内生产总值", "经济总量",
+     "GDP", "gross domestic product"),
+    ("经济增长", "增长率", "增速", "同比增长", "同比", "增长",
+     "growth", "YoY", "year-over-year", "year over year"),
+    ("工业", "工业增加值", "规模以上", "第二产业",
+     "industry", "industrial", "value added"),
+    ("社零", "社会消费品零售总额", "消费品零售", "零售总额", "消费",
+     "retail", "retail sales", "consumer goods", "consumption"),
+    ("固定资产投资", "投资",
+     "fixed asset", "fixed-asset", "investment"),
+    ("人口", "常住人口",
+     "population", "resident population"),
+    ("可支配收入", "收入",
+     "disposable income", "income"),
+    ("人均",
+     "per capita", "per-capita"),
+    # 「谁提供的数据」合成一个概念：问「数据来源」的人要的就是这几条出处条目，
+    # 拆成通用词 + 机构名两个概念反而谁都压不倒谁。
+    ("数据来源", "来源于", "出处", "来源",
+     "从哪来", "哪里来", "来自哪",
+     "世界银行", "国家统计局", "海关总署", "统计局",
+     "data source", "provenance", "authoritative",
+     "World Bank", "NBS", "Customs", "api.worldbank.org"),
+    ("修订", "修正", "初步核算",
+     "revised", "revision", "preliminary", "final release"),
+    ("比较", "对比", "排名", "名次", "各国", "跨国",
+     "comparison", "compare", "ranking", "rank", "economies"),
+    ("贡献率", "占比", "比重", "份额",
+     "contribution", "share", "percentage"),
+    ("美元", "人民币", "汇率", "现价",
+     "US dollar", "USD", "exchange rate", "current US dollars", "CNY"),
+    ("亚太", "东亚", "合计",
+     "Asia-Pacific", "East Asia & Pacific", "aggregate"),
+)
+
+#: 概念命中的分权重，按字段区分。标题 / 标签出现该概念成员，说明「这条就是讲这个的」；
+#: 只在正文 / 出处里出现，往往只是顺带一提。
+#:
+#: 早期实现不分字段（一个固定 3 分），实测 top-1 只有 19/35：长正文里偶然提到
+#: 「exchange rate」的条目，会压过标题即命中「YoY」的正解。字段权重就是为这个分的。
+_CONCEPT_TITLE_WEIGHT = 6
+_CONCEPT_BODY_WEIGHT = 3
+#: 同一概念命中**多个不同成员**时，每多一个再加一分。
+#: 「US dollar / USD / current US dollars」三条都中，说明这条真是在讲货币单位；
+#: 只中一个两字成员（如「现价」）往往只是顺带一提。区分度是实测出来的：
+#: 加分前 "disposable income" 会被「主营业务收入」里的「收入」抢到第一位。
+_CONCEPT_EXTRA_MEMBER = 1
+
+
+def _concept_ids(query: str) -> set[int]:
+    """查询命中的概念编号：中英成员任一出现即算。
+
+    同时试过去掉空白的「紧凑形态」——多词成员如 ``year over year`` 在真实提问里
+    可能被拆行或被额外空格隔开，此时把**成员与查询两边的空白都去掉**再比对才能兜住
+    （只压缩查询不够：``gross domestic product`` 自身带空格，永远压不拢）。
+    """
+    hay = query.lower()
+    compact = re.sub(r"\s+", "", hay)
+    hit: set[int] = set()
+    for idx, members in enumerate(_CONCEPTS):
+        for m in members:
+            m = m.lower()
+            if m in hay or re.sub(r"\s+", "", m) in compact:
+                hit.add(idx)
+                break
+    return hit
+
+
 def search_knowledge(query: str, limit: int = 20,
                      lang: str | None = None) -> list[KnowledgeRow]:
-    """关键词召回（中英双语）：在标题 / 标签 / 正文中命中任一词元即算相关，按相关度排序。
+    """语义召回（中英双语）：词元 + 概念 + 整键三层信号加权求和后排序。
 
-    知识库规模小，采用「全量取出 + Python 侧打分」策略，避免 SQL LIKE 对中文失效。
-    `lang` 给定时（"zh" / "en"）只返回该语种的条目——英文条目的 tags 里带 `lang:en` 标记。
+    从弱到强：
+
+    1. **词元**（标题/标签 +2，正文/出处 +1）：查询拆出的英文整词 / 中文二元组。
+    2. **概念**（标题/标签 :data:`_CONCEPT_TITLE_WEIGHT`，正文/出处
+       :data:`_CONCEPT_BODY_WEIGHT`）：查询命中某个中英概念，且条目文本里出现
+       该概念的任一成员（命中越多成员分越高，压住「顺带一提」的条目）。
+       这一层让跨语言召回成为可能。
+    3. **整键**（+2）：标题 / 标签作为完整关键词被查询包含（比二元组可靠）。
+
+    仍是「全量取出 + Python 侧打分」——知识库规模小，避免 SQL LIKE 对中文失效。
+    `lang` 给定时只返回该语种条目（英文条目标了 `lang:en`）；概念映射只管
+    「同一个语料库里谁更相关」，语种过滤管「给谁看」，两者不冲突。
     """
     grams = _extract_grams(query)
-    if not grams:
+    concepts = _concept_ids(query)
+    if not grams and not concepts:
         return []
     rows = list_knowledge()
     if lang:
@@ -126,11 +217,22 @@ def search_knowledge(query: str, limit: int = 20,
                 if ("lang:en" in r["tags"].lower()) == want_en]
     scored: list[tuple[int, KnowledgeRow]] = []
     for r in rows:
-        hay = f"{r['title']} {r['tags']} {r['content']}".upper()
+        # 分两段而不是拼成一整串：概念与词元都要按「标题 / 正文」给不同权重。
+        head = "{} {}".format(r["title"], r["tags"]).upper()
+        body = "{} {}".format(r["content"], r["source"]).upper()
         score = 0
         for g in grams:
-            if g.upper() in hay:
-                score += 1
+            g = g.upper()
+            score += 2 if g in head else (1 if g in body else 0)
+        for idx in concepts:
+            in_head = {m for m in _CONCEPTS[idx] if m.upper() in head}
+            if in_head:
+                score += _CONCEPT_TITLE_WEIGHT + _CONCEPT_EXTRA_MEMBER * (len(in_head) - 1)
+            else:
+                in_body = {m for m in _CONCEPTS[idx] if m.upper() in body}
+                if in_body:
+                    score += (_CONCEPT_BODY_WEIGHT
+                               + _CONCEPT_EXTRA_MEMBER * (len(in_body) - 1))
         # 标签 / 标题作为整体关键词被查询包含时加权
         for key in [r["title"], *r["tags"].split(",")]:
             key = key.strip()

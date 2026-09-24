@@ -78,6 +78,30 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
   - 观测代码一律不得影响主流程：阈值解析失败静默回落默认值，探针 try/except 兜底。
   - 新增 `tests/test_obslog.py` 14 条；`/healthz` 已登记 `src/api_docs.py::ENDPOINTS`
     （新增 `ops` 分组）与 `scripts/check_i18n.py`。
+- **知识库语义召回：`search_knowledge()` 支持中英跨语言检索，并补齐 34 条测试。**
+  `search_knowledge()` 是 `/api/ask`、统计公报与 `/api/knowledge` 的共同上游，也是
+  「AI 不得编造数字」链条的第一环，此前**零测试覆盖**且只做纯字面匹配：
+  用 35 条真实提问实测 **17 条完全召回不到**（英文提问召回不到中文条目、
+  中文提问召回不到英文条目），top-1 只有 18/35。
+  - **中英概念映射**：新增 15 组同义 / 别名概念表（GDP / 增长 / 工业 / 零售 / 投资 /
+    人口 / 收入 / 人均 / 来源 / 修订 / 比较 / 贡献 / 货币 / 亚太），命上任一成员即整组
+    加权，跨语言召回因此成立。成员刻意只收「领域实体 / 关系」，不收「口径 / 定义 /
+    是什么」这类元词——后者几乎每条正文都有，收进来只会全员加分、稀释排序。
+  - **字段权重**：标题 / 标签命中 `_CONCEPT_TITLE_WEIGHT`（6），正文 / 出处命中
+    `_CONCEPT_BODY_WEIGHT`（3），同一概念每多命中一个不同成员再加
+    `_CONCEPT_EXTRA_MEMBER`（1）。早期不分字段（固定 3 分）实测 top-1 只有 19/35：长正文里
+    偶然提到 `exchange rate` 的条目会压过标题即命中 `YoY` 的正解。
+  - **`source` 字段进入匹配文本**：早先只拼 `title + tags + content`，漏了出处——
+    而「工业统计报表制度」「World Bank Open Data」正是强相关信号。
+  - 改后同机同条件实测：召回漏检 **17 → 0**，top-1 **18/35 → 31/35**；剩余 4 条都是
+    「两条都高度相关、只是先后偏好」，均已落在 top-2 内，不为调这 4 条而过拟合。
+  - 新增 `tests/test_knowledge.py` 34 条：跨语言召回 11 例、top-1 排序 11 例、成员密度
+    压过「顺带一提」、`source` 参与匹配、概念表不含元词，以及 `lang` 语种过滤 / `limit` /
+    无缓存 / 空与垃圾查询安全等既有契约。
+  - 多词成员支持「紧凑形态」匹配：成员与查询双边去空白后再比对，因此
+    `gross domestic\nproduct` 这类被拼行 / 多余空格拆开的提问仍能召回。
+  - `search_knowledge` 仍是「全量取出 + Python 侧打分」；真要接向量检索时换掉这一个
+    函数即可，调用方无感。
 
 ### Changed
 
