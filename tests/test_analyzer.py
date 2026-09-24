@@ -6,6 +6,8 @@
 - 缺失密钥抛 ``AgentInfiniError``；
 - config.yaml 缺失（OSError）时优雅返回 None；
 - ``OpenAICompatAnalyzer.analyze`` 的成功 / 空 choices 兜底 / 401 / 坏 JSON / 连接错误；
+- ``InfiniSynapseAnalyzer._iter_events`` 的 data 行解析 / HTTP 错误，以及**SSE 中文必须按
+  UTF-8 解码**（服务端不声明 charset 时 requests 会按 latin-1 搅烂中文）的回归；
 - ``_system_prompt`` 按语言切换；
 - ``_lang_header`` 取值。
 """
@@ -197,10 +199,10 @@ class _SSEResp:
 
 @pytest.mark.parametrize("element_type", ["str", "bytes"])
 def test_iter_events_parses_data_lines_regardless_of_element_type(element_type):
-    """`decode_unicode=True` 实际给 str，而 requests 2.34 的类型标注写 bytes。
+    """`iter_lines` 的元素类型随依赖版本而变（bytes / str），解析必须都成立。
 
-    解析必须对两种形态都成立——否则换一台依赖版本不同的机器就会在
-    `startswith` 上出错（正是 CI 与本地结论相反的那次）。
+    否则换一台依赖版本不同的机器就会在 `startswith` 上出错（正是 CI 与本地
+    结论相反的那次）。
     """
     lines = ([ln.encode("utf-8") for ln in _SSE_LINES] if element_type == "bytes"
              else list(_SSE_LINES))
@@ -215,6 +217,71 @@ def test_iter_events_raises_on_http_error():
     az._session.get = lambda *a, **k: _SSEResp([], status_code=500)  # noqa: ARG005
     with pytest.raises(AgentInfiniError):
         list(az._iter_events("conn-id"))
+
+
+class _RequestsLikeSSEResp:
+    """按 requests 的真实语义吐 SSE 行，用于固化编码回归。
+
+    requests 在 ``decode_unicode=True`` 时按响应头 charset 解码，缺 charset
+    时回落 ISO-8859-1；InfiniSynapse 的 ``text/event-stream`` 并不带 charset，
+    中文会被搅成乱码。``decode_unicode=False`` 则原样给字节。
+    """
+
+    text = ""
+
+    def __init__(self, raw_lines, status_code=200):
+        self._raw_lines = raw_lines
+        self.status_code = status_code
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def iter_lines(self, decode_unicode=True, **_kw):
+        if decode_unicode:
+            return iter([ln.decode("iso-8859-1") for ln in self._raw_lines])
+        return iter(self._raw_lines)
+
+
+_UTF8_SSE_LINES = [
+    "event: message.delta",
+    "data: {\"data\":{\"message\":{\"text\":\"中文解读不得乱码\",\"say\":\"completion_result\"}}}",
+]
+
+
+def _utf8_bytes(lines):
+    """按 UTF-8 编码成 requests 在 ``decode_unicode=False`` 时给出的原始字节。"""
+    return [ln.encode("utf-8") for ln in lines]
+
+
+def test_iter_events_decodes_sse_bytes_as_utf8():
+    """中文不得因 charset 缺失而乱码（曾用假云端实测复现 latin-1 搅字）。
+
+    ``decode_unicode=True`` 时假响应故意按 ISO-8859-1 解码，复现线上真实行为；
+    被测代码必须去要原始字节自行按 UTF-8 解码，否则断言必然失败。
+    """
+    az = InfiniSynapseAnalyzer(api_key="k", server="https://example")
+    az._session.get = lambda *a, **k: _RequestsLikeSSEResp(  # noqa: ARG005
+        _utf8_bytes(_UTF8_SSE_LINES))
+    events = list(az._iter_events("conn-id"))
+    assert len(events) == 1
+    msg = events[0]["data"]["message"]
+    assert msg["text"] == "中文解读不得乱码"
+    assert msg["say"] == "completion_result"
+
+
+def test_analyze_end_to_end_utf8_sse_not_garbled():
+    """端到端：newTask + SSE 流聚合出的解读文本必须是原文，不是 latin-1 残片。"""
+    az = InfiniSynapseAnalyzer(api_key="k", server="https://example")
+    az._session.post = lambda *a, **k: _Resp(200, {})  # noqa: ARG005
+    az._session.get = lambda *a, **k: _RequestsLikeSSEResp(  # noqa: ARG005
+        _utf8_bytes(_UTF8_SSE_LINES))
+    out = az.analyze("本季度统计公报")
+    assert out["done"] is True
+    assert out["result"] == "中文解读不得乱码"
+    assert out["console_url"]
 
 
 # ---------------------------------------------------------------------------

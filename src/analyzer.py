@@ -176,10 +176,13 @@ class InfiniSynapseAnalyzer:
                 raise AgentInfiniError(
                     f"events 流失败({resp.status_code}): {resp.text[:200]}")
             buf = ""
-            for chunk in resp.iter_lines(decode_unicode=True):
-                # requests 2.34 起自带类型标注，把 iter_lines 的元素声明为 bytes，
-                # 与 decode_unicode=True 的实际返回（str）不符。显式解码让两侧都对。
-                raw = chunk.decode("utf-8") if isinstance(chunk, bytes) else chunk
+            # SSE 规范规定 text/event-stream 恒为 UTF-8，而 InfiniSynapse 的
+            # 响应头并不声明 charset；requests 的 decode_unicode=True 会退回
+            # ISO-8859-1，把中文解读搅成乱码（已用假云端实测复现）。故这里取原始
+            # 字节自行解码——行分隔符 0x0A 不会落在多字节序列中，逐行解码安全。
+            for chunk in resp.iter_lines(decode_unicode=False):
+                raw = (chunk.decode("utf-8", errors="replace")
+                       if isinstance(chunk, bytes) else str(chunk))
                 if not raw:
                     continue
                 if raw.startswith("event:"):
