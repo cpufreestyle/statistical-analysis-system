@@ -102,6 +102,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
     `gross domestic\nproduct` 这类被拼行 / 多余空格拆开的提问仍能召回。
   - `search_knowledge` 仍是「全量取出 + Python 侧打分」；真要接向量检索时换掉这一个
     函数即可，调用方无感。
+- **新增 3 条只读静态路由：`GET /i18n-dict.js`、`GET /i18n-dict-landing.js`、`GET /landing.css`。**
+  i18n 字典/运行时拆分与落地页样式外置的载体；均由 `src/web.py` 的 `_ASSET_FILES` 统一登记，
+  版本号与 `/theme.css`、`/style.css` 等走同一套「按资产算 sha256」逻辑。
+  Vercel serverless 读不到仓库里的 `public/`，这些文件同步内嵌进 `src/pages.py`
+  （`scripts/embed_pages.py`，入口仍是 `public/app.html`）。
+- **新增 `tests/test_i18n_split.py` 9 条字典漂移守卫。** 落地页子集字典是派生产物，
+  测试钉死：键集合与 `index.html` 逐字一致、取值与全量字典逐字一致（别把 `"…"` 写丢）、
+  运行时文件不被塞回字典（绕过「纯运行时」断言也没用，体积不变量会抓到）。
+- **新增 `test_pages_module_is_in_sync_with_public_sources` 嵌入同步守卫。** 改过 `public/` 却忘了
+  重跑 `scripts/embed_pages.py` 时直接红（此前只能靠人工记得）。
 
 ### Changed
 
@@ -206,6 +216,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
   （`functools.cache`；PATH 与环境变量在运行期不变，而 `AGENT_INFINI_CLI` 的优先级判断
   仍在 `resolve_cli_path()` 里逐次求值、不进缓存），并让 `run_skill_cli()` 接受调用方
   已解析好的 `cli`，消掉 `preflight` 里的重复解析。
+- **i18n 字典与运行时拆成三个文件（落地页首访 gzip −16.3%）。** 原 `public/i18n.js` 把**全量 332 条**
+  `ZH2EN` 字典与 `tr()`/`trData()` 运行时打成一个文件，而落地页实际只用到其中 **69 条（20.8%）**。
+  现在拆为 `public/i18n-dict.js`（全量，看板用——`trData()` 要遍历 DOM，需要全量词条兜底）、
+  `public/i18n-dict-landing.js`（落地页子集，派生产物）、`public/i18n.js`（只剩运行时，
+  首行 `var ZH2EN = window.ZH2EN || {}`）。两个页面都遵循「先灌字典、再灌运行时」的顺序。
+  实测（gzip，HTML + 全部依赖资产）：落地页首访 **22,417 → 18,753 B（−16.3%）**；
+  重复访问（资产已缓存，只剩 HTML）**9,281 → 6,518 B（−29.8%）**。
+  **同时诚实记录一处回退**：看板首访 **54,012 → 54,578 B（+1.05%）**——它本来就要全量字典，
+  拆文件只多出两份文件各自的头部注释。没有粉饰，已在交接文档写明。
+- **落地页 622 行内联 `<style>` 外置为 `public/landing.css`。** 落地页 HTML 是
+  `no-store, must-revalidate`，内联样式等于**每次访问都重下这份 CSS**；抽出为独立文件后走
+  `public, max-age=31536000, immutable`，二次起只剩 HTML。
+- **静态资源版本号由「全站一个」改为「按资产各自算」（`_ASSET_FILES` → `_ASSET_VERS`）。**
+  原先单一 `__ASSET_VER__` 占位符：任何资产变动都会让**所有**资产 URL 一起变、连带打穿全部缓存。
+  现以 `src/web.py` 的 `_ASSET_FILES`（文件名 → 常量名，单一事实来源）为每个资产单独算
+  `sha256[:12]`，页面占位符形如 `__STYLE_CSS_VER__`——只改落地页不再换掉看板的资产 URL。
+- **`/favicon.ico` 由 404 改为 301 跳 `/favicon.svg`。** 浏览器与部分爬虫仍会按惯例请求
+  `/favicon.ico`，此前必然 404：既浪费一次往返，也在控制台留噪声。
 
 ### Docs
 
@@ -258,6 +286,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
 - **小号文字对比度不达 WCAG AA。** 29 处 10–12px 灰字由 `--gray-400` 升至 `--gray-500`
   （白底 2.54:1 → 4.83:1，深色底 4.0:1 → 5.9:1），`.metric-tag` 底色同步改浅；
   另修 `compactNum()` 对空值返回「0」而非「—」的边界缺陷。
+- **修复 i18n 字典中一处重复键（死代码）。** `"AI 云端解读"` 在原字典里出现两次，
+  两处取值完全相同（`"AI interpretation"`）；JS 对象字面量后者覆盖前者，先出现的那条永远读不到。
+  现已去重，行为等价。生成侧同时加了断言：重复键**取值不一致**时拒绝自动去重，
+  避免悄悄吞掉真实的翻译分歧。
 
 ## v1.5.2 — 2026-09-22 — UI quality pass (`3b00c03`…`d07cf55`)
 

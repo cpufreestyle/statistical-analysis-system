@@ -15,6 +15,10 @@ const read = (rel) => fs.readFileSync(path.resolve(ROOT, rel), "utf8");
 /* 允许把被测 JS 换成临时副本（tests/test_frontend.py 用它验证本 harness 真会红），
    避免为了「破坏一下看看」去改写仓库里被跟踪的 public/ 文件。 */
 const I18N_JS = process.env.QU_STAT_I18N_JS || path.join("public", "i18n.js");
+/* 字典与运行时已拆开（见 public/i18n.js 顶部说明）：i18n.js 只留运行时，词条在
+   i18n-dict.js 里，靠 window.ZH2EN 注入。所以必须先灌字典再灌运行时，
+   顺序反了 tr()/applyLang 会拿到空字典、整节断言都会被带崩。 */
+const I18N_DICT_JS = process.env.QU_STAT_I18N_DICT_JS || path.join("public", "i18n-dict.js");
 const APP_JS = process.env.QU_STAT_APP_JS || path.join("public", "app.js");
 
 /* ───────────────────────── 最小浏览器桩 ───────────────────────── */
@@ -459,7 +463,8 @@ const DRIVER = `
 });
 `;
 
-vm.runInContext(read(I18N_JS) + "\n;\n"
+vm.runInContext(read(I18N_DICT_JS) + "\n;\n"
+  + read(I18N_JS) + "\n;\n"
   + read(APP_JS) + "\n;\n" + DRIVER, context, { filename: "public+bundled-driver.js" });
 
 /* 等驱动跑完（loadOverview 是 async，桩 fetch 用真实 Promise） */

@@ -24,9 +24,12 @@ FILES = {
     "PAGE_INDEX": "index.html",
     "PAGE_APP": "app.html",
     "STYLE_CSS": "style.css",
+    "LANDING_CSS": "landing.css",
     "THEME_CSS": "theme.css",
     "APP_JS": "app.js",
     "I18N_JS": "i18n.js",
+    "I18N_DICT": "i18n-dict.js",
+    "I18N_DICT_LANDING": "i18n-dict-landing.js",
 }
 
 # SEO 静态资源（robots / sitemap / 分享卡片），同样内嵌进 pages.py 以保证

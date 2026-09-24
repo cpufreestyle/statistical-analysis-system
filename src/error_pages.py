@@ -86,7 +86,7 @@ def render(code: int, lang: str, base_url: str) -> str:
 <meta name="robots" content="noindex">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="canonical" href="{base_url}/">
-<link rel="stylesheet" href="/style.css?v=__ASSET_VER__">
+<link rel="stylesheet" href="/style.css?v=__STYLE_CSS_VER__">
 <style>{_CSS}</style>
 </head>
 <body>

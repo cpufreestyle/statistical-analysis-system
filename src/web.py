@@ -26,7 +26,7 @@ if "127.0.0.1" not in _os.environ.get("NO_PROXY", ""):
 
 from functools import wraps
 
-from flask import Flask, g, jsonify, request, Response
+from flask import Flask, g, jsonify, redirect, request, Response
 
 from src import report
 from src.db import BASE_DIR, db_info, init_db, query_indicators
@@ -51,12 +51,38 @@ DEFAULT_YEAR = 2024
 #: 避免把 vercel.app 写死在索引与分享元数据里。
 _BASE_URL = _os.environ.get("QU_STAT_BASE_URL", "https://qu-stat-system.vercel.app").rstrip("/")
 
-#: 静态资源版本号 = 四份前端资源的内容哈希（前 12 位）。改了任一资源，哈希自动变，
-#: 页面里的 ``?v=`` 随之变，浏览器必然拉新文件——这样才能给静态资源上「一年 immutable」
-#: 的长缓存，同时 HTML / 接口保持 no-store（见 :func:`_apply_headers` 的说明）。
-_ASSET_VER = hashlib.sha256(
-    (pages.THEME_CSS + pages.STYLE_CSS + pages.APP_JS + pages.I18N_JS).encode("utf-8")
-).hexdigest()[:12]
+#: 静态资源的 URL 文件后缀 → src/pages.py 里的常量名。
+#: 页面模板用 ``__<常量名>_VER__`` 占位（例：``/style.css?v=__STYLE_CSS_VER__``），
+#: 由 :func:`_render_page` 替换成该资产自己的内容哈希。新增前端文件时登记这里，
+#: 并同步 ``scripts/embed_pages.py`` 的 ``FILES`` 与本文件的路由。
+_ASSET_FILES = {
+    "theme.css": "THEME_CSS",
+    "style.css": "STYLE_CSS",
+    "landing.css": "LANDING_CSS",
+    "app.js": "APP_JS",
+    "i18n.js": "I18N_JS",
+    "i18n-dict.js": "I18N_DICT",
+    "i18n-dict-landing.js": "I18N_DICT_LANDING",
+}
+
+
+def _asset_ver(content: str) -> str:
+    """取内容前 12 位 sha256 当版本号：内容一变 URL 就变，浏览器必然拉新文件。"""
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()[:12]
+
+
+#: 每个静态资源各自的内容哈希版本号（键为 pages.py 常量名）。
+#:
+#: 为什么按资产算、而不是全局一个哈希：落地页只加载 theme / i18n-dict-landing / landing.css，
+#: 看板加载 theme / style / i18n-dict / i18n / app.js，两边资产集合并不重合。一个全局哈希会
+#: 让「只改落地页」也把看板全部资产的 URL 换掉、害用户白下载一遍；按资产算则改哪个换哪个。
+#: 这样才配得上 ``_STATIC_CACHE`` 那一年 immutable 的长缓存。
+_ASSET_VERS = {
+    name: _asset_ver(getattr(pages, name)) for name in _ASSET_FILES.values()
+}
+
+#: 全部静态资源常量名（测试用：遍历它们逐个校验缓存头）。
+_ASSET_NAMES = tuple(_ASSET_FILES.values())
 
 #: 静态资源缓存（URL 已带内容哈希版本号，可安全长缓存）。
 _STATIC_CACHE = "public, max-age=31536000, immutable"
@@ -138,9 +164,15 @@ _IS_SERVERLESS = bool(_os.environ.get("VERCEL"))
 
 
 def _render_page(html: str) -> str:
-    """替换页面模板占位符：语言（``__HTML_LANG__``）+ 静态资源版本号（``__ASSET_VER__``）。"""
-    return (html.replace("__HTML_LANG__", _html_lang())
-                .replace("__ASSET_VER__", _ASSET_VER))
+    """替换页面模板占位符：语言（``__HTML_LANG__``）+ 各静态资源版本号。
+
+    版本号按资产各自算（:data:`_ASSET_VERS`），页面里写成 ``__<资产名>_VER__``，
+    例如 ``/style.css?v=__STYLE_CSS_VER__``。改一个资产只换它自己的 URL。
+    """
+    out = html.replace("__HTML_LANG__", _html_lang())
+    for name, ver in _ASSET_VERS.items():
+        out = out.replace(f"__{name}_VER__", ver)
+    return out
 
 
 def _admin_denied():
@@ -441,6 +473,39 @@ def serve_i18n():
                                 "Cache-Control": _STATIC_CACHE}
 
 
+@app.route("/i18n-dict.js")
+def serve_i18n_dict():
+    """看板 /app 用的全量中英字典——i18n.js 运行时的词条来源。
+
+    与运行时的加载顺序固定为「字典 → 运行时」，见 app.html 里 script 的先后。
+    """
+    return pages.I18N_DICT, 200, {"Content-Type": "application/javascript; charset=utf-8",
+                                  "Cache-Control": _STATIC_CACHE}
+
+
+@app.route("/i18n-dict-landing.js")
+def serve_i18n_dict_landing():
+    """落地页 / 用的字典子集：只含 index.html 实际引用的那批词条。
+
+    全量字典 332 条而落地页只用 69 条；落地页 HTML 是 no-store，整包下发等于每次访问都
+    白付这笔流量。子集与全量的一致性由 ``tests/test_i18n_split.py`` 把守。
+    """
+    return pages.I18N_DICT_LANDING, 200, {
+        "Content-Type": "application/javascript; charset=utf-8",
+        "Cache-Control": _STATIC_CACHE}
+
+
+@app.route("/landing.css")
+def serve_landing_css():
+    """落地页 / 的样式表，从 index.html 的 622 行内联 <style> 抽出。
+
+    抽出的理由：页面 HTML 是 no-store，内联样式每次都跟着整页重下；改成带内容哈希的
+    外部文件后走 immutable 长缓存，第二次起 0 字节。文件顶部写有序约束。
+    """
+    return pages.LANDING_CSS, 200, {"Content-Type": "text/css; charset=utf-8",
+                                   "Cache-Control": _STATIC_CACHE}
+
+
 @app.route("/favicon.svg")
 def serve_favicon():
     svg = (
@@ -451,6 +516,16 @@ def serve_favicon():
     )
     return svg, 200, {"Content-Type": "image/svg+xml; charset=utf-8",
                       "Cache-Control": _STATIC_CACHE}
+
+
+@app.route("/favicon.ico")
+def favicon_ico():
+    """/favicon.ico 重定向到 /favicon.svg。
+
+    部分浏览器与爬机不看 ``<link rel=icon>`` 声明，仍会直接要 /favicon.ico；仓库里只有
+    SVG 图标，于是每次首访都白吃一个 404。显式 301 把 404 变成一次可缓存的跳转。
+    """
+    return redirect("/favicon.svg", code=301)
 
 
 @app.route("/api/overview")

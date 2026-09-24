@@ -42,7 +42,7 @@ def test_pages_module_has_all_assets():
     import src.pages as pages
 
     for name in ("PAGE_INDEX", "PAGE_APP", "STYLE_CSS", "APP_JS", "I18N_JS",
-                 "THEME_CSS",
+                 "THEME_CSS", "LANDING_CSS", "I18N_DICT", "I18N_DICT_LANDING",
                  "ROBOTS_TXT", "SITEMAP_XML", "OG_IMAGE_PNG_B64"):
         assert hasattr(pages, name), f"src.pages 缺少 {name}"
     # SEO 内容真实可用
@@ -52,6 +52,22 @@ def test_pages_module_has_all_assets():
     import base64
 
     assert base64.b64decode(pages.OG_IMAGE_PNG_B64)[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def test_pages_module_is_in_sync_with_public_sources():
+    """src/pages.py 必须与 public/ 逐字一致。
+
+    前端文件是「先改 public/、再跑 scripts/embed_pages.py」两步；漏跑第二步时
+    服务不会报错，只会安静地继续发旧文件——线上看到「我明明改了却没生效」多半是它。
+    这条把两步钉成一步：不同步就红。
+    """
+    import src.pages as pages
+
+    for name, fname in embed.FILES.items():
+        source = (embed.PUBLIC / fname).read_text(encoding="utf-8-sig").lstrip("\ufeff")
+        assert getattr(pages, name) == source, (
+            f"pages.{name} 与 public/{fname} 不同步，请重跑 scripts/embed_pages.py"
+        )
 
 
 def test_seed_data_labels_csv_valid():

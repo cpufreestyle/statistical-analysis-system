@@ -198,12 +198,19 @@ def test_localize_payload_zh_unchanged():
 
 # ---------------------------------------------------------------------------
 # 前端字典 ↔ labels.csv 的逐字一致
-# public/i18n.js 头部与本文件所在的服务端标签层都声明「英文口径逐字一致」，
+# public/i18n-dict.js 的 ZH2EN 与本文件所在的服务端标签层都声明「英文口径逐字一致」，
 # 此前只是散文约定：任一侧改措辞都不会被发现，接口英文与界面英文会静默分叉。
+#
+# 字典已与运行时拆开：全量在 public/i18n-dict.js（看板 /app 用），
+# 子集在 public/i18n-dict-landing.js（落地页 / 用）。下面凡涉及「与 labels.csv 对齐」
+# 与「tr() 动态文案」的检查都默认看全量那份——落地页子集由 tests/test_i18n_split.py
+# 单独把守（键集合与取值都必须与全量一致）。
 # ---------------------------------------------------------------------------
-I18N_PATH = BASE_DIR / "public" / "i18n.js"
+I18N_PATH = BASE_DIR / "public" / "i18n-dict.js"
+I18N_LANDING_PATH = BASE_DIR / "public" / "i18n-dict-landing.js"
 
-_DICT_RE = re.compile(r"var ZH2EN = \{(.*?)\n  \};", re.S)
+# 字典与运行时拆开后，字典文件里的形状是 ``window.ZH2EN = { … };``（顶格收尾）。
+_DICT_RE = re.compile(r"window\.ZH2EN = \{(.*?)\n\};", re.S)
 _COMMENT_RE = re.compile(r"/\*.*?\*/", re.S)
 _PAIR_RE = re.compile(
     r'"((?:[^"\\]|\\.)*)"\s*:\s*(?:"((?:[^"\\]|\\.)*)"|\'((?:[^\'\\]|\\.)*)\')',
@@ -216,16 +223,22 @@ def _js_string(raw: str) -> str:
                .replace("\\\\", "\\").replace("\\n", "\n"))
 
 
-def _frontend_dict() -> dict[str, str]:
-    """取出 public/i18n.js 的 ZH2EN 字典（中文键 → 英文文案）。"""
-    text = I18N_PATH.read_text(encoding="utf-8")
+def _frontend_dict(path: Path = I18N_PATH, min_entries: int = 200) -> dict[str, str]:
+    """取出前端 ZH2EN 字典（中文键 → 英文文案）。
+
+    默认取全量字典 ``public/i18n-dict.js``；传 ``I18N_LANDING_PATH`` 则取
+    ``I18N_LANDING_PATH`` 则取落地页子集（条数少，``min_entries`` 要相应放低）。
+    """
+    text = path.read_text(encoding="utf-8")
     block = _DICT_RE.search(text)
-    assert block, "未能在 public/i18n.js 中定位 ZH2EN 字典，本检查已失效"
+    assert block, f"未能在 {path.name} 中定位 ZH2EN 字典，本检查已失效"
     entries = {
         _js_string(key): _js_string(dv or sv)
         for key, dv, sv in _PAIR_RE.findall(_COMMENT_RE.sub("", block.group(1)))
     }
-    assert len(entries) > 200, f"ZH2EN 解析结果异常（仅 {len(entries)} 条）"
+    assert len(entries) >= min_entries, (
+        f"{path.name} 解析结果异常（仅 {len(entries)} 条，期望 ≥{min_entries}）"
+    )
     return entries
 
 
@@ -255,17 +268,18 @@ def test_frontend_dictionary_matches_labels_csv_verbatim():
 
 def test_frontend_dictionary_has_no_conflicting_duplicate_keys():
     """JS 对象字面量里重复键会静默覆盖——同一中文键两个英文写法正是双层漂移的典型形态。"""
-    text = I18N_PATH.read_text(encoding="utf-8")
-    block = _DICT_RE.search(text)
-    assert block
-    seen: dict[str, str] = {}
-    clashes: list[tuple[str, str, str]] = []
-    for key, dv, sv in _PAIR_RE.findall(_COMMENT_RE.sub("", block.group(1))):
-        k, v = _js_string(key), _js_string(dv or sv)
-        if k in seen and seen[k] != v:
-            clashes.append((k, seen[k], v))
-        seen[k] = v
-    assert not clashes, f"ZH2EN 中同名键给出不同英文：{clashes}"
+    for path in (I18N_PATH, I18N_LANDING_PATH):
+        text = path.read_text(encoding="utf-8")
+        block = _DICT_RE.search(text)
+        assert block, f"{path.name} 里找不到字典"
+        seen: dict[str, str] = {}
+        clashes: list[tuple[str, str, str]] = []
+        for key, dv, sv in _PAIR_RE.findall(_COMMENT_RE.sub("", block.group(1))):
+            k, v = _js_string(key), _js_string(dv or sv)
+            if k in seen and seen[k] != v:
+                clashes.append((k, seen[k], v))
+            seen[k] = v
+        assert not clashes, f"{path.name} 中同名键给出不同英文：{clashes}"
 
 # ---------------------------------------------------------------------------
 # 前端静态文案的字典覆盖
@@ -292,16 +306,24 @@ def _public_texts() -> list[tuple[str, str]]:
 
 
 def test_static_i18n_attributes_are_dictionary_keys():
-    """data-i18n / -html / -ph 的值必须命中字典。"""
-    zh2en = _frontend_dict()
+    """data-i18n / -html / -ph 的值必须命中**该页面自己加载的**那份字典。
+
+    字典拆成分文件后，落地页只看子集、看板看全量；查错字典会误报。
+    """
+    full = _frontend_dict()
+    landing = _frontend_dict(I18N_LANDING_PATH, min_entries=40)
+    per_page = {"index.html": landing, "app.html": full}
     missing: dict[str, set[str]] = {}
     for name, text in _public_texts():
+        zh2en = per_page.get(name)
+        if zh2en is None:
+            continue
         for raw in _I18N_ATTR_RE.findall(text):
             key = raw.strip()
             if key and key not in zh2en:
                 missing.setdefault(name, set()).add(key)
     assert not missing, (
-        f"data-i18n* 的值不在 ZH2EN 字典里，英文界面将裸显中文：{missing}"
+        f"data-i18n* 的值不在该页加载的字典里，英文界面将裸显中文：{missing}"
     )
 
 

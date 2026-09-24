@@ -121,8 +121,13 @@ def test_html_is_no_store(client):
 
 
 def test_static_asset_long_cache(client):
-    for path in ("/theme.css", "/style.css", "/app.js", "/i18n.js"):
-        cc = client.get(path).headers.get("Cache-Control", "")
+    """每一份静态资源都必须带一年 immutable 长缓存（URL 里有内容哈希，换内容即换 URL）。"""
+    from src import web
+
+    for path in web._ASSET_FILES:
+        resp = client.get(path)
+        assert resp.status_code == 200, path
+        cc = resp.headers.get("Cache-Control", "")
         assert "max-age=31536000" in cc and "immutable" in cc, path
 
 
@@ -149,22 +154,52 @@ def test_security_headers_present(client):
 
 
 def test_asset_version_placeholder_replaced(client):
-    """页面里的 ?v=__ASSET_VER__ 必须被替换，且不再残留占位符。"""
-    for path in ("/", "/app"):
+    """页面里的 ?v=__<资产名>_VER__ 必须全部被替换，任何残留都算故障。"""
+    import re
+
+    for path in ("/", "/app", "/docs", "/privacy"):
         data = client.get(path).data
-        assert b"__ASSET_VER__" not in data, path
         assert b"?v=" in data, path
+        leftover = re.findall(rb"__[A-Z0-9_]+_VER__", data)
+        assert not leftover, f"{path} 残留未替换的版本号占位符：{leftover}"
 
 
 def test_asset_version_is_content_hash(client):
-    """页面上出现的版本号应等于内容哈希 _ASSET_VER。"""
+    """每个静态资源的 ?v= 必须等于**它自己**内容的哈希，且各资产互不相同。
+
+    后半句是关键：早期实现把四份资源合起来算一个全局哈希，「只改落地页」也会把看板
+    全部资产的 URL 换掉、害用户白下载一遍。改成按资产算后，改哪个才换哪个。
+    """
+    import hashlib
     import re
 
-    from src import web
+    from src import pages, web
+
+    def ver_of(asset: str) -> str:
+        name = web._ASSET_FILES[asset]
+        return hashlib.sha256(getattr(pages, name).encode("utf-8")).hexdigest()[:12]
 
     html = client.get("/app").get_data(as_text=True)
-    versions = set(re.findall(r"\?v=([0-9a-f]{6,})", html))
-    assert versions == {web._ASSET_VER}
+    used = dict(re.findall(r"/([A-Za-z0-9._-]+)\?v=([0-9a-f]{6,})", html))
+    for asset in web._ASSET_FILES:
+        if asset in ("landing.css", "i18n-dict-landing.js"):
+            continue  # 落地页专属资产，不该出现在看板里（另有一条测试专门盯这个）
+        assert asset in used, f"/app 未引用 {asset}"
+        assert used[asset] == ver_of(asset), asset
+    assert len(set(used.values())) == len(used), f"版本号退化成了全局同一个：{used}"
+
+
+def test_landing_only_assets_are_not_loaded_by_the_dashboard(client):
+    """落地页专属资产不能被看板引用——否则按资产缓存的收益直接作废。"""
+    app = client.get("/app").get_data(as_text=True)
+    assert "/landing.css?v=" not in app, "看板引用了落地页专属的 landing.css"
+    assert "/i18n-dict-landing.js?v=" not in app, "看板引用了落地页专属的字典子集"
+
+
+def test_dashboard_only_assets_are_not_loaded_by_the_landing_page(client):
+    index = client.get("/").get_data(as_text=True)
+    for asset in ("/style.css?v=", "/app.js?v=", "/i18n-dict.js?v="):
+        assert asset not in index, f"落地页引用了看板专属资产 {asset}"
 
 
 def _token_names(block: str) -> set[str]:
@@ -210,7 +245,7 @@ def test_theme_css_loads_before_page_styles(client):
     app = client.get("/app").get_data(as_text=True)
     assert app.index("/theme.css?v=") < app.index("/style.css?v="), "看板里 theme.css 排在 style.css 之后"
     index = client.get("/").get_data(as_text=True)
-    assert index.index("/theme.css?v=") < index.index("<style>"), "落地页里 theme.css 排在内联样式之后"
+    assert index.index("/theme.css?v=") < index.index("/landing.css?v="), "落地页里 theme.css 排在 landing.css 之后"
 
 
 def test_landing_page_shares_the_workbench_theme_contract(client):
@@ -229,16 +264,18 @@ def test_landing_page_shares_the_workbench_theme_contract(client):
 
 
 def test_landing_theme_dark_band_uses_tokens(client):
-    """落地页两块「深色带」必须走语义令牌，不能再写死灰阶——否则深色下反相成白底白字。"""
+    """落地页两块「深色带」必须走语义令牌，不能再写死灰阶——否则深色下反相成白底白字。
+
+    落地页样式已从 index.html 的内联 <style> 抽成 /landing.css，故直接取那份响应。
+    """
     import re
 
-    html = client.get("/").get_data(as_text=True)
-    style = html.split("<style>")[1].split("</style>")[0]
+    css = client.get("/landing.css").get_data(as_text=True)
     for sel in (".tech-stack", ".footer"):
-        block = re.search(re.escape(sel) + r"\s*\{([^}]*)\}", style)
-        assert block, f"{sel} 规则缺失"
-        assert "var(--band-bg)" in block.group(1), f"{sel} 未改用 --band-bg 语义令牌"
-    nav = re.search(r"\.nav\s*\{([^}]*)\}", style)
+        found = re.search(re.escape(sel) + r"\s*\{([^}]*)\}", css)
+        assert found, f"{sel} 规则缺失"
+        assert "var(--band-bg)" in found.group(1), f"{sel} 未改用 --band-bg 语义令牌"
+    nav = re.search(r"\.nav\s*\{([^}]*)\}", css)
     assert nav and "var(--nav-bg)" in nav.group(1), ".nav 未改用 --nav-bg 语义令牌"
 
 

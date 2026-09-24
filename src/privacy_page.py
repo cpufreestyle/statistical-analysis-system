@@ -161,7 +161,7 @@ def render(lang: str, base_url: str) -> str:
 <meta property="og:description" content="{_esc(s["doc.lead"])}">
 <meta property="og:image" content="{_esc(base_url)}/og-image.png">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="/style.css?v=__ASSET_VER__">
+<link rel="stylesheet" href="/style.css?v=__STYLE_CSS_VER__">
 <style>{SHARED_CSS}{_EXTRA_CSS}</style>
 </head>
 <body>
