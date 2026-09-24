@@ -16,8 +16,6 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import TypedDict, cast
 
-import yaml
-
 from src.db import query_indicators
 
 CUSTOM_PATH = Path(__file__).resolve().parent.parent.parent / "custom_analysis.yaml"
@@ -145,12 +143,16 @@ def load_custom() -> list[CustomAnalysis]:
         return kv_data
     if not CUSTOM_PATH.exists():
         return []
+    import yaml  # 延迟导入：读配置才需要 PyYAML，别让冷启动为它付费
+
     with CUSTOM_PATH.open(encoding="utf-8") as f:
         data = yaml.safe_load(f) or []
     return cast("list[CustomAnalysis]", data)
 
 
 def _save(items: list[CustomAnalysis]) -> None:
+    import yaml  # 延迟导入：仅在写入自定义分析配置时才需要 PyYAML
+
     with CUSTOM_PATH.open("w", encoding="utf-8") as f:
         yaml.safe_dump(items, f, allow_unicode=True, sort_keys=False)
     _save_custom_to_kv(items)

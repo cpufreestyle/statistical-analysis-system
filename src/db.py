@@ -17,7 +17,6 @@ from __future__ import annotations
 
 from pathlib import Path
 import os
-import yaml
 from sqlalchemy import (
     create_engine, Column, String, Float, Integer, MetaData, Table, Text,
     event, func, select, text,
@@ -62,6 +61,10 @@ if _VERCEL_DB_DIR:
     DB_URL = "sqlite:///" + str(_vercel_data / "qu_stats.db")
     CONFIG: dict[str, Any] = {}  # Vercel 环境无 config.yaml，用空字典兜底
 else:
+    # 延迟导入 PyYAML：Vercel 分支（QU_STAT_DB_DIR）不读 config.yaml，
+    # 冷启动不必为一次都不会执行的解析加载整个 yaml 包。
+    import yaml
+
     with CONFIG_PATH.open(encoding="utf-8") as f:
         CONFIG = yaml.safe_load(f)
     _DB_URL_RAW = CONFIG["database"]["url"]

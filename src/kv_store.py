@@ -23,8 +23,6 @@ import json
 import os
 from typing import Any
 
-import requests
-
 # Vercel Marketplace Upstash 集成 → KV_REST_API_URL / KV_REST_API_TOKEN
 # Upstash 官网直接创建        → UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN
 # 本地自定义                  → QU_STAT_REDIS_URL / QU_STAT_REDIS_TOKEN
@@ -51,6 +49,10 @@ def kv_available() -> bool:
 
 def _request(method: str, path: str, data: str | None = None) -> Any:
     """发送 Upstash Redis REST 请求。"""
+    # 延迟导入：KV 未配置时（本地 / 未接 Upstash 的部署），整个 requests + urllib3
+    # 依赖树都不该为一次都不会发生的 HTTP 调用而加载。
+    import requests
+
     url = f"{_REDIS_URL.rstrip('/')}{path}"
     headers = {"Authorization": f"Bearer {_REDIS_TOKEN}"}
     resp = requests.request(

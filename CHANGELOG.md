@@ -64,6 +64,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
 
 ### Changed
 
+- **冷启动瘦身：3 个可选重依赖改为函数内延迟导入。** `import src.web` 是 Vercel 每个冷容器
+  的固定开销（实测约 330ms CPU）。三处只在特定分支才用得到的依赖原先都写在模块顶层：
+  ① `src/kv_store.py` 的 `import requests`（连同 urllib3 / email / http 整棵树）——只在
+  `_request()` 里用得到，而所有 KV 公开函数都先查 `kv_available()`；
+  ② `src/stats/custom.py` 的 `import yaml`——只在读写 `custom_analysis.yaml` 时用得到；
+  ③ `src/db.py` 的 `import yaml`——Vercel 分支（`QU_STAT_DB_DIR` 已设）直接以
+  `CONFIG = {}` 兜底，根本不解析 `config.yaml`。
+  改为函数内导入后，KV 未配置时 `import src.web` 只加载 `flask` + `sqlalchemy`。
+  A/B 实测（同机同条件、清 `__pycache__`、11 次取中位数）：`import src.web` 的进程内 CPU
+  由 **390.6ms 降至 328.1ms（−16%）**；`-X importtime` 累计 424.5ms → 约 390ms。
+  写法参照既有先例 `src/stats/sql_engine.py`。
+  新增 `tests/test_cold_start.py` 4 条门禁：在**子进程的全新解释器**里断言导入图
+  （pytest 自身与 `tests/test_analyzer.py` 已加载过 requests / PyYAML，进程内查
+  `sys.modules` 查不出问题），并带一条反向兜底——删掉 `db.py` 的惰性 `import yaml` 会让
+  本地分支抛 `NameError`，此时测试必须转红（已实测）。
+- **顺带纠正一项技术债判断：拆分 `src/pages.py` 并不能加速冷启动。** 实测 `compile()`
+  解析这 274KB（21 行 / 9 个字面量）仅 **2.6ms**，`import src.pages` 在 `import src.web`
+  全程里只占约 3.6ms；瓶颈完全在 flask / sqlalchemy。因此「拆分 pages.py 降冷启动」
+  不再列为待办——为 1% 的收益去承担 embed 漂移门禁的验证成本并不划算。
+
 - **数据库索引与写入优化（`src/db.py`）。** 新增自然键复合唯一索引 `ux_indicators_key` 与
   `ix_indicators_dimension`；`upsert_indicators` 改用 `INSERT … ON CONFLICT DO UPDATE`；
   连接级 PRAGMA（WAL / synchronous=NORMAL / 大缓存 / busy_timeout 等）。实测精确查找 **12.1×**、
