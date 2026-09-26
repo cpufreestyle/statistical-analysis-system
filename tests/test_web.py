@@ -180,6 +180,63 @@ def test_metric_unit_nowrap_in_css():
     )
 
 
+# ---------------------------------------------------------------------------
+# 视觉基线（「美观/实用性」批次的结构哨兵；红绿已验证：删声明即变红）
+# ---------------------------------------------------------------------------
+def _public_css(name: str) -> str:
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parent.parent / "public" / name
+    return path.read_text(encoding="utf-8")
+
+
+def test_anchor_jumps_clear_the_sticky_header():
+    """锚点跳转必须让出固定/吸顶导航的高度，否则落点被整块盖住。
+
+    看板导航 sticky 52px、落地页导航 fixed 64px；skip-link 的 #main 与
+    #features 等锚点少了 scroll-padding-top 会「跳了但看不见」——
+    键盘用户第一个障碍就是这个。shadcn/ui 的 globals.css 用同一招。
+    """
+    style = _public_css("style.css")
+    assert "scroll-padding-top" in style and "--header-h" in style, (
+        "看板缺少 scroll-padding-top: calc(var(--header-h) + 8px)"
+    )
+    landing = _public_css("landing.css")
+    assert "scroll-padding-top: 72px" in landing, "落地页缺少 scroll-padding-top: 72px"
+
+
+def test_selection_uses_theme_tokens_in_all_entries():
+    """::selection 跟主题令牌走，且三个入口齐全（theme.css 的深色同步纪律）。"""
+    theme = _public_css("theme.css")
+    assert "::selection" in theme
+    assert theme.count("::selection") >= 3, (
+        "浅色 / 手动深色 / 跟随系统三个入口都要有 ::selection"
+    )
+
+
+def test_mobile_baseline_declarations_present():
+    """移动端两条基线：锁定 iOS 正文缩放、去掉点击蓝块（Tailwind Preflight 同款）。"""
+    theme = _public_css("theme.css")
+    assert "-webkit-text-size-adjust: 100%" in theme
+    assert "-webkit-tap-highlight-color: transparent" in theme
+
+
+@pytest.mark.parametrize("selector", ["metric-value", "insight-val", "insight-rank", "svg-num"])
+def test_numeric_displays_use_tabular_nums(selector):
+    """数字展示一律等宽数字：数值切换时宽度不跳（表格 .num 早已如此）。
+
+    新增数字展示位置时把 class 加进参数化列表，即同步获得哨兵。
+    """
+    import re
+
+    css = _public_css("style.css")
+    block = re.search(r"\.%s\s*\{([^}]*)\}" % selector, css)
+    assert block, f".{selector} 规则缺失，请检查 public/style.css"
+    assert "tabular-nums" in block.group(1), (
+        f".{selector} 缺少 font-variant-numeric: tabular-nums，数字会抖"
+    )
+
+
 def test_security_headers_present(client):
     resp = client.get("/")
     assert resp.headers.get("X-Content-Type-Options") == "nosniff"

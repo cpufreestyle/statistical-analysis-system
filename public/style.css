@@ -26,7 +26,10 @@
 }
 
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-html { font-size: 14px; -webkit-font-smoothing: antialiased; }
+html { font-size: 14px; -webkit-font-smoothing: antialiased;
+       /* 顶部导航 position: sticky，锚点跳转（含 skip-link 的 #main）落点
+          会被 52px 的导航盖住；shadcn/ui 用 scroll-padding-top 解同类问题。 */
+       scroll-padding-top: calc(var(--header-h) + 8px); }
 body { font-family: var(--font); color: var(--gray-700); background: var(--gray-50); line-height: 1.5; }
 
 /* ============ 顶部导航（参考图1窄导航） ============ */
@@ -526,9 +529,12 @@ select.query-input:focus {
 }
 
 .metric-value {
+  /* 指标卡是看板的「数字门面」：tabular-nums 让等宽数字在切换数值时
+     宽度不跳（表格 .num 早已如此，指标卡此前是比例数字，会抖）。 */
   font-size: 28px;
   font-weight: 700;
   font-family: var(--num);
+  font-variant-numeric: tabular-nums;
   color: var(--gray-900);
   letter-spacing: -0.5px;
   line-height: 1.1;
@@ -1252,6 +1258,11 @@ select.query-input:focus {
 .source-list .source-item { font-size: 12px; }
 
 /* ═══════ 图表（自绘 SVG） ═══════ */
+/* 图表里的数字同样是「数字门面」：坐标轴刻度与排名条数值用等宽数字，
+   多行刻度/多条排名的数字列才能对齐（Observable Plot 等图表库的默认做法）。
+   SVG <text> 支持 font-variant-numeric，走 class 而不逐个写内联样式。 */
+.svg-num { font-variant-numeric: tabular-nums; }
+
 .chart-block {
   background: var(--surface);
   border: 1px solid var(--gray-200);
@@ -1554,10 +1565,12 @@ select.query-input:focus {
 }
 .insight-row + .insight-row { border-top: 1px solid var(--gray-100); }
 .insight-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.insight-val { font-family: var(--num); font-weight: 600; white-space: nowrap; }
+.insight-val { font-family: var(--num); font-weight: 600; white-space: nowrap;
+               font-variant-numeric: tabular-nums; }
 .insight-val.up { color: var(--green-600); }
 .insight-val.down { color: var(--red-500); }
-.insight-rank { font-family: var(--num); font-size: 11px; color: var(--gray-500); white-space: nowrap; }
+.insight-rank { font-family: var(--num); font-size: 11px; color: var(--gray-500); white-space: nowrap;
+                  font-variant-numeric: tabular-nums; }
 
 .insight-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .insight-chip {

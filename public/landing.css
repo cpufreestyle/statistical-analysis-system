@@ -27,7 +27,10 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
-html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth;
+       /* 导航 position: fixed 高 64px，#features 等锚点跳转的落点会被盖住，
+          skip-link 的 #main 同理；shadcn/ui 的 scroll-padding-top 同款修法。 */
+       scroll-padding-top: 72px; }
 
 body {
   font-family: var(--font);

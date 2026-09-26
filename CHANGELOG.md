@@ -299,6 +299,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
   （红绿已验证：摘掉装饰器即变红）；`tests/test_web.py` 加 `q` 过滤三条行为测试
   （命中本地化英文值、命中中文规范键、空 q 与不带 q 逐行一致）。
   全量 **265 项**测试全绿，`scripts/check_i18n.py` 全部通过。
+- **「美观 / 实用性」视觉精修第一批（范式取自开源项目：shadcn/ui globals.css、
+  Tailwind Preflight、Observable Plot 图表约定）。** 每项都有出处与结构哨兵（红绿已验证：
+  删声明即变红），全部落在令牌与样式层，不动数据与接口。
+  ① **选中态主题化**：`::selection` 跟随主题令牌，浅色 / 手动深色 / 跟随系统三个入口同步
+  （此前是浏览器默认蓝底白字，深色界面上刺眼；shadcn 把 selection 做成令牌的同款思路）。
+  ② **锚点跳转让出导航高度**：看板导航 sticky 52px、落地页导航 fixed 64px，`skip-link`
+  的 `#main` 与 `#features` 等锚点跳转的落点此前被导航整块盖住——键盘用户碰到的第一个
+  障碍。加 `scroll-padding-top`（shadcn 同款修法）。
+  ③ **移动端两条基线**（Tailwind Preflight 同款）：锁定 iOS 横竖屏切换时的正文自动放大、
+  去掉点击瞬间的蓝色高亮块，点击反馈交回 `:active` / `:focus-visible`。
+  ④ **数字等宽全覆盖**：`tabular-nums` 从表格 `.num` 扩展到指标卡数值、洞察卡数值与排名、
+  图表坐标轴刻度与排名条数值（SVG `<text>` 新增共享类 `.svg-num`；Observable Plot 等
+  图表库对刻度数字的默认做法），切年切维度时数字列不再抖。
+  新增 7 条结构哨兵，全量 **272 项**测试全绿；改 `public/` 后已重跑
+  `scripts/embed_pages.py` 同步 `src/pages.py`。
 
 - **看板 JS 代码分割第二轮：`app.js` → core 加五个按需分块。** 指标总表 / 自定义分析 / 统计公报
   三个 tab 拆到 `public/app.indicators.js` / `public/app.custom.js` / `public/app.bulletin.js`，

@@ -159,6 +159,28 @@
 
 }
 
+/* =============================================
+   跨页面基线（不属于某个页面的组件样式，故放令牌文件末尾）
+
+   1) ::selection —— 选中态跟主色走。shadcn/ui 的 globals.css 同样把
+      selection 做成令牌（--selection / --selection-foreground）；本项目的
+      语义是「浅色蓝底白字感的浅蓝底深蓝字」，深色入口换亮字，避免默认的
+      蓝底白字在深色界面上刺眼。
+   2) 移动端两条基线声明（与 Tailwind Preflight 一致）：
+      - -webkit-text-size-adjust: 100% —— iOS 横竖屏切换时会自动放大正文，
+        写死 100% 让排版可预期；
+      - -webkit-tap-highlight-color: transparent —— 去掉移动端点击瞬间
+        浏览器画的那块蓝色高亮，点击反馈由 :active / :focus-visible 负责。
+     两者都是纯增益、无副作用，故直接进基线而不是留给各页面自己补。
+   深色有三个入口要同步（手动、跟随系统、以及下面的媒体查询块内嵌），
+   与文件头「深色两个入口必须同步改」同一条纪律。
+   ============================================= */
+::selection { background: var(--blue-100); color: var(--blue-900); }
+:root[data-theme="dark"] ::selection { background: var(--blue-200); color: var(--gray-900); }
+
+html { -webkit-text-size-adjust: 100%; }
+body { -webkit-tap-highlight-color: transparent; }
+
 /* 无 JS（或内联脚本被隐私模式挡住）时仍跟随系统；已显式选浅色则不进场。 */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
