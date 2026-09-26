@@ -869,10 +869,29 @@ select.query-input:focus {
 }
 
 /* ============ 表格 ============ */
-.data-table-wrap { overflow-x: auto; margin-top: 12px; }
+.data-table-wrap {
+  overflow-x: auto;
+  margin-top: 12px;
+  /* iOS 惯性滚动；桌面端触摸板同样受益 */
+  -webkit-overflow-scrolling: touch;
+  /* 「这里还能横向滑」的边缘提示：两条渐变是阴影（attachment: scroll，
+     固定在容器视口上，只在真有溢出时可见），两条是同色遮挡层
+     （attachment: local，随内容滚走，把已滚过处的阴影擦掉）。
+     纯 CSS 判断溢出，不需要 JS 监听 scroll。阴影色走 --scroll-shadow 令牌，
+     深色入口在 theme.css 同步。 */
+  background:
+    radial-gradient(farthest-side at 0 50%, var(--scroll-shadow), transparent) left center / 14px 100% no-repeat,
+    radial-gradient(farthest-side at 100% 50%, var(--scroll-shadow), transparent) right center / 14px 100% no-repeat,
+    linear-gradient(to right, var(--surface), var(--surface)) left center / 40px 100% no-repeat,
+    linear-gradient(to left, var(--surface), var(--surface)) right center / 40px 100% no-repeat;
+  background-attachment: scroll, scroll, local, local;
+}
 
 .data-table {
   width: 100%;
+  /* 七列（单选钮/指标/专业/维度/数值/单位/来源）在窄屏压到可用宽度以下就没法读了；
+     给定最小宽度，让 .data-table-wrap 横向滚动，而不是把每列挤成竖排碎片。 */
+  min-width: 760px;
   border-collapse: collapse;
   font-size: 12px;
 }
@@ -887,7 +906,11 @@ select.query-input:focus {
   text-align: center;
   border-bottom: 2px solid var(--gray-200);
   white-space: nowrap;
-  background: var(--gray-25);
+  /* 表头**不铺底色**：纯 CSS 的边缘滚动阴影画在 .data-table-wrap 的背景层上，
+     任何实底单元格都会把它挡住，左边只剩「半截」阴影。表头原本的 --gray-25
+     与 --surface 在浅色下差 1%（几乎看不出），这里靠 2px 下边框 + 大写 +
+     字重区分已经足够。不要再给 th 加实底，否则静默破坏横向滚动的可感知性。 */
+  background: transparent;
 }
 
 .data-table td {
@@ -1581,7 +1604,14 @@ select.query-input:focus {
   font-size: 11px;
   color: var(--gray-500);
 }
-.insight-chip b { display: block; margin-top: 2px; font-size: 15px; color: var(--gray-900); font-family: var(--num); }
+.insight-chip b {
+  display: block;
+  margin-top: 2px;
+  font-size: 15px;
+  color: var(--gray-900);
+  font-family: var(--num);
+  font-variant-numeric: tabular-nums;
+}
 
 @media (max-width: 640px) {
   .overlay { padding: 8vh 10px 16px; }

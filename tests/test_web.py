@@ -237,6 +237,89 @@ def test_numeric_displays_use_tabular_nums(selector):
     )
 
 
+def test_wide_table_scrolls_with_edge_affordance():
+    """宽表横向滚动区要有「这里还能滑」的边缘暗示，且 iOS 可惯性滑动。
+
+    边缘阴影用四层 background 拼出来的：两条 radial 是阴影本体
+    （background-attachment: scroll，钉在容器视口上，只在真有溢出时可见），
+    两条同色 linear 是遮挡层（attachment: local，随内容滚走，把已滚过处的
+    阴影擦掉）。这样纯 CSS 就能判断「是否溢出」，不需要 JS 监听 scroll。
+    -webkit-overflow-scrolling 让 iOS 保留惯性（桌面触摸板同样受益）。
+    """
+    import re
+
+    css = _public_css("style.css")
+    block = re.search(r"\.data-table-wrap\s*\{([^}]*)\}", css)
+    assert block, ".data-table-wrap 规则缺失，请检查 public/style.css"
+    body = block.group(1)
+    assert "-webkit-overflow-scrolling: touch" in body, (
+        ".data-table-wrap 缺少 -webkit-overflow-scrolling: touch，iOS 上会一卡一卡"
+    )
+    assert "radial-gradient" in body and "linear-gradient" in body, (
+        ".data-table-wrap 缺少边缘阴影/遮挡两层渐变，用户看不出表格还能横向滑"
+    )
+    attach = re.search(r"background-attachment:\s*([^;]+);", body)
+    assert attach, ".data-table-wrap 缺少 background-attachment，边缘阴影会常亮"
+    assert {a.strip() for a in attach.group(1).split(",")} == {"scroll", "local"}, (
+        "background-attachment 必须是两条 scroll（阴影）+ 两条 local（遮挡）"
+    )
+
+
+def test_data_table_has_min_width_for_horizontal_scroll():
+    """七列表格在窄屏必须横向滚动，而不是把每列压成竖排碎片。"""
+    import re
+
+    css = _public_css("style.css")
+    block = re.search(r"\.data-table\s*\{([^}]*)\}", css)
+    assert block, ".data-table 规则缺失，请检查 public/style.css"
+    min_width = re.search(r"min-width:\s*(\d+)px", block.group(1))
+    assert min_width and int(min_width.group(1)) >= 760, (
+        ".data-table 缺少 min-width: 760px，窄屏下七列会被压扁"
+    )
+
+
+def test_data_table_header_stays_transparent_for_edge_shadow():
+    """表头不得铺实底——否则会挡住 `.data-table-wrap` 上的边缘滚动阴影。
+
+    纯 CSS 阴影画在滚动容器的背景层上、位于表格下方：单元格只要有实底，
+    阴影在那个高度就被遮掉，左侧只剩「半截」，看起来像渲染坏了。
+    表头靠 2px 下边框 + 大写 + 字重区分已经足够（原 `--gray-25` 与
+    `--surface` 在浅色下只差 1%）。这条哨兵钉住透明，防止加回底色
+    而**静默**破坏横向滚动的可感知性。
+    """
+    import re
+
+    css = re.sub(r"/\*.*?\*/", "", _public_css("style.css"), flags=re.S)
+    block = re.search(r"\.data-table\s+th\s*\{([^}]*)\}", css)
+    assert block, ".data-table th 规则缺失，请检查 public/style.css"
+    bg = re.search(r"background(?:-color)?\s*:\s*([^;]+);", block.group(1))
+    assert bg, ".data-table th 未声明背景；请显式写 transparent 并注明原因"
+    assert bg.group(1).strip() == "transparent", (
+        ".data-table th 不得铺实底（当前 %s），会挡住 .data-table-wrap 的边缘阴影"
+        % bg.group(1).strip()
+    )
+
+
+def test_insight_chip_value_is_tabular():
+    """洞察 chip 的数值同样要等宽数字（卡内数字横向对齐、切换不抖）。"""
+    import re
+
+    css = _public_css("style.css")
+    block = re.search(r"\.insight-chip\s+b\s*\{([^}]*)\}", css)
+    assert block, ".insight-chip b 规则缺失，请检查 public/style.css"
+    assert "tabular-nums" in block.group(1), (
+        ".insight-chip b 缺少 font-variant-numeric: tabular-nums，数字会抖"
+    )
+
+
+def test_scroll_shadow_token_in_both_theme_entries():
+    """边缘阴影色走令牌，浅色 / 深色两个入口都要有（同 ::selection 的同步纪律）。"""
+    theme = _public_css("theme.css")
+    assert theme.count("--scroll-shadow:") >= 2, (
+        "--scroll-shadow 只在浅色入口定义，深色模式下边缘阴影会掉色"
+    )
+
+
 def test_security_headers_present(client):
     resp = client.get("/")
     assert resp.headers.get("X-Content-Type-Options") == "nosniff"

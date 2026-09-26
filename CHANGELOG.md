@@ -315,6 +315,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
   新增 7 条结构哨兵，全量 **272 项**测试全绿；改 `public/` 后已重跑
   `scripts/embed_pages.py` 同步 `src/pages.py`。
 
+- **视觉精修第二批：宽表横向滚动的「还能滑」暗示 + 主题令牌补齐第三个入口。**
+  `.data-table-wrap` 用四层 `background` 拼出边缘阴影：两条 `radial-gradient` 是阴影本体，
+  `background-attachment: scroll` 钉在容器视口上，只在真有溢出时可见；两条同色
+  `linear-gradient` 是遮挡层，`attachment: local` 随内容滚走，把已滚过处的阴影擦掉。
+  这样**纯 CSS** 就能判断「是否溢出」，不需要 JS 监听 scroll（Radix / shadcn 的
+  `ScrollArea` 反而是 JS 驱动，这里不需要那么重）。同时补
+  `-webkit-overflow-scrolling: touch` 保住 iOS 惯性；`.data-table` 加 `min-width: 760px`——
+  七列（单选钮 / 指标 / 专业 / 维度 / 数值 / 单位 / 来源）在窄屏原先被压成竖排碎片，
+  现在整表横向滚动；`.insight-chip b` 的数值也接上 `tabular-nums`（第一批漏了它）。
+  新增令牌 `--scroll-shadow`（浅色 `rgba(15,23,42,.16)`、深色 `rgba(0,0,0,.55)`），
+  需要在浅色 / 手动深色 / 跟随系统**三个入口**同步——第三个入口一开始漏了，被既有门禁
+  `tests/test_web.py::test_theme_css_is_the_single_source_of_tokens` 当场抓住
+  （它逐名比对手动深色与跟随系统两块令牌集合）。
+- 配套修正 `.data-table th` 不再铺底色（原 `--gray-25`）。纯 CSS 边缘阴影画在滚动容器的
+  背景层上、位于表格**下方**，任何实底单元格都会把它挡住，左侧只剩半截阴影——这是该手法的
+  前提（内容必须透背景）。`--gray-25` 与 `--surface` 在浅色下只差 1%，表头靠 2px 下边框 +
+  大写 + 字重区分已足够；新增哨兵把「表头必须透明」钉住，防止加回底色而**静默**破坏
+  横向滚动的可感知性。新增 5 条结构哨兵，全量 **277 项**测试全绿；改 `public/` 后已重跑
+  `scripts/embed_pages.py`。
+
 - **看板 JS 代码分割第二轮：`app.js` → core 加五个按需分块。** 指标总表 / 自定义分析 / 统计公报
   三个 tab 拆到 `public/app.indicators.js` / `public/app.custom.js` / `public/app.bulletin.js`，
   与图表 / 命令面板分块同一套约定（core 不引用分块声明；入口只有 `openTab()` 回调和

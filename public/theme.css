@@ -102,6 +102,10 @@
   --ok-fg: #166534;
   --ok-bg: #ECFDF5;
   --ok-bd: #BBF7D0;
+
+  /* 横向滚动容器的边缘阴影色（宽表「这里还能滑」的提示，见 style.css 的
+     .data-table-wrap；阴影只在真有溢出时出现，纯 CSS 无需 JS） */
+  --scroll-shadow: rgba(15, 23, 42, 0.16);
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
@@ -157,6 +161,7 @@
   --ok-bg: #0E2A1F;
   --ok-bd: #14532D;
 
+  --scroll-shadow: rgba(0, 0, 0, 0.55);
 }
 
 /* =============================================
@@ -237,5 +242,6 @@ body { -webkit-tap-highlight-color: transparent; }
   --ok-bg: #0E2A1F;
   --ok-bd: #14532D;
 
+  --scroll-shadow: rgba(0, 0, 0, 0.55);
   }
 }
