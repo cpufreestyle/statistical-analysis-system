@@ -44,8 +44,15 @@ ROW_FIELDS = ("category", "indicator", "dimension", "unit")
 # ---------------------------------------------------------------------------
 # 语言解析
 # ---------------------------------------------------------------------------
+@lru_cache(maxsize=8)
 def normalize_lang(value: str | None) -> str:
-    """把 ``zh`` / ``zh-CN`` / ``zh_CN`` / ``en`` / ``en_US`` 归一为 ``zh`` / ``en``。"""
+    """把 ``zh`` / ``zh-CN`` / ``zh_CN`` / ``en`` / ``en_US`` 归一为 ``zh`` / ``en``。
+
+    按入参缓存：解析结果只有 ``zh`` / ``en`` 两种取值，而指标宽表每行要经它
+    5 次（4 个字段调 :func:`label` + 1 次 :func:`localize_note`），
+    strip/lower/replace 的重复劳动在 700+ 行的表上被放大成可测的开销。
+    词条表变更由 :func:`reload` 统一失效缓存。
+    """
     v = (value or "").strip().lower().replace("_", "-")
     if v.startswith("zh"):
         return "zh"
@@ -121,9 +128,19 @@ def _table() -> dict[tuple[str, str], dict[str, str]]:
 
 
 def reload() -> None:
-    """清空缓存，重新读取标签包（改完 labels.csv 后调用）。"""
+    """清空缓存，重新读取标签包（改完 labels.csv 后调用）。
+
+    四个查表纯函数的缓存值同样由标签包内容决定，必须一起失效：漏清任何一个，
+    改完 labels.csv 后接口都会继续返回上一版数据——缓存错误在这里
+    等同于数据错误。:func:`normalize_lang` 不读表但同样在此一并清理，
+    避免「有的清有的不清」让人以为漏写的是笔误。
+    """
     _table.cache_clear()
     _reverse.cache_clear()
+    normalize_lang.cache_clear()
+    label.cache_clear()
+    slug.cache_clear()
+    localize_note.cache_clear()
 
 
 def stats() -> dict[str, int]:
@@ -137,8 +154,12 @@ def stats() -> dict[str, int]:
 # ---------------------------------------------------------------------------
 # 单词条
 # ---------------------------------------------------------------------------
+@lru_cache(maxsize=2048)
 def label(kind: str, key: str | None, lang: str = DEFAULT_LANG) -> str:
-    """返回 ``key`` 在 ``lang`` 下的标签；未登记或空值时原样返回。"""
+    """返回 ``key`` 在 ``lang`` 下的标签；未登记或空值时原样返回。
+
+    纯查表函数，按 ``(kind, key, lang)`` 缓存；词条表变更走 :func:`reload`。
+    """
     if not key:
         return key or ""
     if normalize_lang(lang) == "zh":
@@ -163,8 +184,13 @@ def _fallback_slug(value: str) -> str:
     return slug or value
 
 
+@lru_cache(maxsize=2048)
 def slug(kind: str, key: str | None) -> str:
-    """返回 ``key`` 的稳定 ASCII 标识符；未登记时退回兜底规则。"""
+    """返回 ``key`` 的稳定 ASCII 标识符；未登记时退回兜底规则。
+
+    同 :func:`label`：纯查表（未登记时走 :func:`_fallback_slug`，同样是
+    按入参决定的纯函数），按 ``(kind, key)`` 缓存；词条表变更走 :func:`reload`。
+    """
     if not key:
         return key or ""
     entry = _table().get((kind, key))
@@ -233,8 +259,13 @@ _NOTE_TERMS: tuple[tuple[str, str], ...] = (
 )
 
 
+@lru_cache(maxsize=1024)
 def localize_note(note: str | None, lang: str = DEFAULT_LANG) -> str:
-    """把带中文来源前缀的 note 转为目标语言；无法识别时原样返回。"""
+    """把带中文来源前缀的 note 转为目标语言；无法识别时原样返回。
+
+    只依赖正则与替换表，结果由入参完全决定，按 ``(note, lang)`` 缓存
+    （库里 note 的取值高度重复，命中率接近 100%）；词条表变更走 :func:`reload`。
+    """
     if not note:
         return note or ""
     if normalize_lang(lang) == "zh":

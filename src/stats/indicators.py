@@ -11,7 +11,7 @@
 """
 from __future__ import annotations
 
-from src.db import query_indicators
+from src.db import distinct_values, query_indicator_pairs, query_indicators
 from src.stats.core import yoy, share, rank_items, fmt_pct
 
 # 取数时的维度回退顺序：默认看亚太，亚太没有的指标落到中国口径
@@ -42,19 +42,30 @@ CARD_COUNT = 5
 
 
 def _find(year: int, category: str, indicator: str,
-          dimension: str | None = None) -> tuple[float | None, str | None]:
-    """按维度回退顺序取一个指标值，返回 (值, 实际命中的维度)。"""
+          dimension: str | None = None,
+          rows: list | None = None) -> tuple[float | None, str | None]:
+    """按维度回退顺序取一个指标值，返回 (值, 实际命中的维度)。
+
+    ``rows`` 是调用方**预取**的「该组合 × 全部维度」行（见
+    :func:`src.db.query_indicator_pairs`）。过去每个候选维度点查一次，
+    5 个候选就是 5 次查询；现在一次不限维度的查询（或直接用预取行），
+    在内存里按候选顺序挑首条——同组合在唯一索引下不会重复，
+    「每个维度取首条」与逐条过滤查询的结果一致。
+    """
     candidates: list[str] = []
     if dimension:
         candidates.append(dimension)
     candidates += [d for d in DIMENSION_PREFERENCE if d not in candidates]
+    if rows is None:
+        rows = query_indicators(year=year, category=category, indicator=indicator)
+    by_dim: dict[str, Any] = {}
+    for r in rows:
+        by_dim.setdefault(str(r["dimension"]), r)
     for dim in candidates:
-        rows = query_indicators(year=year, category=category,
-                                indicator=indicator, dimension=dim)
-        if rows:
-            return rows[0]["value"], dim
+        r = by_dim.get(dim)
+        if r is not None:
+            return r["value"], dim
     # 最后兜底：不限维度（用户导入的自定义维度也能取到）
-    rows = query_indicators(year=year, category=category, indicator=indicator)
     if rows:
         return rows[0]["value"], rows[0]["dimension"]
     return None, None
@@ -148,14 +159,14 @@ def _prev(year: int, category: str, indicator: str,
 # ---------------------------------------------------------------------------
 def available_dimensions() -> list[str]:
     """当前库中出现过的全部维度，按偏好顺序排在前，其余按名称排序。"""
-    dims = {r["dimension"] for r in query_indicators()}
+    dims = {str(d) for d in distinct_values("dimension")}
     head = [d for d in DIMENSION_PREFERENCE if d in dims]
     return head + sorted(dims - set(head))
 
 
 def available_years() -> list[int]:
     """当前库中出现过的全部年份（倒序）。"""
-    return sorted({int(r["year"]) for r in query_indicators()}, reverse=True)
+    return sorted({int(y) for y in distinct_values("year")}, reverse=True)
 
 
 def dimension_cards(year: int, dimension: str) -> list[dict[str, object]]:
@@ -167,13 +178,27 @@ def dimension_cards(year: int, dimension: str) -> list[dict[str, object]]:
     picked: list[dict[str, object]] = []
     used: set[tuple[str, str]] = set()
 
+    # 上一年数据按「年份 × 预设指标组合 × 全部维度」一条 SQL 取回。
+    # 逐卡回退取数是 N+1：5 张卡 × 最多 5 个候选维度 = 25 次点查
+    # （中国口径实测占 /api/overview 22 次查询的全部）。补齐路径挑中的
+    # 组合不在预取表里，_find 会退回逐组合查询——该路径本就罕见。
+    prev_year = year - 1
+    # 先给每个预设组合占位空列表：区分「查过但没有数据」（直接用空列表，
+    # 不再点查）与「补齐路径的动态组合，没预取」（_find 回落逐组合查询）。
+    prev_by_pair: dict[tuple[str, str], list] = {
+        pair: [] for pair in CARD_INDICATORS.get(dimension, [])
+    }
+    for r in query_indicator_pairs(prev_year, list(CARD_INDICATORS.get(dimension, []))):
+        prev_by_pair.setdefault((r["category"], r["indicator"]), []).append(r)
+
     def _emit(category: str, indicator: str) -> None:
         r = next((x for x in rows
                   if x["category"] == category and x["indicator"] == indicator), None)
         if r is None or (category, indicator) in used:
             return
         used.add((category, indicator))
-        prev = _get(year - 1, category, indicator, dimension)
+        prev = _find(prev_year, category, indicator, dimension,
+                     rows=prev_by_pair.get((category, indicator)))[0]
         picked.append({
             "label": indicator,
             "value": r["value"],
@@ -215,7 +240,7 @@ def economy_ranking(year: int, category: str, indicator: str,
 
 def all_categories() -> list[str]:
     """库中实际存在的专业分类（供前端筛选下拉动态生成）。"""
-    cats = {r["category"] for r in query_indicators()}
+    cats = {str(c) for c in distinct_values("category")}
     head = [c for c in CATEGORY_PRIORITY if c in cats]
     return head + sorted(cats - set(head))
 

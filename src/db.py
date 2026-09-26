@@ -22,8 +22,8 @@ import logging
 import os
 import time
 from sqlalchemy import (
-    create_engine, Column, String, Float, Integer, MetaData, Table, Text,
-    event, func, select, text,
+    and_, create_engine, Column, String, Float, Integer, MetaData, or_,
+    Table, Text, event, func, select, text,
 )
 from sqlalchemy.pool import NullPool, QueuePool
 from typing import Any, TypedDict
@@ -420,6 +420,60 @@ def query_indicators(year: int | None = None, category: str | None = None,
             )
             for m in (row._mapping for row in conn.execute(stmt))
         ]
+
+
+#: 允许去重扫描的列（白名单：列名 → Core 列对象，避免把任意字符串拼进 SQL）
+_DISTINCT_COLUMNS = {
+    "year": INDICATORS.c.year,
+    "category": INDICATORS.c.category,
+    "dimension": INDICATORS.c.dimension,
+}
+
+
+def query_indicator_pairs(year: int,
+                          pairs: list[tuple[str, str]]) -> list[IndicatorRow]:
+    """一次取回多组 (专业, 指标) 在某年份的**全部维度**行。
+
+    解决的问题是回退取数的 N+1：逐指标 × 逐候选维度点查时，5 张卡片最多
+    25 次查询（中国口径实测 22 次）。这里用一条 ``WHERE (cat=? AND ind=?) OR ...``
+    合并，行序与逐条查询一致（同组合在唯一索引下不会重复），由调用方按
+    回退顺序在内存里挑首条。
+    """
+    init_db()
+    if not pairs:
+        return []
+    stmt = INDICATORS.select().where(
+        INDICATORS.c.year == year,
+        or_(*(and_(INDICATORS.c.category == category,
+                   INDICATORS.c.indicator == indicator)
+              for category, indicator in pairs)),
+    )
+    with engine.connect() as conn:
+        return [
+            IndicatorRow(
+                year=int(m["year"]),
+                category=str(m["category"]),
+                indicator=str(m["indicator"]),
+                dimension=str(m["dimension"]),
+                value=float(m["value"]),
+                unit=str(m["unit"]),
+                note=str(m["note"]),
+            )
+            for m in (row._mapping for row in conn.execute(stmt))
+        ]
+
+
+def distinct_values(column: str) -> list[Any]:
+    """某列的去重值（不排序——排序按调用方的业务偏好做）。
+
+    与「全表查回来在 Python 里去重」相比：只读这一列，行数从「全部指标行」
+    降到「去重后的值个数」。`/api/stats`（落地页首屏与看板侧栏都在调）此前
+    为拿维度 / 年份列表各全表扫一遍，实测约占该端点六成耗时。
+    """
+    init_db()
+    col = _DISTINCT_COLUMNS[column]
+    with engine.connect() as conn:
+        return [row[0] for row in conn.execute(select(col).distinct())]
 
 
 def count_indicators() -> int:

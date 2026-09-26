@@ -88,6 +88,41 @@ def test_export_csv_rows_parse(seeded_client):
 
 
 # ---------------------------------------------------------------------------
+# /api/indicators 的 q 过滤
+# ---------------------------------------------------------------------------
+def test_indicators_q_matches_localized_field(seeded_client):
+    """q 必须同时匹配本地化字段：q=retail 命中英文展示值。
+
+    这是「本地化之后再过滤」存在的理由——只按中文规范键过滤的话，
+    英文消费方输入 retail 只会得到空表。
+    """
+    resp = seeded_client.get("/api/indicators?q=retail&lang=en")
+    assert resp.status_code == 200
+    rows = resp.get_json()
+    assert rows, "q=retail 应命中社会消费品零售总额（英文 Retail Sales of Consumer Goods）"
+    for row in rows:
+        haystack = " ".join(str(v) for v in row.values()).lower()
+        assert "retail" in haystack
+
+
+def test_indicators_q_matches_canonical_chinese(seeded_client):
+    """中文规范键同样命中（zh 界面下展示值就是规范键本身）。"""
+    resp = seeded_client.get("/api/indicators?q=社会消费品&lang=zh")
+    assert resp.status_code == 200
+    rows = resp.get_json()
+    assert rows
+    assert all("社会消费品" in str(row.get("indicator", "")) for row in rows)
+
+
+def test_indicators_empty_q_returns_everything(seeded_client):
+    """空 q 等于不过滤：与不带 q 的响应逐行一致。"""
+    plain = seeded_client.get("/api/indicators").get_json()
+    empty = seeded_client.get("/api/indicators?q=").get_json()
+    assert plain, "种子数据下指标宽表不应为空"
+    assert plain == empty
+
+
+# ---------------------------------------------------------------------------
 # SEO 三件套
 # ---------------------------------------------------------------------------
 def test_robots_txt(client):

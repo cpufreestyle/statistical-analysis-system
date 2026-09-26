@@ -269,6 +269,37 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
   并补 1 条哨兵。6 条代码分割哨兵此前只被「0 项未通过」间接兜住、未登记进
   `SCENARIOS`——删掉任意一条 `test_frontend.py` 不会红，现已全部补登。
 
+- **服务端取数三层优化（`/api/stats`、`/api/overview`、`/api/indicators?q=`）。**
+  同机配对实测：新旧两棵树交替跑、各 3 轮取中位数（后台有远程桌面负载，故绝对值为
+  负载下的水位，前后两棵树同窗口测量，差值可信）。
+  ① `/api/stats` 消除两次全表扫描——`src/db.py` 新增 `distinct_values(column)`
+  （白名单 `year` / `category` / `dimension`，`SELECT DISTINCT` 走覆盖索引；
+  `EXPLAIN` 已确认）与 `query_indicator_pairs(year, pairs)`（一条
+  `OR (专业=? AND 指标=?)` 取回多组合的全部维度行）；`src/stats/indicators.py` 的
+  `available_dimensions` / `available_years` / `all_categories` 与 `src/web.py`
+  KV 恢复路径的两处「先查全表再 set 去重」同步改调。**9.2ms → 1.6ms（约 5.8×）**。
+  ② `/api/overview` 消除 N+1——`_find()` 新增可选 `rows` 形参：一次不限维度查询 +
+  内存按回退顺序挑首条（唯一索引保证同组合不重复，「每个维度取首条」与逐维度点查
+  结果一致）；`dimension_cards()` 用 `query_indicator_pairs()` 一条 SQL 预取上一年数据
+  （同组合查过但无数据必须与未预取区分，否则会退化成逐组合点查）。
+  中国口径 **18.6–19.0ms → 2.8ms（25 条 SQL → 6 条）**，亚太口径
+  **14.4–14.9ms → 2.7ms（9 条 → 5 条）**。
+  ③ `/api/indicators?q=` 本地化开销减半——profile 显示 729 行里 `normalize_lang`
+  每行被调 5 次、`label` / `slug` 各 4 次，而四者都是只读标签包的纯函数：
+  `normalize_lang` / `label` / `slug` / `localize_note` 加 `@lru_cache`，
+  `reload()` 同步清理全部缓存（漏清任何一个 = 改完 `labels.csv` 后接口继续返回
+  上一版文案，是正确性问题而非性能问题）。`q` 过滤的两处重复实现抽成
+  `web._filter_by_query()`，语义不变（仍是「拼成一整串再整串 `in`」，
+  跨字段查询词同样算命中；逐字段预过滤的等价写法已微基准排除，反而更慢）。
+  `localize_indicators(en)` **5.8ms → 2.5ms**，端点 **15.1ms → 11.6ms（不带 q）/
+  16.3ms → 12.4ms（q=popul）**。如实记录剩余去向：`query_indicators` 3.9ms、
+  `q` 过滤 2.1ms、`jsonify` 1.4ms 仍在原地。
+- **配套 5 条测试。** `tests/test_labels.py` 加「reload 必须失效全部纯函数缓存」
+  （换两张假词条表验证缓存跟着走）与「四个热点函数必须带 lru_cache」结构哨兵
+  （红绿已验证：摘掉装饰器即变红）；`tests/test_web.py` 加 `q` 过滤三条行为测试
+  （命中本地化英文值、命中中文规范键、空 q 与不带 q 逐行一致）。
+  全量 **265 项**测试全绿，`scripts/check_i18n.py` 全部通过。
+
 - **看板 JS 代码分割第二轮：`app.js` → core 加五个按需分块。** 指标总表 / 自定义分析 / 统计公报
   三个 tab 拆到 `public/app.indicators.js` / `public/app.custom.js` / `public/app.bulletin.js`，
   与图表 / 命令面板分块同一套约定（core 不引用分块声明；入口只有 `openTab()` 回调和

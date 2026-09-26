@@ -13,7 +13,7 @@ import json
 import os as _os
 import time
 import gzip as _gzip
-from typing import cast
+from typing import Any, cast
 
 # 本地看板跑在 127.0.0.1，必须排除出系统 HTTP 代理（如 127.0.0.1:7897），
 # 否则代理会拦截本地请求导致预览/接口连接被拒。
@@ -29,7 +29,7 @@ from functools import wraps
 from flask import Flask, g, jsonify, redirect, request, Response
 
 from src import report
-from src.db import BASE_DIR, db_info, init_db, query_indicators
+from src.db import BASE_DIR, db_info, init_db, query_indicators, distinct_values
 from src import knowledge as kb
 from src import collect as collector
 from src import labels
@@ -314,6 +314,25 @@ def _category_arg() -> str | None:
     """专业入参：同样接受英文标签 / slug。"""
     raw = (request.args.get("category") or "").strip()
     return labels.key_of("category", raw) if raw else None
+
+
+def _filter_by_query(rows: list[dict[str, Any]],
+                     localized: list[dict[str, Any]],
+                     q: str) -> list[dict[str, Any]]:
+    """按关键词过滤指标宽表：原始行 + 本地化行的**全部字段**都参与匹配。
+
+    ``q`` 由调用方预先 ``strip().lower()``，空串原样返回（不过滤）。
+    刻意保持「拼成一整串再整串 ``in``」而不是逐字段 ``in``：跨字段边界的
+    查询词（如同时含维度与年份）同样算命中，与实现时的语义完全一致。
+    表达式本身省掉的只是重复劳动——字段值在行间大量重复（同一指标名出现
+    上百次），``str`` / ``lower`` 的代价由 :mod:`src.labels` 的纯函数缓存摊薄。
+    """
+    if not q:
+        return localized
+    return [
+        loc for raw, loc in zip(rows, localized)
+        if q in " ".join([str(v) for v in (*raw.values(), *loc.values())]).lower()
+    ]
 
 
 def _fmt(v: object) -> str:
@@ -850,15 +869,9 @@ def api_indicators():
     rows = query_indicators(year=year, category=_category_arg(),
                             dimension=dimension, indicator=indicator)
     localized = labels.localize_indicators(rows, lang)
-    if q:
-        # 同时匹配「原始行 + 本地化行」的全部字段：中文词、英文词、
-        # 规范键与 slug 都能命中（例如 q=retail 命中 Retail Sales of Consumer Goods）
-            localized = [
-            loc for raw, loc in zip(rows, localized)
-            if q in " ".join(
-                str(v) for v in list(raw.values()) + list(loc.values())
-            ).lower()
-        ]
+    # 同时匹配「原始行 + 本地化行」的全部字段：中文词、英文词、
+    # 规范键与 slug 都能命中（例如 q=retail 命中 Retail Sales of Consumer Goods）
+    localized = _filter_by_query(rows, localized, q)
     return jsonify(localized)
 
 
@@ -888,11 +901,7 @@ def api_export_csv():
     rows = query_indicators(year=year, category=_category_arg(),
                             dimension=dimension, indicator=indicator)
     localized = labels.localize_indicators(rows, lang)
-    if q:
-        localized = [
-            loc for raw, loc in zip(rows, localized)
-            if q in " ".join(str(v) for v in list(raw.values()) + list(loc.values())).lower()
-        ]
+    localized = _filter_by_query(rows, localized, q)
 
     fieldnames = ["year", "category", "indicator", "dimension", "value", "unit", "note"]
     buf = _io.StringIO()
@@ -1093,7 +1102,7 @@ def _ensure_data() -> None:
         from src.kv_sync import restore_from_kv
         try:
             if restore_from_kv():
-                if _is_legacy_dataset({str(r["dimension"]) for r in query_indicators()}):
+                if _is_legacy_dataset({str(d) for d in distinct_values("dimension")}):
                     # 旧版 KV 里是已废弃的区级/合成快照 → 清掉重灌真实亚太数据
                     from src.db import INDICATORS, engine
                     with engine.begin() as conn:
@@ -1108,7 +1117,7 @@ def _ensure_data() -> None:
                 else:
                     # 恢复成功：补齐缺失年份
                     try:
-                        existing = {r["year"] for r in query_indicators()}
+                        existing = set(distinct_values("year"))
                         missing = [y for y in ind.available_years() if y not in existing]
                         if missing:
                             load_seed_data(missing)

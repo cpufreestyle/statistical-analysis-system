@@ -88,6 +88,51 @@ def test_term_triple():
 
 
 # ---------------------------------------------------------------------------
+# 缓存与失效（词条表变更的唯一入口是 reload）
+# ---------------------------------------------------------------------------
+def test_hot_pure_functions_are_cached():
+    """查表热点必须带 lru_cache。
+
+    这四个函数是指标宽表每行的固定开销来源：每行 5 次 normalize_lang
+    （4 个字段 label + 1 次 note）+ 4 次 label/slug。没有缓存的版本在
+    729 行上 localize 要 3.3ms——「优化」一轮实测缓存后降到 1.4ms，
+    这条测试防止后来者无意中把装饰器去掉。
+    """
+    for fn in (labels.normalize_lang, labels.label,
+               labels.slug, labels.localize_note):
+        assert hasattr(fn, "cache_clear"), f"{fn.__name__} 没有 lru_cache"
+
+
+def test_reload_invalidates_pure_function_caches(monkeypatch):
+    """reload() 之后换词条表，缓存必须全部跟着失效。
+
+    label / slug / localize_note / normalize_lang 的缓存值由标签包内容决定。
+    漏清任何一个，改完 labels.csv 后接口都会继续返回上一版文案——这是
+    数据正确性问题，不是性能问题，所以盯着 reload() 的输出而不是业务输出。
+    """
+    table_v1 = "kind,key,slug,en\ndimension,中国,china,China\n"
+    table_v2 = "kind,key,slug,en\ndimension,中国,zhongguo,Mainland\n"
+
+    monkeypatch.setattr(labels, "_raw_text", lambda: table_v1)
+    labels.reload()
+    # 先把缓存焐热：换表前每个函数都至少调用一次
+    assert labels.label("dimension", "中国", "en") == "China"
+    assert labels.slug("dimension", "中国") == "china"
+    assert labels.normalize_lang("zh-CN") == "zh"
+    assert labels.localize_note("来源：国家统计局2024年", "en")
+
+    monkeypatch.setattr(labels, "_raw_text", lambda: table_v2)
+    labels.reload()
+    assert labels.label("dimension", "中国", "en") == "Mainland"
+    assert labels.slug("dimension", "中国") == "zhongguo"
+
+    # 还原真实词条表并重建缓存，避免污染同文件后续用例
+    monkeypatch.undo()
+    labels.reload()
+    assert labels.slug("dimension", "中国") == "china"
+
+
+# ---------------------------------------------------------------------------
 # 入参反向解析（英文标签 / slug 与中文规范键等价）
 # ---------------------------------------------------------------------------
 @pytest.mark.parametrize("kind,value,expected", [
