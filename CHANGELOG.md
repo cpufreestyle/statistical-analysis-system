@@ -315,7 +315,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
   新增 7 条结构哨兵，全量 **272 项**测试全绿；改 `public/` 后已重跑
   `scripts/embed_pages.py` 同步 `src/pages.py`。
 
-- **视觉精修第三批：emoji 图标整体换成内联 SVG，空态文案分层。**
+- **视觉精修第三批：emoji 图标整体换成内联 SVG，空态文案分层。**- **新增 `scripts/check_contrast.py`：WCAG 2.1 AA 对比度抽检（并接入 pytest 门禁）。**
+  配对不是手写清单，而是**从样式表里扫出来**的：凡同一条规则里同时出现
+  `color: var(--x)` 与 `background(-color): var(--y)` 就构成一对候选，新增组件自动
+  纳入；三个主题入口（浅色 / 手动深色 / 跟随系统）各算一遍，`var()` 逐层解引用，
+  半透明色按 alpha 与背景合成。阈值按字号分流：普通文本 4.5:1、大文本（≥24px 或
+  ≥18.66px 粗体）3:1。首轮跑出 **67 个配对、3 个不达标**，全部是同一个真实缺陷：
+  空态图标描边用 `--gray-400` 压在 `--gray-100` 圆底上只有 2.31:1（浅色），灰到几乎
+  看不出形状——改为 `--gray-600`（6.87:1 / 8.51:1）后清零。
+  新增 2 条测试：门禁本身 + 反向红绿（把 `.empty-icon` 改回 `--gray-400` 必须变红）。
+  已知边界：跨规则继承的配色（如 `.data-table tr:hover td` 只设背景、颜色来自父规则）
+  扫不到，报告里如实标注。
+
   emoji 的字形与配色由操作系统决定（Windows / macOS / Android 三套设计语言），在空态圆底、
   落地页特性卡这种大面积居中的位置差异最刺眼，也无法跟随主题令牌取色。参照
   heroicons / lucide / Bootstrap Icons 的共同做法，在 `public/app.js` 建 `ICONS` 白名单

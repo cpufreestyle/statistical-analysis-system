@@ -312,6 +312,58 @@ def test_insight_chip_value_is_tabular():
     )
 
 
+def test_wcag_contrast_pairs_all_pass():
+    """跑 scripts/check_contrast.py：真实 CSS 配对必须全部达到 WCAG 2.1 AA。
+
+    检查的是「前景色 / 背景色」在同一条规则里同时出现的组合，三个主题入口
+    （浅色 / 手动深色 / 跟随系统）逐套各算一遍。为什么值得门禁：跨主题时
+    同一对颜色一边达标一边不达标是常见事故，而这靠肉眼几乎看不出来；
+    WCAG 对比度是纯数学，写一次就能在每次换色后自动回归。
+    """
+    import os
+    import subprocess
+    import sys as _sys
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent
+    # 子进程 stdout 走管道，Windows 上默认按本地代码页（GBK）编码，
+    # 脚本的英文输出里有中文报告头会被 utf-8 解码炸掉——显式要求 utf-8。
+    env = dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUTF8="1")
+    proc = subprocess.run(
+        [_sys.executable, str(root / "scripts" / "check_contrast.py")],
+        capture_output=True, text=True, encoding="utf-8", env=env, cwd=str(root),
+    )
+    assert proc.returncode == 0, "有配色不达 WCAG AA：\n" + (proc.stdout or "")[-2000:]
+
+
+def test_contrast_script_catches_a_regression(tmp_path, monkeypatch):
+    """对比度脚本本身必须能失败：把 .empty-icon 的图标色改浅必须变红。"""
+    import os
+    import subprocess
+    import sys as _sys
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent
+    style = root / "public" / "style.css"
+    original = style.read_text(encoding="utf-8")
+    good = "  color: var(--gray-600);\n}"
+    assert original.count(good) == 1
+    env = dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUTF8="1")
+    try:
+        style.write_text(original.replace(good, "  color: var(--gray-400);\n}", 1),
+                         encoding="utf-8")
+        proc = subprocess.run(
+            [_sys.executable, str(root / "scripts" / "check_contrast.py")],
+            capture_output=True, text=True, encoding="utf-8", env=env, cwd=str(root),
+        )
+        assert proc.returncode != 0, (
+            "把 .empty-icon 改成 --gray-400 居然没被抓到，脚本失效了"
+        )
+        assert "gray-400" in proc.stdout and "empty-icon" in proc.stdout
+    finally:
+        style.write_text(original, encoding="utf-8")
+
+
 def test_frontend_has_no_emoji_left_in_ui():
     """前端源码里不允许再留 emoji 图标。
 

@@ -884,8 +884,11 @@ select.query-input:focus {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* 图标颜色走灰阶令牌：SVG 用 currentColor，跟随主题翻转 */
-  color: var(--gray-400);
+  /* 图标颜色走灰阶令牌：SVG 用 currentColor，跟随主题翻转。
+     取 --gray-600 而不是 --gray-400：后者压在 --gray-100 圆底上只有 2.31:1
+     （浅色），灰到几乎看不出形状；scripts/check_contrast.py 会拿这条配对去对
+     WCAG AA，改回更浅的灰会直接被门禁拦下。 */
+  color: var(--gray-600);
 }
 
 .empty-title {
