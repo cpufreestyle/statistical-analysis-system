@@ -315,7 +315,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
   新增 7 条结构哨兵，全量 **272 项**测试全绿；改 `public/` 后已重跑
   `scripts/embed_pages.py` 同步 `src/pages.py`。
 
-- **视觉精修第三批：emoji 图标整体换成内联 SVG，空态文案分层。**- **新增 `scripts/check_contrast.py`：WCAG 2.1 AA 对比度抽检（并接入 pytest 门禁）。**
+- **视觉精修第三批：emoji 图标整体换成内联 SVG，空态文案分层。**
+- **新增 `scripts/check_contrast.py`：WCAG 2.1 AA 对比度抽检（并接入 pytest 门禁）。**
   配对不是手写清单，而是**从样式表里扫出来**的：凡同一条规则里同时出现
   `color: var(--x)` 与 `background(-color): var(--y)` 就构成一对候选，新增组件自动
   纳入；三个主题入口（浅色 / 手动深色 / 跟随系统）各算一遍，`var()` 逐层解引用，
@@ -362,6 +363,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
   大写 + 字重区分已足够；新增哨兵把「表头必须透明」钉住，防止加回底色而**静默**破坏
   横向滚动的可感知性。新增 5 条结构哨兵，全量 **277 项**测试全绿；改 `public/` 后已重跑
   `scripts/embed_pages.py`。
+
+- **图表读数补齐触屏与键盘两条等价通道（`public/app.charts.js`）。** 自绘 SVG 的数值不在
+  DOM 文本里，读数原先只有桌面 hover 一条路：触屏点一下抬手就没（浮层可能有多行数值），
+  键盘用户更是完全摸不到。参照 WAI-ARIA 与 Observable Plot / Vega-Lite 的做法重写
+  `attachLineTip` / `attachRankTip`，三种输入共用同一份渲染逻辑，差别只在出现与消失的时机：
+  - 鼠标 hover：跟随指针，移出即消；
+  - 触屏 tap：读数**钉住**不消失，点图内别处移动、点图外或按 Esc 收起
+    （document 级 `touchstart` 监听只注册一次、按盒子去重，防切片重绘后监听泄漏）；
+  - 键盘：SVG `tabindex="0"` 可聚焦，`←`/`→`（折线）、`↑`/`↓`（排名）逐点移动，
+    `Home`/`End` 跳两端，`Esc` 收起，`focus` 即读出、`blur` 收起。
+  读数同时写进 `.chart-live`（`position:absolute` + 1px + `clip-path: inset(50%)` 的视觉隐藏；
+  **不用 `display:none`**——那会把它从无障碍树里摘掉，播报等于白修）。浮层自身仍是
+  `aria-hidden`：它重复 SVG `<desc>` 的信息，屏幕阅读器走 live 区那条通道。
+  「?」帮助浮层同步新增「图表快捷键」4 条与英文词条。
+  新增 20 条行为断言（`tests/frontend_behavior.mjs`：63 → 83 项，含一条「浮层要落在当前行
+  附近」）——排名图键盘定位原先写成 `(28/760) * 高度`，缩放分母用错，浮层会贴在 SVG 顶部，
+  这条断言把它钉住（红绿已验证）+ 2 条红绿哨兵
+  （摘掉 Esc 分支、把 `aria-live` 改成 `off` 都必须变红）+ 2 条结构哨兵
+  （`.chart-live` 视觉隐藏写法完整、帮助浮层必须列出图表快捷键且说明词条齐全）。
+  全量 **283 → 287 项**测试全绿；改 `public/` 后已重跑 `scripts/embed_pages.py`。
+  如实记录代价：读数逻辑由约 40 行涨到约 180 行，且键盘定位需要把 `yFor` / `padTop`
+  从 `renderLine` 透传进 `attachLineTip` 的 ctx——这是本次唯一的跨作用域耦合。
 
 - **看板 JS 代码分割第二轮：`app.js` → core 加五个按需分块。** 指标总表 / 自定义分析 / 统计公报
   三个 tab 拆到 `public/app.indicators.js` / `public/app.custom.js` / `public/app.bulletin.js`，

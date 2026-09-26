@@ -215,7 +215,13 @@ const SHORTCUT_ROWS = [
   { group: '全局快捷键', keys: ['1', '–', '5'], label: '切换视图标签' },
   { group: '全局快捷键', keys: ['←', '→'], label: '标签行切换视图' },
   { group: '全局快捷键', keys: ['?'], label: '打开本帮助' },
-  { group: '全局快捷键', keys: ['Esc'], label: '关闭当前浮层' }
+  { group: '全局快捷键', keys: ['Esc'], label: '关闭当前浮层' },
+  /* 图表读数键盘通道：与 attachLineTip / attachRankTip 的 keydown 分支一一对应，
+     增删按键时两处必须同步 */
+  { group: '图表快捷键', keys: ['Tab'], label: '聚焦图表并读出数值' },
+  { group: '图表快捷键', keys: ['←', '→', '↑', '↓'], label: '移动图表读数' },
+  { group: '图表快捷键', keys: ['Home', 'End'], label: '跳到图表首末' },
+  { group: '图表快捷键', keys: ['Esc'], label: '收起图表读数' }
 ];
 
 function renderHelp() {

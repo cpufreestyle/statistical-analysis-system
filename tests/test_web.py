@@ -433,6 +433,55 @@ def test_scroll_shadow_token_in_both_theme_entries():
     )
 
 
+def test_chart_live_region_is_visually_hidden():
+    """图表读数的屏幕阅读器播报区必须「视觉隐藏但不退出无障碍树」。
+
+    `.chart-live` 与浮层 `.chart-tip` 是配套的：浮层 aria-hidden（它重复 SVG <desc>
+    的信息），键盘与读屏用户只能从 live 区拿到数字。写成 display:none /
+    visibility:hidden 会把它一起从无障碍树里摘掉，播报通道等于白修——
+    而这种退化在视觉上完全看不出来。
+    """
+    import re
+
+    css = re.sub(r"/\*.*?\*/", "", _public_css("style.css"), flags=re.S)
+    block = re.search(r"\.chart-live\s*\{([^}]*)\}", css)
+    assert block, ".chart-live 规则缺失：读数没有播报通道，键盘用户读不到数值"
+    body = block.group(1)
+    for decl in ("position: absolute", "width: 1px", "height: 1px",
+                 "overflow: hidden", "clip-path: inset(50%)"):
+        assert decl in body, f".chart-live 缺少 {decl}（视觉隐藏写法不完整会在页面上露出文字）"
+    assert "display: none" not in body and "visibility: hidden" not in body, (
+        ".chart-live 用 display:none / visibility:hidden 会退出无障碍树，播报失效"
+    )
+
+
+def test_shortcut_help_documents_chart_keyboard():
+    """「?」帮助浮层必须列出图表键盘快捷键，且每条说明都有英文词条。
+
+    读数的键盘通道是「看不见的功能」：不写进帮助浮层，用户根本不知道该按什么；
+    说明串走 tr()，字典缺键时英文模式下会漏出中文原文。
+    """
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent
+    js = (root / "public" / "app.palette.js").read_text(encoding="utf-8")
+    rows = re.search(r"const SHORTCUT_ROWS = \[(.*?)\];", js, re.S)
+    assert rows, "app.palette.js 缺少 SHORTCUT_ROWS"
+    block = rows.group(1)
+    chart_rows = re.findall(r"\{ group: '图表快捷键'[^}]*\}", block)
+    assert len(chart_rows) == 4, (
+        "图表快捷键应有 4 条（Tab 聚焦 / 方向键移动 / 首末跳转 / Esc 收起），当前 %d 条" % len(chart_rows)
+    )
+    for combo in ("['Tab']", "['←'", "['Home'", "['Esc']"):
+        assert any(combo in r for r in chart_rows), f"图表快捷键缺少 {combo} 这一条"
+    dict_text = (root / "public" / "i18n-dict.js").read_text(encoding="utf-8")
+    for label in re.findall(r"label:\s*'([^']+)'", block):
+        assert '"%s":' % label in dict_text, (
+            label + " 缺少英文词条，英文模式会漏中文原文"
+        )
+
+
 def test_security_headers_present(client):
     resp = client.get("/")
     assert resp.headers.get("X-Content-Type-Options") == "nosniff"

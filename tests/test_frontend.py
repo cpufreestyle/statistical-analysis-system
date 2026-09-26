@@ -87,6 +87,31 @@ SCENARIOS = [
     "Esc 能关闭命令面板",
     "问号键能打开帮助浮层",
     "Esc 能关闭帮助浮层",
+    # 图表读数三通道（桌面 hover / 触屏 tap / 键盘）：自绘 SVG 的数值不在 DOM 文本里，
+    # 读数靠几何反查。三条通道必须等价：hover 即用即消，tap / 键盘钉住（浮层有多行
+    # 数值，抬手或焦点一闪就没得读），再由图外点击 / Esc 收起；读数还要另写 aria-live
+    # 区，因为浮层自身是 aria-hidden，键盘与读屏用户只能从那里拿到数字。
+    "折线图可键盘聚焦",
+    "折线图有播报区",
+    "鼠标移动给出最近年份读数",
+    "鼠标移出收起读数",
+    "键盘聚焦即读出当前年份",
+    "播报区同步年份与数值",
+    "左方向键回退一年份",
+    "右方向键前进一年份",
+    "End 跳到末年",
+    "Home 跳回首年",
+    "钉住后鼠标移出不收起",
+    "Esc 收起折线读数",
+    "触屏点击钉住读数",
+    "图内点击不收起触屏读数",
+    "图外点击收起触屏读数",
+    "排名图可键盘聚焦",
+    "聚焦排名图读出首行名称与数值",
+    "排名播报串带序号",
+    "下方向键移到下一行",
+    "键盘浮层落在当前行附近",
+    "Esc 收起排名读数",
 ]
 
 
@@ -196,6 +221,52 @@ def test_harness_goes_red_when_syncyear_touches_an_unloaded_chunk(node: str, tmp
     output = (proc.stdout or "") + (proc.stderr or "")
     assert proc.returncode != 0, "去掉 typeof 守卫后 harness 仍全绿，检查已失去防线作用"
     assert "[FAIL] 切换年份不炸未加载的指标分块" in output, output
+
+
+def test_harness_goes_red_when_chart_esc_stops_dismissing(node: str, tmp_path: Path) -> None:
+    """图表读数在触屏 / 键盘下是**钉住**的，Esc 必须还能收起。
+
+    浮层有多行数值，抬手或焦点一闪就消失等于读不到，所以 tap / focus 之后不自动收起；
+    代价是必须留一个明确的收手手段——Esc 或图外点击。这条哨兵守 Esc 分支。
+    """
+    original = (BASE_DIR / "public" / "app.charts.js").read_text(encoding="utf-8")
+    esc = "    if (k === 'Escape') { dismiss(); return; }"
+    assert original.count(esc) == 2, "public/app.charts.js 的 Esc 分支数量已变化，请同步本测试"
+
+    broken = tmp_path / "app_charts_no_esc.js"
+    broken.write_text(original.replace(esc, "    if (k === 'Escape') { return; }", 1), encoding="utf-8")
+
+    proc = subprocess.run(
+        [node, str(HARNESS)], capture_output=True, text=True, encoding="utf-8",
+        errors="replace", timeout=120, cwd=str(BASE_DIR),
+        env={**os.environ, "QU_STAT_APP_CHARTS_JS": str(broken)},
+    )
+    output = (proc.stdout or "") + (proc.stderr or "")
+    assert proc.returncode != 0, "Esc 分支失效后 harness 仍全绿，检查已失去防线作用"
+    assert "[FAIL] Esc 收起折线读数" in output, output
+
+
+def test_harness_goes_red_when_chart_live_region_is_not_polite(node: str, tmp_path: Path) -> None:
+    """读数必须另写 aria-live 区：浮层自身 aria-hidden，键盘用户拿不到它的内容。
+
+    少了播报通道，键盘读数只剩「知道有变化、不知道变成了什么」，是最容易在
+    重构里被静默丢掉的一块（视觉上完全看不出异常）。
+    """
+    original = (BASE_DIR / "public" / "app.charts.js").read_text(encoding="utf-8")
+    live = "live.setAttribute('aria-live', 'polite');"
+    assert original.count(live) == 1, "public/app.charts.js 的播报区标注已变化，请同步本测试"
+
+    broken = tmp_path / "app_charts_live_off.js"
+    broken.write_text(original.replace(live, "live.setAttribute('aria-live', 'off');"), encoding="utf-8")
+
+    proc = subprocess.run(
+        [node, str(HARNESS)], capture_output=True, text=True, encoding="utf-8",
+        errors="replace", timeout=120, cwd=str(BASE_DIR),
+        env={**os.environ, "QU_STAT_APP_CHARTS_JS": str(broken)},
+    )
+    output = (proc.stdout or "") + (proc.stderr or "")
+    assert proc.returncode != 0, "播报区失效后 harness 仍全绿，检查已失去防线作用"
+    assert "[FAIL] 折线图有播报区" in output, output
 
 
 def test_landing_theme_behavior_checks_pass(node: str) -> None:

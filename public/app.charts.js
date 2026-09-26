@@ -144,10 +144,46 @@ function dimColor(key) {
 }
 function chartEmpty(msg, iconName, desc) { return emptyState(iconName || 'linechart', msg, desc); }
 
-/* ═══════ 图表悬浮读数（桌面 hover / 触屏 touch） ═══════
-   自绘 SVG 的数值不在 DOM 文本里，鼠标悬停时按几何反查数据，用跟随指针的
-   浮层给出精确读数（折线图附加竖直参考线），解决「只能目测轴刻度」的问题。
-   浮层 aria-hidden：等价信息已由 SVG 的 <desc> 与结果区 aria-live 提供。 */
+/* ═══════ 图表读数：桌面 hover / 触屏 tap / 键盘，三条等价通道 ═══════
+   自绘 SVG 的数值不在 DOM 文本里，必须按几何反查数据。三种输入共用同一份渲染逻辑，
+   差别只在出现与消失的时机：
+     · 桌面 hover：跟随指针，移出即消；
+     · 触屏 tap：读数**钉住**不消失——浮层可能有多行数值，手指一抬就消失等于读不到；
+       点图内别处移动，点图外或按 Esc 收起；
+     · 键盘：SVG 可聚焦（tabindex=0），方向键逐点移动读数，Home/End 跳两端，Esc 收起。
+       数值同时写进 visually-hidden 的 aria-live 区域——.chart-tip 自身是 aria-hidden
+       （它重复 <desc> 的信息），键盘用户拿不到它的内容，必须另有播报通道。
+   浮层 aria-hidden 的取舍见 renderLine 的注释：等价信息靠 <desc> + 这里说的 live 区。 */
+var CHART_TIP_REGISTRY = [];
+var CHART_TIP_OUTSIDE_BOUND = false;
+
+/* 盒子重复渲染（切年份/维度会整块重画）时必须顶掉旧条目，否则 document 级监听越攒越多 */
+function chartTipRegister(box, api) {
+  CHART_TIP_REGISTRY = CHART_TIP_REGISTRY.filter(function (x) { return x.box !== box; });
+  CHART_TIP_REGISTRY.push({ box: box, api: api });
+  if (CHART_TIP_OUTSIDE_BOUND) return;
+  CHART_TIP_OUTSIDE_BOUND = true;
+  document.addEventListener('touchstart', function (e) {
+    CHART_TIP_REGISTRY.forEach(function (x) {
+      if (!x.api.isPinned()) return;
+      if (x.box.contains && x.box.contains(e.target)) return;
+      x.api.dismiss();
+    });
+  }, { passive: true });
+}
+
+/* 屏幕阅读器播报区：视觉上不可见，但参与无障碍树 */
+function chartTipLive(box) {
+  var live = box.querySelector('.chart-live');
+  if (!live) {
+    live = document.createElement('div');
+    live.className = 'chart-live';
+    live.setAttribute('aria-live', 'polite');
+    box.appendChild(live);
+  }
+  return live;
+}
+
 function chartTipBox(box) {
   var tip = box.querySelector('.chart-tip');
   if (!tip) {
@@ -173,65 +209,183 @@ function attachLineTip(box, ctx) {
   var svgEl = box.querySelector('svg');
   if (!svgEl || ctx.years.length < 2) return;
   var tip = chartTipBox(box);
+  var live = chartTipLive(box);
   var guide = svgEl.querySelector('.chart-guide');
+  var pinned = false, idx = 0;
+
+  function seriesAt(i) {
+    var y = ctx.years[i];
+    return { year: y, series: ctx.active.filter(function (d) { return ctx.byDim[d][y] != null; }) };
+  }
+  /* 渲染第 i 个年份的读数内容；该年份一条数据都没有时返回 null（由调用方收起） */
+  function render(i) {
+    var got = seriesAt(i);
+    if (!got.series.length) return null;
+    idx = i;
+    if (guide) {
+      guide.setAttribute('x1', ctx.xFor(i));
+      guide.setAttribute('x2', ctx.xFor(i));
+      guide.setAttribute('visibility', 'visible');
+    }
+    tip.innerHTML = '<div class="chart-tip-title">' + h(String(got.year) + (ctx.unit ? ' · ' + ctx.unit : '')) + '</div>'
+      + got.series.map(function (d) {
+          return '<div class="chart-tip-row"><i style="background:' + dimColor(d) + '"></i>'
+            + '<span class="tip-name">' + h(dimLabel(d)) + '</span>'
+            + '<span class="tip-val">' + h(fmtNum(ctx.byDim[d][got.year])) + '</span></div>';
+        }).join('');
+    return got;
+  }
+  function announce(got) {
+    live.textContent = String(got.year) + (ctx.unit ? ' ' + ctx.unit : '') + '：'
+      + got.series.map(function (d) {
+          return dimLabel(d) + ' ' + fmtNum(ctx.byDim[d][got.year]);
+        }).join('，');
+  }
+  /* 键盘 / 聚焦时没有指针坐标，按该年份最高点的位置摆放浮层 */
+  function placeAtColumn(i, got) {
+    var r = svgEl.getBoundingClientRect();
+    var top = ctx.padTop;
+    got.series.forEach(function (d) { top = Math.min(top, ctx.yFor(ctx.byDim[d][got.year])); });
+    chartTipPlace(tip, box, ctx.xFor(i) * (r.width / ctx.W), top * (r.height / ctx.H));
+  }
+  function showIdx(i) {
+    var got = render(i);
+    if (!got) { dismiss(); return; }
+    tip.classList.add('show');
+    placeAtColumn(i, got);
+    announce(got);
+  }
   function show(clientX, clientY) {
     var r = svgEl.getBoundingClientRect();
     if (!r.width) return;
-    var px = clientX - r.left, py = clientY - r.top;
-    var vx = px * (ctx.W / r.width);
-    var idx = 0, best = Infinity;
-    ctx.years.forEach(function (y, i) {
-      var dx = Math.abs(ctx.xFor(i) - vx);
-      if (dx < best) { best = dx; idx = i; }
+    var vx = (clientX - r.left) * (ctx.W / r.width);
+    var i = 0, best = Infinity;
+    ctx.years.forEach(function (y, k) {
+      var dx = Math.abs(ctx.xFor(k) - vx);
+      if (dx < best) { best = dx; i = k; }
     });
-    var y = ctx.years[idx];
-    var series = ctx.active.filter(function (d) { return ctx.byDim[d][y] != null; });
-    if (!series.length) { hide(); return; }
-    if (guide) {
-      guide.setAttribute('x1', ctx.xFor(idx));
-      guide.setAttribute('x2', ctx.xFor(idx));
-      guide.setAttribute('visibility', 'visible');
-    }
-    tip.innerHTML = '<div class="chart-tip-title">' + h(String(y) + (ctx.unit ? ' · ' + ctx.unit : '')) + '</div>'
-      + series.map(function (d) {
-          return '<div class="chart-tip-row"><i style="background:' + dimColor(d) + '"></i>'
-            + '<span class="tip-name">' + h(dimLabel(d)) + '</span>'
-            + '<span class="tip-val">' + h(fmtNum(ctx.byDim[d][y])) + '</span></div>';
-        }).join('');
+    var got = render(i);
+    if (!got) { hide(); return; }
     tip.classList.add('show');
-    chartTipPlace(tip, box, px, py);
+    chartTipPlace(tip, box, clientX - r.left, clientY - r.top);
   }
   function hide() {
     tip.classList.remove('show');
     if (guide) guide.setAttribute('visibility', 'hidden');
   }
+  function dismiss() {
+    hide();
+    pinned = false;
+  }
+
+  svgEl.setAttribute('tabindex', '0');
+  svgEl.addEventListener('keydown', function (e) {
+    var next = null, k = e.key;
+    if (k === 'Escape') { dismiss(); return; }
+    if (k === 'ArrowRight' || k === 'ArrowUp') next = Math.min(ctx.years.length - 1, idx + 1);
+    else if (k === 'ArrowLeft' || k === 'ArrowDown') next = Math.max(0, idx - 1);
+    else if (k === 'Home') next = 0;
+    else if (k === 'End') next = ctx.years.length - 1;
+    if (next == null) return;
+    if (e.preventDefault) e.preventDefault();
+    pinned = true;
+    showIdx(next);
+  });
+  svgEl.addEventListener('focus', function () { pinned = true; showIdx(idx); });
+  svgEl.addEventListener('blur', function () { dismiss(); });
+
   svgEl.addEventListener('mousemove', function (e) { show(e.clientX, e.clientY); });
-  svgEl.addEventListener('mouseleave', hide);
-  svgEl.addEventListener('touchstart', function (e) { var t = e.touches[0]; if (t) show(t.clientX, t.clientY); }, { passive: true });
-  svgEl.addEventListener('touchmove', function (e) { var t = e.touches[0]; if (t) show(t.clientX, t.clientY); }, { passive: true });
-  svgEl.addEventListener('touchend', hide);
+  svgEl.addEventListener('mouseleave', function () { if (!pinned) hide(); });
+  /* 触屏：tap / 拖动即时更新，抬手后**不收起**（读数钉住，靠 pinned 活着） */
+  svgEl.addEventListener('touchstart', function (e) {
+    var t = e.touches && e.touches[0];
+    if (!t) return;
+    pinned = true;
+    show(t.clientX, t.clientY);
+  }, { passive: true });
+  svgEl.addEventListener('touchmove', function (e) {
+    var t = e.touches && e.touches[0];
+    if (t) show(t.clientX, t.clientY);
+  }, { passive: true });
+
+  chartTipRegister(box, { isPinned: function () { return pinned; }, dismiss: dismiss });
 }
-/* 排名图：标签超 6 字会被截断，悬浮给出完整经济体名 + 数值 + 单位 + 年份 */
+/* 排名图：标签超 6 字会被截断，读数给出完整经济体名 + 数值 + 单位 + 年份 */
 function attachRankTip(box, rows, unit) {
   var svgEl = box.querySelector('svg');
   if (!svgEl) return;
   var tip = chartTipBox(box);
+  var live = chartTipLive(box);
+  var pinned = false, idx = 0;
+  /* 行几何必须与 renderRank 里的 padT=8 / rowH=28 一致；SVG 是 viewBox 缩放渲染，
+     所以要再乘「实际高度 / viewBox 高度」换算成屏幕像素。 */
+  var padT = 8, rowH = 28;
+  function rowY(i, r) {
+    return (padT + i * rowH + rowH / 2) * (r.height / (padT * 2 + rows.length * rowH));
+  }
+
+  function renderRow(i) {
+    var r = rows[i];
+    if (!r) return null;
+    idx = i;
+    var dk = r.dimension_key || r.dimension;
+    tip.innerHTML = '<div class="chart-tip-title">' + h(dimLabel(dk)) + '</div>'
+      + '<div class="chart-tip-row"><span class="tip-name">' + h(tr('数值')) + '</span><span class="tip-val">' + h(fmtNum(r.value) + (unit ? ' ' + unit : '')) + '</span></div>'
+      + '<div class="chart-tip-row"><span class="tip-name">' + h(tr('年份')) + '</span><span class="tip-val">' + h(String(r.year)) + '</span></div>';
+    /* 播报串刻意复用已有词条之外的纯数字与单位，不再引入「第/名」这类单字键：
+       屏幕阅读器会按 locale 读法念出「3. 中国 12.3 亿美元（2024）」，信息不缺。 */
+    live.textContent = (i + 1) + '. ' + dimLabel(dk) + ' '
+      + fmtNum(r.value) + (unit ? ' ' + unit : '') + ' (' + String(r.year) + ')';
+    return r;
+  }
+  function showRow(i, clientX, clientY) {
+    if (!renderRow(i)) return;
+    tip.classList.add('show');
+    var bx = box.getBoundingClientRect();
+    chartTipPlace(tip, box, clientX - bx.left, clientY - bx.top);
+  }
+  function hide() { tip.classList.remove('show'); }
+  function dismiss() { hide(); pinned = false; }
+
+  svgEl.setAttribute('tabindex', '0');
+  svgEl.addEventListener('keydown', function (e) {
+    var next = null, k = e.key;
+    if (k === 'Escape') { dismiss(); return; }
+    if (k === 'ArrowDown' || k === 'ArrowRight') next = Math.min(rows.length - 1, idx + 1);
+    else if (k === 'ArrowUp' || k === 'ArrowLeft') next = Math.max(0, idx - 1);
+    else if (k === 'Home') next = 0;
+    else if (k === 'End') next = rows.length - 1;
+    if (next == null) return;
+    if (e.preventDefault) e.preventDefault();
+    pinned = true;
+    renderRow(next);
+    tip.classList.add('show');
+    /* 键盘没有指针坐标：把浮层贴在这一行的水平中部、垂直对应处 */
+    var r = svgEl.getBoundingClientRect();
+    chartTipPlace(tip, box, r.width * 0.5, rowY(next, r));
+  });
+  svgEl.addEventListener('focus', function () {
+    pinned = true;
+    renderRow(idx);
+    tip.classList.add('show');
+    var r = svgEl.getBoundingClientRect();
+    chartTipPlace(tip, box, r.width * 0.5, rowY(idx, r));
+  });
+  svgEl.addEventListener('blur', function () { dismiss(); });
+
   svgEl.querySelectorAll('.rank-row').forEach(function (g) {
-    var r = rows[Number(g.getAttribute('data-i'))];
-    if (!r) return;
+    var i = Number(g.getAttribute('data-i'));
     function show(e) {
-      var bx = box.getBoundingClientRect();
-      var dk = r.dimension_key || r.dimension;
-      tip.innerHTML = '<div class="chart-tip-title">' + h(dimLabel(dk)) + '</div>'
-        + '<div class="chart-tip-row"><span class="tip-name">' + h(tr('数值')) + '</span><span class="tip-val">' + h(fmtNum(r.value) + (unit ? ' ' + unit : '')) + '</span></div>'
-        + '<div class="chart-tip-row"><span class="tip-name">' + h(tr('年份')) + '</span><span class="tip-val">' + h(String(r.year)) + '</span></div>';
-      tip.classList.add('show');
-      chartTipPlace(tip, box, e.clientX - bx.left, e.clientY - bx.top);
+      pinned = true;
+      showRow(i, e.clientX, e.clientY);
     }
     g.addEventListener('mousemove', show);
-    g.addEventListener('mouseleave', function () { tip.classList.remove('show'); });
+    g.addEventListener('mouseleave', function () { if (!pinned) hide(); });
     g.addEventListener('touchstart', show, { passive: true });
+    /* 触屏读数钉住，由图外点击收起（chartTipRegister） */
   });
+
+  chartTipRegister(box, { isPinned: function () { return pinned; }, dismiss: dismiss });
 }
 /* 当前所选指标的展示名（用于图表 aria-label / title 的无障碍文案） */
 function chartIndicatorLabel() {
@@ -324,7 +478,7 @@ function renderLine() {
   }).join('') + '</div>';
   box.innerHTML = svg + legend;
   attachLineTip(box, {
-    W: W, H: H, xFor: xFor,
+    W: W, H: H, xFor: xFor, yFor: yFor, padTop: mT,
     years: years, active: active, byDim: byDim, unit: CHART.unit
   });
 }

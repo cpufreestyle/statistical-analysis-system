@@ -59,6 +59,11 @@ function makeEl(id, tag = "div") {
     removeAttribute(k) { delete this._attrs[k]; },
     appendChild(c) { this.children.push(c); return c; },
     removeChild(c) { this.children = this.children.filter((x) => x !== c); return c; },
+    /* contains(node)：document 级「图外点击收起」监听靠它判断目标是否落在盒内。
+       chartTipRegister 写成 x.box.contains && ... 双重判断，桩里少了这个方法也能跑
+       （退化成一律收起），但那样「点在图内也收起」的回归就测不出来。
+       注意别把它挂进 classList——那是另一个语义的 contains。 */
+    contains(t) { return t === el || (el.children || []).indexOf(t) >= 0; },
     addEventListener(type, fn) { (listeners[type] = listeners[type] || []).push(fn); },
     removeEventListener() {},
     dispatchEvent(ev) {
@@ -559,6 +564,141 @@ const DRIVER = `
   await loadInsights();
   check('无洞察给空态', grid2.innerHTML.indexOf('empty-state') >= 0
     && grid2.innerHTML.indexOf('No insights available yet') >= 0, grid2.innerHTML.slice(0, 120));
+
+﻿  /* ── 图表读数三通道：桌面 hover / 触屏 tap / 键盘 ──
+     自绘 SVG 的数值不在 DOM 文本里，读数靠几何反查。三种输入必须等价：
+     鼠标移出即消；触屏 / 键盘**钉住**（浮层有多行数值，抬手或焦点一闪就没得读了），
+     再由「图外点击」或 Esc 收起。浮层自身 aria-hidden，所以读数还要另写进
+     aria-live 区——键盘与读屏用户正是从那里拿到数字的。 */
+  CHART.indicators = [{ key: 'GDP', label: 'GDP' }];
+  CHART.currentKey = 'GDP';
+  CHART.unit = 'US$';
+  CHART.dimOptions = [{ label: '中国', key: '中国' }, { label: '日本', key: '日本' }];
+  CHART.selDims = ['中国', '日本'];
+  CHART.years = [2022, 2023, 2024];
+  CHART.rows = [
+    { dimension_key: '中国', year: 2022, value: 10 },
+    { dimension_key: '中国', year: 2023, value: 20 },
+    { dimension_key: '中国', year: 2024, value: 30 },
+    { dimension_key: '日本', year: 2022, value: 5 },
+    { dimension_key: '日本', year: 2023, value: 15 },
+    { dimension_key: '日本', year: 2024, value: 25 }
+  ];
+
+  /* 图表盒子的桩：querySelector 按 class 精确返回；tip / live 由被测代码自己
+     appendChild 进来（renderLine 会整块重置 innerHTML，旧节点必须重建——
+     这正是 chartTipBox / chartTipLive 幂等创建的原因）。 */
+  function chartBoxStub(id, rows) {
+    var box = document.getElementById(id);
+    var svg = {
+      tagName: 'svg',
+      _attrs: {}, _ls: {},
+      setAttribute: function (k, v) { svg._attrs[k] = String(v); },
+      getAttribute: function (k) { return svg._attrs[k] == null ? null : svg._attrs[k]; },
+      addEventListener: function (t, fn) { (svg._ls[t] = svg._ls[t] || []).push(fn); },
+      querySelector: function (sel) { return sel === '.chart-guide' ? svg._guide : null; },
+      querySelectorAll: function (sel) { return sel === '.rank-row' ? (rows || []) : []; },
+      getBoundingClientRect: function () { return { top: 0, left: 0, width: 800, height: 400 }; },
+      fire: function (t, ev) { (svg._ls[t] || []).forEach(function (fn) { fn(ev || { type: t }); }); },
+      _guide: { setAttribute: function () {}, getAttribute: function () { return 'hidden'; } }
+    };
+    var made = [];
+    box.appendChild = function (c) { made.push(c); this.children.push(c); return c; };
+    box.querySelector = function (sel) {
+      if (sel === 'svg') return svg;
+      if (sel === '.chart-tip' || sel === '.chart-live') {
+        for (var i = 0; i < made.length; i++) if (made[i].className === sel.slice(1)) return made[i];
+      }
+      return null;
+    };
+    box.clientWidth = 800;
+    box.clientHeight = 400;
+    return { box: box, svg: svg, made: made };
+  }
+  function keyEvent(k) { return { key: k, preventDefault: function () {} }; }
+  function madeOf(stub, cls) {
+    for (var i = 0; i < stub.made.length; i++) if (stub.made[i].className === cls) return stub.made[i];
+    return null;
+  }
+
+  var lineStub = chartBoxStub('lineChart');
+  renderLine();
+  var lineTip = madeOf(lineStub, 'chart-tip');
+  var lineLive = madeOf(lineStub, 'chart-live');
+  if (lineTip) { lineTip.offsetWidth = 120; lineTip.offsetHeight = 60; }
+  check('折线图可键盘聚焦', lineStub.svg.getAttribute('tabindex') === '0',
+    String(lineStub.svg.getAttribute('tabindex')));
+  check('折线图有播报区', !!lineLive && lineLive.getAttribute('aria-live') === 'polite',
+    String(!!lineLive && lineLive.getAttribute('aria-live')));
+
+  lineStub.svg.fire('mousemove', { clientX: 400, clientY: 100 });
+  check('鼠标移动给出最近年份读数',
+    !!lineTip && lineTip.classList.contains('show') && lineTip.innerHTML.indexOf('2023') >= 0,
+    lineTip && lineTip.innerHTML.slice(0, 60));
+  lineStub.svg.fire('mouseleave');
+  check('鼠标移出收起读数', !!lineTip && !lineTip.classList.contains('show'),
+    lineTip && lineTip.className);
+
+  lineStub.svg.fire('focus');
+  check('键盘聚焦即读出当前年份',
+    !!lineTip && lineTip.classList.contains('show') && lineTip.innerHTML.indexOf('2023') >= 0,
+    lineTip && lineTip.innerHTML.slice(0, 60));
+  check('播报区同步年份与数值',
+    !!lineLive && lineLive.textContent.indexOf('2023') >= 0
+      && lineLive.textContent.indexOf('中国') >= 0,
+    lineLive && lineLive.textContent);
+  lineStub.svg.fire('keydown', keyEvent('ArrowLeft'));
+  check('左方向键回退一年份', lineTip.innerHTML.indexOf('2022') >= 0
+    && lineLive.textContent.indexOf('2022') >= 0, lineLive.textContent);
+  lineStub.svg.fire('keydown', keyEvent('ArrowRight'));
+  check('右方向键前进一年份', lineTip.innerHTML.indexOf('2023') >= 0,
+    lineTip.innerHTML.slice(0, 60));
+  lineStub.svg.fire('keydown', keyEvent('End'));
+  check('End 跳到末年', lineTip.innerHTML.indexOf('2024') >= 0, lineTip.innerHTML.slice(0, 60));
+  lineStub.svg.fire('keydown', keyEvent('Home'));
+  check('Home 跳回首年', lineTip.innerHTML.indexOf('2022') >= 0, lineTip.innerHTML.slice(0, 60));
+  lineStub.svg.fire('mouseleave');
+  check('钉住后鼠标移出不收起', lineTip.classList.contains('show'), lineTip.className);
+  lineStub.svg.fire('keydown', keyEvent('Escape'));
+  check('Esc 收起折线读数', !lineTip.classList.contains('show'), lineTip.className);
+
+  lineStub.svg.fire('touchstart', { touches: [{ clientX: 540, clientY: 100 }] });
+  check('触屏点击钉住读数', lineTip.classList.contains('show'), lineTip.className);
+  document.dispatchEvent({ type: 'touchstart', target: lineTip });
+  check('图内点击不收起触屏读数', lineTip.classList.contains('show'), lineTip.className);
+  document.dispatchEvent({ type: 'touchstart', target: { tagName: 'DIV' } });
+  check('图外点击收起触屏读数', !lineTip.classList.contains('show'), lineTip.className);
+
+  /* 排名图：标签超 7 字被截断，读数给出完整名称 + 数值 + 年份 */
+  document.getElementById('chartYear').value = '2024';
+  var rankRows = [0, 1].map(function (i) {
+    return { getAttribute: function (k) { return k === 'data-i' ? String(i) : null; },
+             addEventListener: function () {} };
+  });
+  var rankStub = chartBoxStub('rankChart', rankRows);
+  renderRank();
+  var rankTip = madeOf(rankStub, 'chart-tip');
+  var rankLive = madeOf(rankStub, 'chart-live');
+  if (rankTip) { rankTip.offsetWidth = 120; rankTip.offsetHeight = 60; }
+  check('排名图可键盘聚焦', rankStub.svg.getAttribute('tabindex') === '0',
+    String(rankStub.svg.getAttribute('tabindex')));
+  rankStub.svg.fire('focus');
+  check('聚焦排名图读出首行名称与数值',
+    !!rankTip && rankTip.classList.contains('show')
+      && rankTip.innerHTML.indexOf('中国') >= 0 && rankTip.innerHTML.indexOf('30') >= 0,
+    rankTip && rankTip.innerHTML.slice(0, 80));
+  check('排名播报串带序号', !!rankLive && rankLive.textContent.indexOf('1. 中国') >= 0,
+    rankLive && rankLive.textContent);
+  rankStub.svg.fire('keydown', keyEvent('ArrowDown'));
+  check('下方向键移到下一行', rankTip.innerHTML.indexOf('日本') >= 0
+    && rankLive.textContent.indexOf('2. 日本') >= 0, rankLive.textContent);
+  /* 浮层要跟着行走：第二行的行心在 viewBox 里是 8 + 28 + 14 = 50，svg 高 400 / 总高 72，
+     换算后约 277.8px，减去浮层高度与间距后 top 约 205.8px。
+     这条同时盯住「用错缩放分母」那类几何错误（曾写成 (28/760)*H，浮层会贴在顶部）。 */
+  var rankTop = parseFloat(rankTip.style.top);
+  check('键盘浮层落在当前行附近', rankTop > 200 && rankTop < 320, rankTip.style.top);
+  rankStub.svg.fire('keydown', keyEvent('Escape'));
+  check('Esc 收起排名读数', !rankTip.classList.contains('show'), rankTip.className);
 
   globalThis.__results = results;
   globalThis.__done = true;
