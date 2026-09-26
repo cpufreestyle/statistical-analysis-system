@@ -838,6 +838,37 @@ select.query-input:focus {
   line-height: 1.5;
 }
 
+/* ============ 内联 SVG 图标 ============
+   图标本体在 public/app.js 的 ICONS 白名单里（静态页面则直接内联同一批路径）。
+   统一约定：24×24 viewBox、currentColor 描边、fill:none，因此大小与颜色
+   全部交给使用处的 CSS；.icon-svg 默认跟随字号（1em），需要固定尺寸的
+   地方在下面显式覆盖。 */
+.icon-svg {
+  width: 1em;
+  height: 1em;
+  flex: none;
+  /* inline-block 而不是 block：绝大多数图标是和文字排在一行的（洞察卡标题、
+     AI 卡头、缓存徽标、按钮文案），block 会把行切断。 */
+  display: inline-block;
+  vertical-align: -0.14em;
+}
+
+/* 空态图标：圆底 + 灰阶描边，不再用 emoji（各家系统字形不一致） */
+.empty-icon .icon-svg { width: 20px; height: 20px; }
+
+/* 命令面板行首图标 */
+.pi-icon .icon-svg { width: 17px; height: 17px; }
+
+/* 洞察卡标题、AI 卡头是小号行内图标，跟随文字基线 */
+.insight-icon { width: 14px; height: 14px; }
+.ai-icon { width: 15px; height: 15px; }
+
+/* 按钮内图标（导出 CSV 等） */
+.btn .icon-svg { width: 14px; height: 14px; }
+
+/* 侧栏卡片标题图标 */
+.side-card-title .icon .icon-svg { width: 15px; height: 15px; }
+
 /* ============ 空状态 ============ */
 .empty-state {
   text-align: center;
@@ -853,7 +884,8 @@ select.query-input:focus {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  /* 图标颜色走灰阶令牌：SVG 用 currentColor，跟随主题翻转 */
+  color: var(--gray-400);
 }
 
 .empty-title {
@@ -1173,6 +1205,14 @@ select.query-input:focus {
   padding: 1px 8px;
   margin-left: 6px;
   vertical-align: middle;
+}
+/* 徽标里的闪电图标：内联 SVG，跟文字同一基线 */
+.cache-badge .icon-svg {
+  width: 11px;
+  height: 11px;
+  display: inline-block;
+  vertical-align: -1px;
+  margin-right: 3px;
 }
 
 .ai-elapsed {
@@ -1548,7 +1588,7 @@ select.query-input:focus {
 .metric-spark svg { display: block; }
 
 /* 主题按钮：图标随 auto/亮/暗 变化 */
-.theme-toggle { padding: 0 9px; font-size: 14px; line-height: 1; }
+.theme-toggle { padding: 0 9px; font-size: 15px; line-height: 1; display: inline-flex; align-items: center; }
 
 /* ── 数据洞察 ── */
 .section-desc { font-size: 12px; color: var(--gray-500); margin: -6px 0 12px; line-height: 1.6; }

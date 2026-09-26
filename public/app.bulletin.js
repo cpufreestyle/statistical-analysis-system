@@ -56,10 +56,10 @@ function renderBulletin(d) {
   });
   if (d.ai) {
       var aiBadge = d.ai_cached
-        ? ' <span class="cache-badge" title="' + a(tr('同一问题与同一份数据')) + '">⚡ '
+        ? ' <span class="cache-badge" title="' + a(tr('同一问题与同一份数据')) + '">' + icon('zap', 'icon-svg cache-icon') + ' '
           + h(tr('来自缓存')) + '</span>'
         : '';
-      html += '<div class="ai-card"><div class="ai-head">🤖 ' + tr('AI 云端解读') + aiBadge + '</div>'
+      html += '<div class="ai-card"><div class="ai-head">' + icon('sparkles', 'icon-svg ai-icon') + ' ' + tr('AI 云端解读') + aiBadge + '</div>'
         + '<div class="ai-body">' + mdToHtml(d.ai) + '</div></div>';
   } else if (d.ai_note) {
     html += '<div class="ai-note">' + h(d.ai_note) + '</div>';

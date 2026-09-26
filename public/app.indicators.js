@@ -32,7 +32,8 @@ async function loadIndicators() {
     var cnt = document.getElementById('indCount');
     if (cnt) cnt.textContent = rows.length ? rows.length + (isZh() ? ' 条' : ' rows') : '';
     if (!rows.length) {
-      tb.innerHTML = '<tr><td colspan="7">' + emptyState('📭', tr('无可展示数据')) + '</td></tr>';
+      tb.innerHTML = '<tr><td colspan="7">' + emptyState('inbox', tr('无可展示数据'),
+        tr('换个专业分类或关键词试试，也可清除筛选查看全部指标')) + '</td></tr>';
       if (indTable) indTable.removeAttribute('aria-busy');
       return;
     }

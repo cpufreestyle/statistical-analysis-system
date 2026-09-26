@@ -138,6 +138,8 @@ body {
 
 /* 语言切换按钮 */
 .lang-toggle {
+  display: inline-flex;
+  align-items: center;
   margin-left: 4px;
   padding: 7px 14px;
   background: var(--surface);
@@ -373,6 +375,21 @@ body {
   transform: translateY(-4px);
 }
 
+/* ============ 内联 SVG 图标 ============
+   落地页是自包含页面，不引 /style.css，所以 .icon-svg 基类在这里也定义一份
+   （与 style.css 里那份取值一致）。图标本体写在 HTML 里或内联脚本的
+   LANDING_ICONS 中：24×24 viewBox、currentColor 描边、fill:none。 */
+.icon-svg {
+  width: 1em;
+  height: 1em;
+  flex: none;
+  /* inline-block 而不是 block：按钮里的图标是和文字排在一行的，block 会切断行 */
+  display: inline-block;
+  vertical-align: -0.14em;
+}
+
+.lang-toggle .icon-svg { width: 15px; height: 15px; }
+
 .feature-icon {
   width: 48px;
   height: 48px;
@@ -381,7 +398,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
+  /* 内联 SVG 线性图标（currentColor）：跨平台字形一致，颜色跟主题令牌走 */
+  color: var(--blue-600);
   margin: 0 auto 20px;
 }
 
@@ -439,7 +457,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28px;
+  color: var(--blue-600);
   margin: 0 auto 20px;
 }
 
@@ -489,7 +507,7 @@ body {
 }
 
 .arch-icon {
-  font-size: 32px;
+  color: var(--blue-600);
   margin-bottom: 16px;
 }
 

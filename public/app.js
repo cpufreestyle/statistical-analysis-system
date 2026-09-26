@@ -467,7 +467,8 @@ async function loadOverview() {
           + h(tr('切换到亚太')) + '</button>'
         : '';
       grid.innerHTML = '<div class="metric-card" style="grid-column:1/-1">'
-        + emptyState('🗺️', tr('该维度暂无数据')) + back + '</div>';
+        + emptyState('globe', tr('该维度暂无数据'),
+          tr('该经济体在此维度下暂无公开数据，可切换年份或回到亚太聚合口径查看')) + back + '</div>';
       return;
     }
     grid.innerHTML = (d.cards || []).map(c => `
@@ -486,7 +487,8 @@ async function loadOverview() {
     loadSparks(d.dimension_key || STATE.dimension, d.cards || []);
   } catch (e) {
     grid.removeAttribute('aria-busy');
-    grid.innerHTML = '<div class="metric-card" style="grid-column:1/-1">' + emptyState('⚠️', tr('加载失败')) + '</div>';
+    grid.innerHTML = '<div class="metric-card" style="grid-column:1/-1">' + emptyState('alert', tr('加载失败'),
+        tr('网络或服务端异常，请稍后重试；若持续失败请联系管理员')) + '</div>';
   }
 }
 
@@ -517,13 +519,15 @@ async function loadInsights() {
   } catch (e) {
     grid.removeAttribute('aria-busy');
     grid.innerHTML = '<div class="insight-card" style="grid-column:1/-1">'
-      + emptyState('⚠️', tr('加载失败')) + '</div>';
+      + emptyState('alert', tr('加载失败'),
+        tr('网络或服务端异常，请稍后重试；若持续失败请联系管理员')) + '</div>';
   }
 }
 
-function insightCard(icon, title, sub, body) {
+function insightCard(iconName, title, sub, body) {
   return '<div class="insight-card">'
-    + '<div class="insight-head"><span class="insight-title">' + h(icon) + ' ' + h(title) + '</span>'
+    + '<div class="insight-head"><span class="insight-title">' + icon(iconName, 'icon-svg insight-icon')
+    + ' ' + h(title) + '</span>'
     + (sub ? '<span class="insight-sub">' + h(sub) + '</span>' : '') + '</div>'
     + body + '</div>';
 }
@@ -551,8 +555,9 @@ function renderInsights(d) {
         return '<div class="insight-row"><span class="insight-name" title="' + a(m.indicator) + '">'
           + h(m.indicator) + '</span><span class="insight-val ' + k.cls + '">' + k.arrow + ' ' + h(k.abs) + '</span></div>';
       }).join('')
-    : emptyState('📈', tr('暂无洞察'));
-  var c1 = insightCard('📈', tr('同比变化最大'), tr('较上年'), mBody);
+    : emptyState('trending', tr('暂无洞察'),
+        tr('需要同指标的上一年数据才能算同比，当前维度暂时凑不齐'));
+  var c1 = insightCard('trending', tr('同比变化最大'), tr('较上年'), mBody);
 
   /* 卡 2：名次变动最大的经济体（指标由服务端选覆盖最广的那个） */
   var shifts = d.rank_shifts || [];
@@ -565,8 +570,9 @@ function renderInsights(d) {
           + '<span class="insight-rank">' + s.rank_prev + ' → ' + s.rank_now + '</span>'
           + '<span class="insight-val ' + cls + '">' + arrow + ' ' + Math.abs(s.delta) + '</span></div>';
       }).join('')
-    : emptyState('🏅', tr('暂无洞察'));
-  var c2 = insightCard('🏅', rTitle, tr('名次'), rBody);
+    : emptyState('medal', tr('暂无洞察'),
+        tr('需要该指标在两年间都有排名的经济体，当前维度暂时凑不齐'));
+  var c2 = insightCard('medal', rTitle, tr('名次'), rBody);
 
   /* 卡 3：覆盖规模（计数本身就是洞察：数据到底有多全） */
   var cov = d.coverage || {};
@@ -577,7 +583,7 @@ function renderInsights(d) {
   ].map(function (x) {
     return '<div class="insight-chip">' + h(x.label) + '<b>' + h(x.value == null ? '—' : x.value) + '</b></div>';
   }).join('');
-  var c3 = insightCard('🗄️', tr('覆盖规模'), years, '<div class="insight-chips">' + chips + '</div>');
+  var c3 = insightCard('database', tr('覆盖规模'), years, '<div class="insight-chips">' + chips + '</div>');
   return c1 + c2 + c3;
 }
 
@@ -606,10 +612,10 @@ async function runAnalyze() {
     if (ai) {
       /* 命中缓存要让人看见：省下的是真金白银的 token 与 5-20 秒等待 */
       var badge = d.cached
-        ? ' <span class="cache-badge" title="' + a(tr('同一问题与同一份数据')) + '">⚡ '
+        ? ' <span class="cache-badge" title="' + a(tr('同一问题与同一份数据')) + '">' + icon('zap', 'icon-svg cache-icon') + ' '
           + h(tr('来自缓存')) + '</span>'
         : '';
-      html += '<div class="ai-card"><div class="ai-head">🤖 ' + tr('AI 云端解读') + badge
+      html += '<div class="ai-card"><div class="ai-head">' + icon('sparkles', 'icon-svg ai-icon') + ' ' + tr('AI 云端解读') + badge
         + ' <span class="ai-elapsed">' + h(tr('耗时')) + ' ' + (ms / 1000).toFixed(1)
         + 's</span></div>'
         + '<div class="ai-body">' + mdToHtml(ai) + '</div>'
@@ -747,6 +753,52 @@ function mdToHtml(md) {
 }
 
 
+/* ═══════ 内联 SVG 图标集（线性 / currentColor）═══════
+   为什么不再用 emoji：各家操作系统对 emoji 的字形与配色渲染互不相同
+   （Windows / macOS / Android 三套设计语言），在空态这种大面积居中的位置
+   差异最刺眼——同一个产品在三台设备上像三个版本，且 emoji 无法跟随主题
+   令牌取色（深色模式下一排彩色emoji尤其违和）。改用内联 SVG 线性图标
+  （heroicons / lucide / Bootstrap Icons 的共同做法）：24×24 网格、
+   `currentColor` 描边、`fill:none`，颜色与粗细随 CSS 走，跨端完全一致，
+   还能被 CSS 控制大小。图标是内部固定集合，不是用户输入，直接拼字符串
+   不过 h()，由 ICONS 白名单兜底。 */
+var ICONS = {
+  globe: '<circle cx="12" cy="12" r="8.6"/><path d="M3.4 12h17.2"/><path d="M12 3.4c2.6 2.7 3.9 5.7 3.9 8.6s-1.3 5.9-3.9 8.6c-2.6-2.7-3.9-5.7-3.9-8.6S9.4 6.1 12 3.4z"/>',
+  alert: '<path d="M10.3 4.2 2.6 17.6a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0z"/><path d="M12 9.4v4"/><path d="M12 16.7h.01"/>',
+  trending: '<path d="M3 17.4 9 10.9l4 4 8-8.4"/><path d="M15 6.4h6v6"/>',
+  medal: '<circle cx="12" cy="9" r="5.2"/><path d="M8.8 13.5 7.2 21.4 12 18.9l4.8 2.5-1.6-7.9"/>',
+  database: '<ellipse cx="12" cy="6" rx="7.4" ry="2.9"/><path d="M4.6 6v6c0 1.6 3.3 2.9 7.4 2.9s7.4-1.3 7.4-2.9V6"/><path d="M4.6 12v6c0 1.6 3.3 2.9 7.4 2.9s7.4-1.3 7.4-2.9v-6"/>',
+  clipboard: '<path d="M9.4 4.2H7.4a2 2 0 0 0-2 2v12.6a2 2 0 0 0 2 2h9.2a2 2 0 0 0 2-2V6.2a2 2 0 0 0-2-2h-2"/><rect x="9.4" y="2.7" width="5.2" height="3.4" rx="1.2"/><path d="M9 12.4h6"/><path d="M9 16.4h4"/>',
+  inbox: '<path d="M3.4 13h4.3l1.4 2.6h5.8l1.4-2.6h4.3"/><path d="M5.9 4.6h12.2l2.3 8.1V18a2 2 0 0 1-2 2H5.6a2 2 0 0 1-2-2v-5.3l2.3-8.1z"/>',
+  linechart: '<path d="M4 4v16h16"/><path d="M7.5 14.4 11 10.5l3 2.6 4.4-5.5"/>',
+  barchart: '<path d="M4 4v16h16"/><path d="M8.6 16.6v-4.4"/><path d="M13.4 16.6V8.4"/><path d="M18.2 16.6V6.2"/>',
+  search: '<circle cx="11" cy="11" r="6.2"/><path d="M20.4 20.4 15.9 15.9"/>',
+  sparkles: '<path d="M11 3.6l1.7 4.7 4.7 1.7-4.7 1.7L11 16.4l-1.7-4.7L4.6 10l4.7-1.7z"/><path d="M18.2 15.4l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/>',
+  calendar: '<rect x="3.6" y="5.6" width="16.8" height="14.8" rx="2"/><path d="M3.6 10.2h16.8"/><path d="M8.6 3.6v3.6"/><path d="M15.4 3.6v3.6"/>',
+  message: '<path d="M4 6.6A2.6 2.6 0 0 1 6.6 4h10.8A2.6 2.6 0 0 1 20 6.6v6.8a2.6 2.6 0 0 1-2.6 2.6H9.8L5.2 19.9v-4H6.6A2.6 2.6 0 0 1 4 13.4z"/>',
+  table: '<rect x="3.6" y="4.6" width="16.8" height="14.8" rx="2"/><path d="M3.6 9.4h16.8"/><path d="M9.6 9.4v10"/><path d="M15.2 9.4v10"/>',
+  calculator: '<rect x="4.6" y="3.2" width="14.8" height="17.6" rx="2"/><path d="M8 7.4h8"/><path d="M8.6 12h.01"/><path d="M12 12h.01"/><path d="M15.4 12h.01"/><path d="M8.6 16h.01"/><path d="M12 16h.01"/><path d="M15.4 16h.01"/>',
+  filetext: '<path d="M6 3.6h7.4L19 9.2v11.2a1.4 1.4 0 0 1-1.4 1.4H6a1.4 1.4 0 0 1-1.4-1.4V5A1.4 1.4 0 0 1 6 3.6z"/><path d="M13.4 3.6V9.2H19"/><path d="M8.6 13h6.8"/><path d="M8.6 16.4h4.6"/>',
+  theme: '<circle cx="12" cy="12" r="8.4"/><path d="M12 3.6v16.8"/>',
+  translate: '<path d="M4 5.6h9"/><path d="M8.5 3.6v2"/><path d="M11.4 5.6c0 4-2.5 7.4-6 8.4"/><path d="M6 9.4c1 2.5 3 4.2 5.4 5"/><path d="M13.4 20.4l3.8-9 3.8 9"/><path d="M14.9 17.4h5.6"/>',
+  link: '<path d="M10 13.4a3.5 3.5 0 0 0 5 0l3-3a3.54 3.54 0 0 0-5-5l-1.5 1.5"/><path d="M14 10.6a3.5 3.5 0 0 0-5 0l-3 3a3.54 3.54 0 0 0 5 5l1.5-1.5"/>',
+  download: '<path d="M12 3.6v11"/><path d="M7.6 10.4 12 14.8l4.4-4.4"/><path d="M4.6 20.4h14.8"/>',
+  keyboard: '<rect x="2.6" y="6.6" width="18.8" height="10.8" rx="2"/><path d="M6.4 10h.01"/><path d="M9.9 10h.01"/><path d="M13.4 10h.01"/><path d="M16.9 10h.01"/><path d="M8.2 14h7.6"/>',
+  sun: '<circle cx="12" cy="12" r="4.2"/><path d="M12 2.8v2.2"/><path d="M12 19v2.2"/>'
+    + '<path d="M4.8 4.8l1.6 1.6"/><path d="M17.6 17.6l1.6 1.6"/><path d="M2.8 12h2.2"/>'
+    + '<path d="M19 12h2.2"/><path d="M4.8 19.2l1.6-1.6"/><path d="M17.6 6.4l1.6-1.6"/>',
+  moon: '<path d="M20.2 14.6A8.4 8.4 0 0 1 9.4 3.8a8.4 8.4 0 1 0 10.8 10.8z"/>',
+  book: '<path d="M4.4 4.6h4.8a3 3 0 0 1 3 3v11.8a2.4 2.4 0 0 0-2.4-2.4H4.4z"/><path d="M19.6 4.6h-4.8a3 3 0 0 0-3 3v11.8a2.4 2.4 0 0 1 2.4-2.4h5.4z"/>'
+};
+
+/* 取图标：白名单未命中时退回 search，保证永远有可见图标而不是空白 */
+function icon(name, cls) {
+  var body = ICONS[name] || ICONS.search;
+  return '<svg class="' + (cls || 'icon-svg') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+    + ' stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    + body + '</svg>';
+}
+
 /* ═══════ 数字与空态格式化 ═══════
    fmtNum / compactNum / emptyState 同时被首屏指标卡、sparkline 和图表用到，
    所以留在 core；图表专用的小工具（dimLabel / dimColor / chartEmpty）跟着
@@ -768,10 +820,11 @@ function compactNum(v) {
   if (Math.abs(n) < 1e6) return n.toLocaleString(isZh() ? 'zh-CN' : 'en-US', { maximumFractionDigits: 2 });
   return n.toLocaleString(isZh() ? 'zh-CN' : 'en-US', { notation: 'compact', maximumFractionDigits: 2 });
 }
-/* 统一空态（图标 + 标题 + 说明），替代各处纯文字提示；结构见 .empty-state */
-function emptyState(icon, title, desc) {
+/* 统一空态（图标 + 标题 + 说明），替代各处纯文字提示；结构见 .empty-state。
+   图标入参是 ICONS 白名单里的名字而不是字符——见上面图标集的理由。 */
+function emptyState(iconName, title, desc) {
   return '<div class="empty-state" role="status">'
-    + '<div class="empty-icon">' + h(icon) + '</div>'
+    + '<div class="empty-icon">' + icon(iconName) + '</div>'
     + '<div class="empty-title">' + h(title) + '</div>'
     + (desc ? '<div class="empty-desc">' + h(desc) + '</div>' : '')
     + '</div>';
@@ -836,9 +889,9 @@ function toggleSidebarCard(headerEl) {
 const THEME_KEY = 'qu_theme_v1';
 const THEME_ORDER = ['auto', 'light', 'dark'];
 const THEME_META = {
-  auto:  { icon: '🌗', zh: '跟随系统', en: 'Match system', key: '跟随系统' },
-  light: { icon: '☀️', zh: '浅色',   en: 'Light',        key: '浅色模式' },
-  dark:  { icon: '🌙', zh: '深色',   en: 'Dark',         key: '深色模式' }
+  auto:  { icon: 'theme', zh: '跟随系统', en: 'Match system', key: '跟随系统' },
+  light: { icon: 'sun',    zh: '浅色',   en: 'Light',        key: '浅色模式' },
+  dark:  { icon: 'moon',   zh: '深色',   en: 'Dark',         key: '深色模式' }
 };
 /* 工作台五个视图的顺序（与 app.html 的 .wb-tab 一致），快捷键 1–5 用它寻址 */
 const TAB_IDS = ['nlq', 'indicators', 'custom', 'bulletin', 'charts'];
@@ -862,7 +915,9 @@ function themeApply(mode) {
   if (root) root.setAttribute('data-theme', dark ? 'dark' : 'light');
   var btn = document.getElementById('themeToggle');
   if (btn) {
-    btn.textContent = meta.icon;
+    /* 图标也是 ICONS 里的 SVG（与空态/命令面板同一套）：textContent 会把它当纯文本
+       显示成标签源码，必须走 innerHTML。 */
+    btn.innerHTML = icon(meta.icon);
     var label = '主题：' + meta.zh + ' / Theme: ' + meta.en;
     btn.title = label;
     btn.setAttribute('aria-label', label);

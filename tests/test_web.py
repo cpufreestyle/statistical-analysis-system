@@ -312,6 +312,67 @@ def test_insight_chip_value_is_tabular():
     )
 
 
+def test_frontend_has_no_emoji_left_in_ui():
+    """前端源码里不允许再留 emoji 图标。
+
+    emoji 的字形与配色由操作系统决定（Windows / macOS / Android 三套设计语言），
+    在空态圆底、特性卡这种大面积居中的位置差异最刺眼；也无法跟随主题令牌取色。
+    本批已全部换成 app.js 里 ICONS 白名单驱动的内联 SVG（currentColor 描边）。
+    这条哨兵把「不要再加回 emoji」钉成机器可判定——手写新文案时很难想起这条。
+    """
+    from pathlib import Path
+
+    public = Path(__file__).resolve().parent.parent / "public"
+    offenders = []
+    for path in sorted(public.rglob("*")):
+        if path.suffix not in (".js", ".html", ".css"):
+            continue
+        text = path.read_text(encoding="utf-8")
+        for lineno, line in enumerate(text.splitlines(), 1):
+            for ch in line:
+                if ord(ch) >= 0x1F000 or ch in "\u26a0\u2b07\u2328\u26a1":
+                    offenders.append(f"{path.name}:{lineno} {line.strip()[:60]}")
+    assert not offenders, "前端又出现 emoji 图标，请改用 ICONS 里的内联 SVG：" + "; ".join(offenders[:5])
+
+
+def test_icon_svg_base_class_in_both_stylesheets():
+    """`.icon-svg` 基类两个样式表都要有：看板走 style.css，落地页只走 landing.css。
+
+    且必须是 inline-block——绝大多数图标与文字排在同一行（洞察卡标题、AI 卡头、
+    缓存徽标、按钮文案），display:block 会把行切断、样式直接散架。
+    """
+    import re
+
+    style = _public_css("style.css")
+    landing = _public_css("landing.css")
+    for name, css in (("style.css", style), ("landing.css", landing)):
+        assert ".icon-svg" in css, f"{name} 缺少 .icon-svg 基类"
+        block = re.search(r"\.icon-svg\s*\{([^}]*)\}", css)
+        assert block, f"{name} 缺少 .icon-svg 规则块"
+        assert "display: inline-block" in block.group(1), (
+            f"{name} 的 .icon-svg 必须是 inline-block（与文字同行），否则行内图标会断行"
+        )
+
+
+def test_icon_helper_is_whitelisted_with_fallback():
+    """icon() 必须走 ICONS 白名单且有兜底：拼错名字时退回 search 而不是渲染空白。"""
+    import re
+    from pathlib import Path
+
+    js = (Path(__file__).resolve().parent.parent / "public" / "app.js").read_text(encoding="utf-8")
+    assert "function icon(name, cls)" in js, "app.js 缺少 icon() 取图函数"
+    assert re.search(r"ICONS\[name\]\s*\|\|\s*ICONS\.search", js), (
+        "icon() 未做白名单兜底，拼错图标名会渲染出空白"
+    )
+    assert "stroke=\"currentColor\"" in js, "图标必须用 currentColor 描边，否则不跟随主题"
+    # 静态页面（app.html / index.html）里的图标必须自带 viewBox，否则会被当成普通块级元素撑爆
+    for name in ("app.html", "index.html"):
+        html = (Path(__file__).resolve().parent.parent / "public" / name).read_text(encoding="utf-8")
+        n_open = html.count("<svg")
+        assert n_open > 0, f"{name} 没有内联 SVG"
+        assert html.count("viewBox=\"0 0 24 24\"") >= n_open, f"{name} 的 SVG 缺少 viewBox"
+
+
 def test_scroll_shadow_token_in_both_theme_entries():
     """边缘阴影色走令牌，浅色 / 深色两个入口都要有（同 ::selection 的同步纪律）。"""
     theme = _public_css("theme.css")

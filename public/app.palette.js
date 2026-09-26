@@ -34,11 +34,11 @@ function paletteScore(text, q) {
 function paletteCommands() {
   var cmds = [];
   [
-    { id: 'nlq', icon: '💬', key: '智能查询' },
-    { id: 'indicators', icon: '📋', key: '指标总表' },
-    { id: 'custom', icon: '🧮', key: '自定义分析' },
-    { id: 'bulletin', icon: '📄', key: '统计公报' },
-    { id: 'charts', icon: '📈', key: '图表' }
+    { id: 'nlq', icon: 'message', key: '智能查询' },
+    { id: 'indicators', icon: 'table', key: '指标总表' },
+    { id: 'custom', icon: 'calculator', key: '自定义分析' },
+    { id: 'bulletin', icon: 'filetext', key: '统计公报' },
+    { id: 'charts', icon: 'linechart', key: '图表' }
   ].forEach(function (t) {
     cmds.push({
       group: tr('视图'), icon: t.icon, label: tr(t.key), keywords: 'view tab ' + t.id,
@@ -49,7 +49,7 @@ function paletteCommands() {
   (window._years || []).forEach(function (y) {
     y = String(y);
     cmds.push({
-      group: tr('切换年份'), icon: '📅', label: y + (isZh() ? '年' : ''),
+      group: tr('切换年份'), icon: 'calendar', label: y + (isZh() ? '年' : ''),
       hint: y === STATE.year ? '✓' : '', keywords: 'year ' + y,
       run: function () { syncYear(y); }
     });
@@ -58,33 +58,33 @@ function paletteCommands() {
     var key = o.key || o.slug;
     if (!key) return;
     cmds.push({
-      group: tr('切换经济体'), icon: '🌏', label: o.label || key,
+      group: tr('切换经济体'), icon: 'globe', label: o.label || key,
       keywords: 'dimension economy ' + key + ' ' + (o.slug || ''),
       hint: key === STATE.dimension ? '✓' : '',
       run: function () { syncDimension(key); }
     });
   });
-  cmds.push({ group: tr('外观'), icon: '🌓', label: tr('切换主题'),
+  cmds.push({ group: tr('外观'), icon: 'theme', label: tr('切换主题'),
     hint: tr(THEME_META[themeMode()].key), keywords: 'theme dark light auto', run: cycleTheme });
-  cmds.push({ group: tr('外观'), icon: '🔤', label: tr('切换语言'),
+  cmds.push({ group: tr('外观'), icon: 'translate', label: tr('切换语言'),
     hint: isZh() ? '中文 → EN' : 'EN → 中文', keywords: 'language lang', run: function () { toggleLang(); } });
-  cmds.push({ group: tr('操作'), icon: '🔗', label: tr('复制分享链接'), keywords: 'share link copy', run: copyShareLink });
+  cmds.push({ group: tr('操作'), icon: 'link', label: tr('复制分享链接'), keywords: 'share link copy', run: copyShareLink });
   /* 导出指标 CSV 的实现在指标总分块里：不能在 paletteCommands() 执行时就地引用
      ——那时分块还没加载，裸引用会 ReferenceError，命令面板自己先打不开。
      改为按名字延迟解析，tabAction 会先把分块拉下来再跑。 */
-  cmds.push({ group: tr('操作'), icon: '⬇️', label: tr('导出指标 CSV'), keywords: 'export csv download',
+  cmds.push({ group: tr('操作'), icon: 'download', label: tr('导出指标 CSV'), keywords: 'export csv download',
     run: function () { tabAction('indicators', 'exportIndicatorsCsv'); } });
-  cmds.push({ group: tr('操作'), icon: '⬇️', label: tr('导出当前指标 CSV'), keywords: 'export csv chart indicator', run: exportChartCsv });
+  cmds.push({ group: tr('操作'), icon: 'download', label: tr('导出当前指标 CSV'), keywords: 'export csv chart indicator', run: exportChartCsv });
   /* 同理：loadBulletin() 在统计公报分块里。switchTab 的返回值就是分块加载
      任务，等它兑现后再按名字解析执行，分块没加载时运行命令也不会 ReferenceError。 */
-  cmds.push({ group: tr('操作'), icon: '📄', label: tr('生成统计公报'), keywords: 'bulletin report',
+  cmds.push({ group: tr('操作'), icon: 'filetext', label: tr('生成统计公报'), keywords: 'bulletin report',
     run: function () { switchTab('bulletin').then(function () { tabAction('bulletin', 'loadBulletin'); }); } });
-  cmds.push({ group: tr('操作'), icon: '⌨️', label: tr('键盘快捷键'), hint: '?',
+  cmds.push({ group: tr('操作'), icon: 'keyboard', label: tr('键盘快捷键'), hint: '?',
     keywords: 'shortcuts help keyboard', run: openShortcuts });
   Array.prototype.slice.call(document.querySelectorAll('.suggestion-chip')).forEach(function (el) {
     var q = pickQ(el);
     if (!q) return;
-    cmds.push({ group: tr('示例问题'), icon: '💬', label: q, keywords: 'ask ' + q,
+    cmds.push({ group: tr('示例问题'), icon: 'message', label: q, keywords: 'ask ' + q,
       run: function () { fillQuery(q); runAnalyze(); } });
   });
   return cmds;
@@ -134,7 +134,7 @@ function paletteRender(q) {
     if (c.group !== group) { html += '<div class="palette-group">' + h(c.group) + '</div>'; group = c.group; }
     html += '<div class="palette-item" role="option" id="pal-opt-' + i + '" data-i="' + i + '"'
       + ' aria-selected="' + (i === PAL.idx ? 'true' : 'false') + '">'
-      + '<span class="pi-icon" aria-hidden="true">' + h(c.icon || '') + '</span>'
+      + '<span class="pi-icon" aria-hidden="true">' + icon(c.icon) + '</span>'
       + '<span class="pi-label">' + h(c.label) + '</span>'
       + (c.hint ? '<span class="pi-hint">' + h(c.hint) + '</span>' : '')
       + '</div>';

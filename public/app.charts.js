@@ -142,7 +142,7 @@ function dimColor(key) {
   for (var i = 0; i < CHART.dimOptions.length; i++) { if (CHART.dimOptions[i].key === key) { idx = i; break; } }
   return CHART_COLORS[idx % CHART_COLORS.length];
 }
-function chartEmpty(msg, icon) { return emptyState(icon || '📈', msg); }
+function chartEmpty(msg, iconName, desc) { return emptyState(iconName || 'linechart', msg, desc); }
 
 /* ═══════ 图表悬浮读数（桌面 hover / 触屏 touch） ═══════
    自绘 SVG 的数值不在 DOM 文本里，鼠标悬停时按几何反查数据，用跟随指针的
@@ -246,7 +246,7 @@ function fontFamily() { return "-apple-system,BlinkMacSystemFont,'Segoe UI',Robo
 function renderLine() {
   var box = document.getElementById('lineChart');
   if (!box) return;
-  if (!CHART.currentKey) { box.innerHTML = chartEmpty(tr('请先选择指标'), '📈'); return; }
+  if (!CHART.currentKey) { box.innerHTML = chartEmpty(tr('请先选择指标'), 'linechart', tr('在指标总表里点一行，或在上方搜索指标名')); return; }
   var dims = CHART.selDims.slice();
   var byDim = {};
   CHART.rows.forEach(function (r) {
@@ -258,8 +258,8 @@ function renderLine() {
   });
   var years = CHART.years.slice().sort(function (a, b) { return a - b; });
   var active = dims.filter(function (d) { return byDim[d] && Object.keys(byDim[d]).length >= 1; });
-  if (years.length < 2) { box.innerHTML = chartEmpty(tr('需至少两个年份才能绘制趋势线'), '📈'); return; }
-  if (!active.length) { box.innerHTML = chartEmpty(tr('该指标在所选经济体无数据'), '📈'); return; }
+  if (years.length < 2) { box.innerHTML = chartEmpty(tr('需至少两个年份才能绘制趋势线'), 'linechart', tr('趋势线比较的是同一指标在不同年份的变化')); return; }
+  if (!active.length) { box.innerHTML = chartEmpty(tr('该指标在所选经济体无数据'), 'linechart', tr('换一个经济体或指标试试')); return; }
 
   var allV = [];
   active.forEach(function (d) { for (var y in byDim[d]) allV.push(byDim[d][y]); });
@@ -333,12 +333,12 @@ function renderLine() {
 function renderRank() {
   var box = document.getElementById('rankChart');
   if (!box) return;
-  if (!CHART.currentKey) { box.innerHTML = chartEmpty(tr('请先选择指标'), '📊'); return; }
+  if (!CHART.currentKey) { box.innerHTML = chartEmpty(tr('请先选择指标'), 'barchart', tr('在指标总表里点一行，或在上方搜索指标名')); return; }
   var yr = (document.getElementById('chartYear') || {}).value;
   var rows = CHART.rows.filter(function (r) {
     return String(r.year) === String(yr) && r.value != null && r.value !== '';
   });
-  if (!rows.length) { box.innerHTML = chartEmpty(tr('该指标在所选年份无数据'), '📊'); return; }
+  if (!rows.length) { box.innerHTML = chartEmpty(tr('该指标在所选年份无数据'), 'barchart', tr('换一个年份或指标试试')); return; }
   rows.sort(function (a, b) { return Number(b.value) - Number(a.value); });
 
   /* 无障碍：同折线图，role=img 需要等价的文字描述（按降序给出名次 + 数值） */

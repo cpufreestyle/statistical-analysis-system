@@ -118,6 +118,32 @@ def test_landing_dict_values_are_verbatim_from_full_dict(node: str) -> None:
     assert not drift, f"落地页字典与全量字典取值不一致：{drift}"
 
 
+def _strip_js_comments(text: str) -> str:
+    """去掉 JS 的行注释与块注释，避免把注释里提到的中文误当成 tr() 的键。"""
+    return re.sub(r"/\*.*?\*/|//[^\n]*", "", text, flags=re.S)
+
+
+def test_dashboard_tr_keys_exist_in_full_dict(node: str) -> None:
+    """看板 JS 里 tr('字面量') 用到的中文键，必须都在全量字典里。
+
+    漏一条的后果很具体：英文界面在这一处**裸显中文**——tr() 查不到键时原样返回
+    入参。这条门禁把「新增中文文案 = 同步补英文」变成机器可判定的红线，
+    而不是靠人记得去翻字典（字典 300+ 条，记忆不可靠）。
+    tr() 的动态入参（tr(t.key) / tr(pick(...))）不会被这个正则抓到，天然排除。
+    """
+    full = _load_dict(node, FULL_DICT)
+    missing: dict[str, set[str]] = {}
+    for path in sorted(PUBLIC.glob("app*.js")):
+        text = _strip_js_comments(path.read_text(encoding="utf-8"))
+        for key in re.findall(r"tr\(\s*'([^']*)'\s*\)", text):
+            if key not in full:
+                missing.setdefault(key, set()).add(path.name)
+    assert not missing, (
+        "以下 tr() 中文键不在 i18n-dict.js，英文界面会裸显中文："
+        + "; ".join(f"{k}（{', '.join(sorted(v))}）" for k, v in sorted(missing.items()))
+    )
+
+
 def test_dashboard_loads_dict_before_runtime(client) -> None:
     html = client.get("/app").get_data(as_text=True)
     i_dict = html.index("/i18n-dict.js?v=")

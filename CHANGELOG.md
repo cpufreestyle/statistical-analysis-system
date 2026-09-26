@@ -315,6 +315,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); tags are `Added`
   新增 7 条结构哨兵，全量 **272 项**测试全绿；改 `public/` 后已重跑
   `scripts/embed_pages.py` 同步 `src/pages.py`。
 
+- **视觉精修第三批：emoji 图标整体换成内联 SVG，空态文案分层。**
+  emoji 的字形与配色由操作系统决定（Windows / macOS / Android 三套设计语言），在空态圆底、
+  落地页特性卡这种大面积居中的位置差异最刺眼，也无法跟随主题令牌取色。参照
+  heroicons / lucide / Bootstrap Icons 的共同做法，在 `public/app.js` 建 `ICONS` 白名单
+  （24×24 网格、`currentColor` 描边、`fill:none`），配 `icon(name)` 取图函数（未命中退回
+  `search`，永不渲染空白）；`emptyState()` 的入参从「字符」改成「图标名」。
+  替换范围覆盖看板全部图标位：空态、洞察卡标题、AI 卡头（含公报）、「来自缓存」徽标、
+  命令面板全部命令、侧栏卡片标题，以及 `app.html` 里的静态位（含主题三态按钮）。
+  落地页 `index.html` 是自包含页面（不引 app.js），特性 / 流程 / 架构卡的 SVG 直接写在
+  HTML 里，主题三态用内联脚本里一份最小的 `LANDING_ICONS`。
+  同批补两件配套：**空态文案分层**——原先「暂无洞察 / 加载失败 / 无可展示数据」只有一行
+  标题，现在都带上「下一步能做什么」的说明（9 条新 i18n 词条）；`.data-table` 表格区
+  底色统一由 `.workbench` 提供后，表头实底会让边缘阴影只剩半截，故表头改透明并加注释锁死。
+  新增 3 条结构哨兵（前端不得再出现 emoji、`.icon-svg` 基类两个样式表都要有且必须
+  `inline-block`、`icon()` 必须有白名单兜底），全量 **281 项**测试全绿；红绿逐条验证过。
+  实测冒烟：起真实服务 `GET /` 返回 16 个 `<svg>`、`GET /app` 10 个，全站 emoji 归零。
+
 - **视觉精修第二批：宽表横向滚动的「还能滑」暗示 + 主题令牌补齐第三个入口。**
   `.data-table-wrap` 用四层 `background` 拼出边缘阴影：两条 `radial-gradient` 是阴影本体，
   `background-attachment: scroll` 钉在容器视口上，只在真有溢出时可见；两条同色
