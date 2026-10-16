@@ -202,6 +202,14 @@ body { font-family: var(--font); color: var(--gray-700); background: var(--gray-
   background: var(--surface);
 }
 
+/* 吸顶后贴在 52px 的顶部导航正下方，靠一条阴影把「导航」与「标签栏」分层。
+   不吸顶时不挂阴影（会与卡片自身的边框重复成双线）。
+   阴影色用 --scroll-shadow 同源令牌：两处都是「内容从下层滚过」的遮罩语义，
+   深色入口已在 theme.css 同步。 */
+.wb-tabs.is-stuck {
+  box-shadow: 0 1px 0 var(--gray-150), 0 6px 12px -8px var(--scroll-shadow);
+}
+
 .wb-tab {
   font-family: var(--font);
   font-size: 13px;
@@ -337,6 +345,11 @@ select.query-input:focus {
   flex-wrap: wrap;
 }
 
+/* 作者样式的 display:flex 会盖过 UA 的 [hidden]，无历史时必须显式隐藏 */
+.query-recent[hidden] {
+  display: none;
+}
+
 .query-recent-label {
   font-size: 12px;
   color: var(--gray-500);
@@ -372,7 +385,7 @@ select.query-input:focus {
 }
 
 .recent-clear:hover {
-  color: var(--red-500);
+  color: var(--down-fg);
   text-decoration: underline;
 }
 
@@ -567,8 +580,8 @@ select.query-input:focus {
   gap: 3px;
 }
 
-.metric-change.up { color: var(--green-600); }
-.metric-change.down { color: var(--red-500); }
+.metric-change.up { color: var(--up-fg); }
+.metric-change.down { color: var(--down-fg); }
 
 /* ============ 快速开始卡片 ============ */
 .quick-grid {
@@ -1045,22 +1058,37 @@ select.query-input:focus {
 }
 
 .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
-.toast.success { background: var(--green-600); }
-.toast.error { background: var(--red-500); }
+.toast.success { background: var(--up-bg); }
+.toast.error { background: var(--down-bg); }
 
 /* 响应式 */
 @media (max-width: 1100px) {
   .layout { flex-direction: column; }
   .sidebar { width: 100%; }
+
+  /* 侧栏变成全宽后，三张侧栏卡并排横躺在内容下方比竖着堆更省纵向空间，
+     也与上面的洞察卡 / 指标卡保持同一节奏。900px 以下再收回一列。 */
+  .sidebar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+  }
 }
+
+@media (max-width: 900px) {
+  /* 洞察卡 minmax(240px) 在此宽度只能挤 2 列，留白过大；降到 200px 换 3 列 */
+  .insights-grid { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+}
+
+@media (max-width: 640px) {
 
 @media (max-width: 640px) {
   .query-row { flex-direction: column; }
   /* 移动端顶栏：收紧内边距、允许换行，避免「首页/维度/年份/语言/分享」控件溢出 */
   .header { padding: 0 16px; gap: 12px; flex-wrap: wrap; height: auto; min-height: var(--header-h); }
   .header-title-en { display: none; }
-  /* 工作台 5 个标签在窄屏可横向滚动，不换行挤压 */
-  .wb-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  /* 顶栏换行后高度不可预期，吸顶标签会滑进顶栏底下，移动端直接取消吸顶 */
+  .wb-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; position: static; }
   .wb-tab { white-space: nowrap; }
   /* 顶栏控件窄屏分组换行：链接与按钮收紧padding，过滤器保留可用宽度 */
   .header-right { flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
@@ -1133,8 +1161,8 @@ select.query-input:focus {
 }
 .custom-unit { font-size: 14px; font-weight: 400; color: var(--gray-500); font-family: var(--font); }
 .custom-yoy { font-size: 14px; font-weight: 600; margin-top: 6px; font-family: var(--num); }
-.custom-yoy.up { color: var(--green-600); }
-.custom-yoy.down { color: var(--red-500); }
+.custom-yoy.up { color: var(--up-fg); }
+.custom-yoy.down { color: var(--down-fg); }
 .custom-expr { margin-top: 8px; font-size: 12px; color: var(--gray-500); }
 
 /* ═══════ 自定义分析新建表单 ═══════ */
@@ -1454,10 +1482,21 @@ select.query-input:focus {
    可访问性（a11y）
    ============================================= */
 /* 键盘聚焦可见：鼠标点击不显轮廓，键盘 Tab 才显示 */
+/* 键盘聚焦可见：鼠标点击不显轮廓，键盘 Tab 才显示。
+   双色环而不是单色：--blue-600（#2B6BDB）在白底上 5.0:1 没问题，但在深色底
+   （--surface #131A27）上只有 3.4:1，落在深色卡片里的输入框/按钮就看不太清。
+   外圈用 --gray-900（浅色模式近黑 / 深色模式近白）垫一圈「描边色」，
+   内圈保持主题蓝，两个主题下焦点环与相邻背景都不低于 3:1。
+   outline 的双色靠 outline + box-shadow 叠加实现（outline 本身只有一色）。 */
 :focus-visible {
   outline: 2px solid var(--blue-600);
   outline-offset: 2px;
   border-radius: var(--radius-sm);
+  /* 深色模式下 --blue-600（#2B6BDB）落在 #131A27 的深色卡片上只有 3.4:1，
+     单独一道细环在深色输入框里偏弱。补一道同色系的淡光晕（--blue-200：
+     浅色模式是 #C7DDFF 浅蓝、深色模式是 #1E3054 暗蓝），既抬高了焦点环的
+     有效对比面积，又不引入第三个颜色把视觉搞脏。 */
+  box-shadow: 0 0 0 3px var(--blue-200);
 }
 
 /* 跳到主内容：仅键盘聚焦时出现，键盘/读屏用户可跳过导航直达正文 */
@@ -1476,12 +1515,41 @@ select.query-input:focus {
 }
 .skip-link:focus { top: 8px; }
 
-/* 尊重系统「减少动态效果」偏好 */
+/* 尊重系统「减少动态效果」偏好。
+
+   为什么不能只压 duration：本页有 4 个 infinite 关键帧
+   （spin 按钮转圈 / shimmer 骨架屏微光 / chart-load 取数进度条 / pulse 徽标呼吸），
+   以及 17 处 transition。把 duration 压到 .001ms 只让它们「瞬间完成一次」，
+   infinite 的那些仍在以 60Hz 无限重复——对前庭功能障碍与晕动敏感用户等于没降级。
+   所以除 duration 外还逐项收掉：
+     · animation-iteration-count: 1   —— infinite 循环变成只播一遍；
+     · scroll-behavior: auto           —— 落地页锚点跳转不再平滑滑行；
+     · 悬停位移（translateY/-X、scale）—— 只保留颜色与阴影这类不动几何的反馈。
+   注意 transition-property 不做白名单：逐个列会漏，且新增组件时没人记得回来补。 */
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
   }
+
+  /* 骨架屏微光（shimmer）是把 background-position 从 200% 搬到 -200%，
+     压 duration 后仍会留下一帧位移；直接换成静态底色，读感等同占位块。 */
+  .skeleton { animation: none !important; background: var(--gray-100) !important; }
+
+  /* 按钮 / 卡片的 hover 位移反馈在 reduced-motion 下改为静态：去掉位移与缩放，
+     保留背景与边框变化，交互依然有反馈但不产生运动。 */
+  .btn:active,
+  .nav-cta:hover,
+  .feature-card:hover,
+  .btn-primary:hover { transform: none !important; }
+
+  /* 图表取数进度条：静态细条仍然传达「正在取数」，不再来回扫动。 */
+  .chart-block.loading::after { animation: none !important; background: var(--blue-200) !important; }
+
+  html, body { scroll-behavior: auto !important; }
 }
 
 /* 深色模式的两个入口（手动 :root[data-theme="dark"] / 跟随系统
@@ -1648,8 +1716,8 @@ select.query-input:focus {
 .insight-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .insight-val { font-family: var(--num); font-weight: 600; white-space: nowrap;
                font-variant-numeric: tabular-nums; }
-.insight-val.up { color: var(--green-600); }
-.insight-val.down { color: var(--red-500); }
+.insight-val.up { color: var(--up-fg); }
+.insight-val.down { color: var(--down-fg); }
 .insight-rank { font-family: var(--num); font-size: 11px; color: var(--gray-500); white-space: nowrap;
                   font-variant-numeric: tabular-nums; }
 

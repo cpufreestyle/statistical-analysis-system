@@ -175,11 +175,11 @@ function renderRecentQueries() {
   if (!list.length) { box.hidden = true; chips.innerHTML = ''; return; }
   box.hidden = false;
   chips.innerHTML = list.map(function (q) {
+    /* Enter/Space 激活由 document 级委托统一处理，这里不再写 onkeydown */
     return '<span class="suggestion-chip recent-chip" role="button" tabindex="0"'
       + ' data-q="' + a(q) + '" title="' + a(q) + '"'
-      + ' onclick="fillQuery(this.dataset.q);runAnalyze()"'
-      + ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();'
-      + 'fillQuery(this.dataset.q);runAnalyze();}">' + h(q) + '</span>';
+      + ' onclick="fillQuery(this.dataset.q);runAnalyze()">'
+      + h(q) + '</span>';
   }).join('');
 }
 
@@ -189,7 +189,11 @@ function renderRecentQueries() {
   document.querySelectorAll('.wb-tab').forEach(btn => {
     /* 只做转发：激活态、懒加载、分享链接同步都写在 switchTab() 里一份，
        两边各写一遍必然漂移（这里此前就重复过一整套 class 切换）。 */
-    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    btn.addEventListener('click', () => {
+      switchTab(btn.dataset.tab);
+      /* 鼠标点击也要同步 roving tabindex，否则 Tab 序与 aria-selected 脱节 */
+      document.querySelectorAll('.wb-tab').forEach(t => t.setAttribute('tabindex', t === btn ? '0' : '-1'));
+    });
   });
 
   /* WAI-ARIA tablist 键盘导航：ArrowLeft/Right + Home/End，roving tabindex */
@@ -216,6 +220,18 @@ function renderRecentQueries() {
       t.setAttribute('tabindex', i === 0 ? '0' : '-1');
     });
   }
+
+  /* role="button" 元素（示例问题、快捷卡片、侧栏折叠头、最近提问）的键盘激活：
+     Enter / Space 统一走 click，一条委托覆盖静态与动态生成的元素 */
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    var t = e.target;
+    if (!(t instanceof Element) || !t.matches('[role="button"]')) return;
+    e.preventDefault();
+    t.click();
+  });
+
+  initStickyTabs();
   loadOverview();
   /* 不在这里预取自定义分析下拉：loadCustomList() 在自定义分析分块里，首访就调
      会 ReferenceError（其实现已按需加载）。首次打开该 tab 时 initCustom() 会
@@ -420,17 +436,24 @@ function metricsSkeleton(n) {
   return new Array(n || 8).fill(one).join('');
 }
 
+/* 竞态令牌：快速切换年份/维度时旧响应可能后到，序号不等于最新值的响应一律丢弃 */
+var _overviewSeq = 0;
+
 async function loadOverview() {
   const grid = document.getElementById('metricsGrid');
   if (!grid) return;
+  const seq = ++_overviewSeq;
+  grid.setAttribute('aria-busy', 'true');
   if (!grid.querySelector('.metric-card')) {
-    grid.setAttribute('aria-busy', 'true');
     grid.innerHTML = metricsSkeleton(8);
   }
   try {
     const r = await fetch(API + '/api/overview?year=' + enc(STATE.year) + '&dimension=' + enc(STATE.dimension) + '&' + langQ());
     const d = await r.json();
-    if (d.dimension) STATE.dimension = d.dimension;
+    if (seq !== _overviewSeq) return;
+    /* STATE 只存规范键（dimension_key）：本地化标签跨语言不稳定，回写会让下拉框
+       在下一次填充时匹配不到选中项而静默重置；标签只进 DOM，不进状态。 */
+    if (d.dimension_key) STATE.dimension = d.dimension_key;
     if (d.year) STATE.year = String(d.year);
 
     updateShareUrl();   // 状态已就绪，同步一次分享链接
@@ -460,8 +483,7 @@ async function loadOverview() {
     grid.removeAttribute('aria-busy');
     // 卡片字段全部来自服务端本地化结果，前端不再做数据词条替换
     if (!(d.cards || []).length) {
-      /* 空视图不能是死路：给出切回亚太聚合口径的出口（旧分享链接 / 无数据维度）。
-         判重用 dimension_key——STATE.dimension 存的是本地化标签，跨语言不可靠。 */
+      /* 空视图不能是死路：给出切回亚太聚合口径的出口（旧分享链接 / 无数据维度） */
       var back = (d.dimension_key || STATE.dimension) !== '亚太'
         ? ' <button type="button" class="btn btn-secondary" onclick="syncDimension(\'亚太\')">'
           + h(tr('切换到亚太')) + '</button>'
@@ -479,13 +501,14 @@ async function loadOverview() {
         </div>
         <div class="metric-value" title="${a(c.value)}">${h(compactNum(c.value))}<span class="metric-unit">${h(c.unit || '')}</span></div>
         <div class="metric-footer">
-          ${c.yoy ? `<span class="metric-change">${h(tr('同比'))} ${h(c.yoy)}</span>` : ''}
+          ${c.yoy && c.yoy !== '—' ? `<span class="metric-change">${h(tr('同比'))} ${h(c.yoy)}</span>` : ''}
           <span class="metric-spark" aria-hidden="true"></span>
         </div>
         <div class="metric-src" title="${a(c.note || '')}">${h(c.note || '')}</div>
       </div>`).join('');
     loadSparks(d.dimension_key || STATE.dimension, d.cards || []);
   } catch (e) {
+    if (seq !== _overviewSeq) return;
     grid.removeAttribute('aria-busy');
     grid.innerHTML = '<div class="metric-card" style="grid-column:1/-1">' + emptyState('alert', tr('加载失败'),
         tr('网络或服务端异常，请稍后重试；若持续失败请联系管理员')) + '</div>';
@@ -503,20 +526,25 @@ function insightsSkeleton() {
   return new Array(3).fill(one).join('');
 }
 
+var _insightsSeq = 0;
+
 async function loadInsights() {
   var grid = document.getElementById('insightsGrid');
   if (!grid) return;
+  var seq = ++_insightsSeq;
+  grid.setAttribute('aria-busy', 'true');
   if (!grid.querySelector('.insight-card')) {
-    grid.setAttribute('aria-busy', 'true');
     grid.innerHTML = insightsSkeleton();
   }
   try {
     var r = await fetch(API + '/api/insights?year=' + enc(STATE.year)
       + '&dimension=' + enc(STATE.dimension) + '&' + langQ());
     var d = await r.json();
+    if (seq !== _insightsSeq) return;
     grid.removeAttribute('aria-busy');
     grid.innerHTML = renderInsights(d);
   } catch (e) {
+    if (seq !== _insightsSeq) return;
     grid.removeAttribute('aria-busy');
     grid.innerHTML = '<div class="insight-card" style="grid-column:1/-1">'
       + emptyState('alert', tr('加载失败'),
@@ -567,7 +595,7 @@ function renderInsights(d) {
         var cls = s.delta > 0 ? 'up' : (s.delta < 0 ? 'down' : '');
         var arrow = s.delta > 0 ? '▲' : (s.delta < 0 ? '▼' : '—');
         return '<div class="insight-row"><span class="insight-name">' + h(s.dimension) + '</span>'
-          + '<span class="insight-rank">' + s.rank_prev + ' → ' + s.rank_now + '</span>'
+          + '<span class="insight-rank">' + h(s.rank_prev) + ' → ' + h(s.rank_now) + '</span>'
           + '<span class="insight-val ' + cls + '">' + arrow + ' ' + Math.abs(s.delta) + '</span></div>';
       }).join('')
     : emptyState('medal', tr('暂无洞察'),
@@ -631,7 +659,7 @@ async function runAnalyze() {
     renderRecentQueries();
     showToast(tr('分析完成'), 'success');
   } catch (e) {
-    el.innerHTML = '<div style="color:var(--red-500)">' + tr('请求失败') + ': ' + h(e) + '</div>';
+    el.innerHTML = '<div style="color:var(--down-fg)">' + tr('请求失败') + ': ' + h(e) + '</div>';
     showToast(tr('请求失败'), 'error');
   } finally {
     el.removeAttribute('aria-busy');
@@ -654,7 +682,9 @@ function renderAsk(d) {
   var jsep = isZh() ? '； ' : '; ';
   var lsep = isZh() ? '、' : ', ';
   for (var k in d) {
-    if (k === '知识库参考' || k === 'AI 解读' || k === 'kb_reference' || k === 'ai_interpretation') continue;
+    /* cached/task_id/console_url 是服务端控制字段：分别由缓存徽标与 ai-foot 展示，不能当结果行渲染 */
+    if (k === '知识库参考' || k === 'AI 解读' || k === 'kb_reference' || k === 'ai_interpretation'
+      || k === 'cached' || k === 'task_id' || k === 'console_url') continue;
     var v = d[k];
     var kk = tr(k);
     if (Array.isArray(v) && v.length) {
@@ -877,10 +907,33 @@ function refreshLang() {
   if (shEl && !shEl.hidden && typeof renderHelp === 'function') renderHelp();
 }
 
+/* ───── 标签栏吸顶态 ─────
+   .wb-tabs 是 sticky（top: --header-h）。CSS 无法表达「我现在正贴着呢」，
+   而吸顶瞬间需要一条阴影把标签栏与它压住的内容分层（.wb-tabs.is-stuck）。
+   用一个哨兵元素贴在 .wb-tabs 上方：哨兵离开视口 = 标签栏已吸顶。
+   比 scroll 监听省（不用每帧回调），也比 position: sticky 的伪类探测可靠。
+   不支持 IntersectionObserver 的旧浏览器退化为不加阴影，纯观感损失。 */
+function initStickyTabs() {
+  var tabs = document.querySelector('.wb-tabs');
+  if (!tabs || typeof IntersectionObserver !== 'function') return;
+  /* 哨兵必须是 tabs 的前一个兄弟：插到 tabs 前面会让 flex 布局多出一个子节点 */
+  var sentinel = tabs.previousElementSibling;
+  if (!sentinel || sentinel.dataset.stickySentinel) return;
+  sentinel.dataset.stickySentinel = '1';
+  var io = new IntersectionObserver(function (entries) {
+    /* rootMargin 顶部收掉 header 高度：哨兵的上边越过导航下沿才算「吸顶」 */
+    entries.forEach(function (en) {
+      tabs.classList.toggle('is-stuck', !en.isIntersecting);
+    });
+  }, { rootMargin: 'calc(var(--header-h) * -1) 0px 0px 0px', threshold: 0 });
+  io.observe(sentinel);
+}
+
 /* ═══════ 侧边栏卡片折叠 ═══════ */
 function toggleSidebarCard(headerEl) {
   var card = headerEl.closest('.side-card');
   card.classList.toggle('collapsed');
+  headerEl.setAttribute('aria-expanded', card.classList.contains('collapsed') ? 'false' : 'true');
 }
 
 /* ═══════ 主题：跟随系统 / 浅色 / 深色 ═══════
@@ -947,11 +1000,15 @@ function initTheme() {
    卡片只展示当前年数值；这里用一次公开接口取该经济体的跨年序列，在每张卡
    footer 右侧画 72×22 折线（纯装饰，对读屏隐藏，title 给出起止值与单位）。
    取数失败完全静默——趋势是增强信息，不能影响卡片本身。 */
+var _sparkSeq = 0;
+
 async function loadSparks(dimKey, cards) {
+  var seq = ++_sparkSeq;
   try {
     if (!dimKey || !cards || !cards.length) return;
     var r = await fetch(API + '/api/indicators?dimension=' + enc(dimKey) + '&' + langQ());
     var rows = await r.json();
+    if (seq !== _sparkSeq) return;   // 维度已切换，过期序列不能画进新卡片
     if (!Array.isArray(rows) || !rows.length) return;
     var series = {};
     rows.forEach(function (row) {

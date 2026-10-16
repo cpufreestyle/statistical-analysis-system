@@ -1106,3 +1106,55 @@ def test_kv_restore_failure_falls_back_to_offline_seed(
     messages = [r.getMessage() for r in caplog.records]
     assert any(m.startswith("kv restore skipped") for m in messages), messages
     assert "亚太" in _dimensions()
+
+
+# ---------------------------------------------------------------------------
+# 审核修复回归：knowledge 写鉴权 / 报告 Content-Type / 令牌仅走请求头
+# ---------------------------------------------------------------------------
+def test_knowledge_write_requires_admin(monkeypatch, client):
+    """知识库 GET 公开，POST/DELETE 必须过管理鉴权（外部可写内容会被公报/云端通道放大）。"""
+    from src import web
+
+    monkeypatch.setattr(web, "_IS_SERVERLESS", True)
+    monkeypatch.setattr(web, "_ADMIN_TOKEN", "")
+    assert client.get("/api/knowledge").status_code == 200
+    assert client.post("/api/knowledge", json={"title": "t", "content": "c"}).status_code == 403
+    assert client.delete("/api/knowledge?id=1").status_code == 403
+
+
+def test_report_text_is_plain_not_html(client):
+    """文本公报必须以 text/plain 下发：知识条目会拼进正文，text/html 即存储型 XSS 落点。"""
+    resp = client.get("/api/report")
+    assert resp.status_code == 200
+    assert resp.mimetype == "text/plain"
+
+
+def test_admin_token_header_only(monkeypatch, client):
+    """管理令牌只认 X-Admin-Token 请求头；?token= 会落访问日志/Referer，不再放行。"""
+    from src import web
+
+    monkeypatch.setattr(web, "_IS_SERVERLESS", True)
+    monkeypatch.setattr(web, "_ADMIN_TOKEN", "s3cret")
+    assert client.get("/api/db?token=s3cret").status_code == 403
+    assert client.get("/api/db", headers={"X-Admin-Token": "s3cret"}).status_code == 200
+
+
+def test_kv_status_does_not_echo_secret_fragments(monkeypatch, client):
+    """kv-status 只回布尔，不回密钥前缀片段。"""
+    from src import web
+
+    monkeypatch.setattr(web, "_IS_SERVERLESS", True)
+    monkeypatch.setattr(web, "_ADMIN_TOKEN", "s3cret")
+    resp = client.get("/api/kv-status", headers={"X-Admin-Token": "s3cret"})
+    assert resp.status_code == 200
+    for v in resp.get_json()["env_vars"].values():
+        assert isinstance(v, bool)
+
+
+def test_infini_skill_hides_local_details(client):
+    """公开端点不得回显 CLI 绝对路径与 task context 原始输出。"""
+    resp = client.get("/api/infini_skill")
+    assert resp.status_code == 200
+    d = resp.get_json()
+    assert isinstance(d["cli"], bool)
+    assert "context" not in d["preflight"]

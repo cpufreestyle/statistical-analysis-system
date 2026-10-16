@@ -19,6 +19,18 @@ _INDICATORS_KV_KEY = "qu_stat_ap:indicators"
 _KNOWLEDGE_KV_KEY = "qu_stat_ap:knowledge"
 
 
+def _valid_indicator_row(r: object) -> bool:
+    """KV 行结构校验：坏数据一律拒收，避免「恢复整体失败回落种子数据」。"""
+    return (isinstance(r, dict)
+            and isinstance(r.get("year"), int)
+            and bool(str(r.get("category", "")).strip())
+            and bool(str(r.get("indicator", "")).strip())
+            and bool(str(r.get("dimension", "")).strip())
+            and r.get("value") is not None
+            and isinstance(r.get("value"), (int, float, str))
+            and str(r.get("value")).strip() != "")
+
+
 def restore_from_kv() -> bool:
     """从 KV 恢复数据到 SQLite。KV 有数据时覆盖示例数据，实现持久化。"""
     if not kv_available():
@@ -29,12 +41,14 @@ def restore_from_kv() -> bool:
     init_db()
     any_restored = False
 
-    # 1) 恢复 indicators
+    # 1) 恢复 indicators：先校验行结构、只剩有效行才动表；
+    #    恢复的数据本就来自 KV 全量快照，upsert 不再回写 KV（sync_kv=False）
     data = kv_get_json(_INDICATORS_KV_KEY)
-    if data and isinstance(data, list) and len(data) > 0:
+    rows = [r for r in data if _valid_indicator_row(r)] if isinstance(data, list) else []
+    if rows:
         with engine.begin() as conn:
             conn.execute(INDICATORS.delete())
-        upsert_indicators(data)  # type: ignore[arg-type]
+        upsert_indicators(rows, sync_kv=False)  # type: ignore[arg-type]
         any_restored = True
 
     # 2) 恢复 knowledge

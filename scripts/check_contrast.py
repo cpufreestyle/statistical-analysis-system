@@ -161,6 +161,23 @@ def collect_pairs() -> list[tuple[str, str, str, int, int]]:
     return pairs
 
 
+#: 自动扫描只能覆盖「同一条规则里同时写 color 与 background」的配对。纯前景规则
+#: （涨跌值、错误提示——底色来自父级卡片/页面）与白字彩底（toast 底色在变体规则里、
+#: 文字色在基类里）都落在盲区，这里手工登记；背景取组件的真实落点。
+#: 字号/字重沿用与扫描相同的口径：查不到按 0（从严按普通文本 4.5:1）。
+EXTRA_PAIRS: list[tuple[str, str, str, int, int]] = [
+    ("var(--up-fg)", "var(--surface)", ".metric-change.up", 12, 600),
+    ("var(--down-fg)", "var(--surface)", ".metric-change.down", 12, 600),
+    ("var(--up-fg)", "var(--surface)", ".custom-yoy.up", 14, 600),
+    ("var(--down-fg)", "var(--surface)", ".custom-yoy.down", 14, 600),
+    ("var(--up-fg)", "var(--surface)", ".insight-val.up", 0, 600),
+    ("var(--down-fg)", "var(--surface)", ".insight-val.down", 0, 600),
+    ("var(--down-fg)", "var(--surface)", ".recent-clear:hover", 11, 400),
+    ("#ffffff", "var(--up-bg)", ".toast.success", 13, 500),
+    ("#ffffff", "var(--down-bg)", ".toast.error", 13, 500),
+]
+
+
 def main() -> int:
     theme = THEME_CSS.read_text(encoding="utf-8")
     entries = [(label, parse_tokens(_block(theme, opener))) for label, opener in THEME_BLOCKS]
@@ -169,7 +186,7 @@ def main() -> int:
         print(f"[ERR ] theme.css 找不到主题入口：{missing_block}")
         return 2
 
-    pairs = collect_pairs()
+    pairs = collect_pairs() + EXTRA_PAIRS
     if not pairs:
         print("[ERR ] 没有扫到任何前景/背景配对，脚本本身可能坏了")
         return 2

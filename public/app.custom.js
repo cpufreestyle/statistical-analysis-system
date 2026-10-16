@@ -34,11 +34,11 @@ async function runCustom() {
     var r = await fetch(API + '/api/custom?name=' + enc(sel.value) + '&year=' + enc(STATE.year) + '&' + langQ());
     var d = await r.json();
     if (d.error) {
-      el.innerHTML = '<div class="rk" style="color:var(--red-500)">' + h(d.error) + '</div>';
+      el.innerHTML = '<div class="rk" style="color:var(--down-fg)">' + h(d.error) + '</div>';
       return;
     }
     el.innerHTML = '<div class="custom-card">'
-      + '<div class="custom-value" title="' + a(d.value) + '">' + (d.value !== undefined && d.value !== null ? compactNum(d.value) : '—')
+      + '<div class="custom-value" title="' + a(d.value) + '">' + (d.value !== undefined && d.value !== null ? h(compactNum(d.value)) : '—')
       + (d.unit ? ' <span class="custom-unit">' + h(tr(d.unit)) + '</span>' : '') + '</div>'
       + (d.yoy !== undefined ? '<div class="custom-yoy ' + (d.yoy >= 0 ? 'up' : 'down') + '">'
           + (d.yoy >= 0 ? '▲' : '▼') + ' ' + tr('同比') + ' ' + d.yoy + '%</div>' : '')
@@ -46,7 +46,7 @@ async function runCustom() {
       + '</div>';
     showToast(tr('分析完成'), 'success');
   } catch (e) {
-    el.innerHTML = '<div style="color:var(--red-500)">' + tr('请求失败') + '</div>';
+    el.innerHTML = '<div style="color:var(--down-fg)">' + tr('请求失败') + '</div>';
   } finally {
     el.removeAttribute('aria-busy');
     btn.classList.remove('loading');
@@ -74,7 +74,11 @@ function fillExpr(kind) {
   document.getElementById('customExpr').value = map[kind] || '';
 }
 
+/* 在途标志：按钮经由 tabAction 调用拿不到引用，双击期间直接拒收第二次提交 */
+var _savingCustom = false;
+
 async function saveCustom() {
+  if (_savingCustom) return;
   var name = document.getElementById('customName').value.trim();
   var expr = document.getElementById('customExpr').value.trim();
   if (!name || !expr) { showToast(tr('名称和表达式必填'), 'error'); return; }
@@ -100,6 +104,7 @@ async function saveCustom() {
     compare: document.getElementById('customCmp').checked,
     variables: vars
   };
+  _savingCustom = true;
   try {
     var r = await fetch(API + '/api/custom?' + langQ(), {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
@@ -114,6 +119,8 @@ async function saveCustom() {
     }
   } catch (e) {
     showToast(tr('保存失败') + ': ' + e, 'error');
+  } finally {
+    _savingCustom = false;
   }
 }
 /* ───── 打开本面板时由 core 的 openTab('custom') 调用 ─────

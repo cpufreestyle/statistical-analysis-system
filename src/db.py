@@ -350,8 +350,11 @@ def _upsert_on_conflict(rows: list[IndicatorRow]) -> bool:
     return True
 
 
-def upsert_indicators(rows: list[IndicatorRow]) -> int:
+def upsert_indicators(rows: list[IndicatorRow], sync_kv: bool = True) -> int:
     """批量写入指标；相同 (year,category,indicator,dimension) 覆盖更新。
+
+    ``sync_kv=False``：KV 恢复路径（kv_sync.restore_from_kv）用它跳过
+    「恢复完又把同一份数据全量回写 KV」的多余往返。
 
     SQLite 且唯一索引可用时走**单条** ``INSERT ... ON CONFLICT DO UPDATE`` 的
     ``executemany``（一次编译、N 次绑定）；其余情况逐行「删除+插入」，
@@ -373,7 +376,8 @@ def upsert_indicators(rows: list[IndicatorRow]) -> int:
     if use_conflict:
         try:
             if _upsert_on_conflict(rows):
-                _sync_indicators_to_kv()
+                if sync_kv:
+                    _sync_indicators_to_kv()
                 return len(rows)
         except Exception:  # noqa: BLE001 - 整批冲突升级时回退逐行
             pass
@@ -389,7 +393,8 @@ def upsert_indicators(rows: list[IndicatorRow]) -> int:
                 )
             )
             conn.execute(INDICATORS.insert().values(**r))
-    _sync_indicators_to_kv()
+    if sync_kv:
+        _sync_indicators_to_kv()
     return len(rows)
 
 

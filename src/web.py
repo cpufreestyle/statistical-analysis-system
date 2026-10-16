@@ -10,6 +10,7 @@ import base64
 import hashlib
 import hmac
 import json
+import logging
 import os as _os
 import time
 import gzip as _gzip
@@ -181,9 +182,12 @@ def _render_page(html: str) -> str:
 
 
 def _admin_denied():
-    """管理端点鉴权：返回 ``(响应, 403)`` 表示拒绝，返回 ``None`` 表示放行。"""
+    """管理端点鉴权：返回 ``(响应, 403)`` 表示拒绝，返回 ``None`` 表示放行。
+
+    令牌只认请求头 ``X-Admin-Token``——查询参数会落进访问日志与 Referer。
+    """
     if _ADMIN_TOKEN:
-        supplied = request.headers.get("X-Admin-Token") or request.args.get("token") or ""
+        supplied = request.headers.get("X-Admin-Token") or ""
         if hmac.compare_digest(supplied, _ADMIN_TOKEN):
             return None
         return jsonify({"ok": False, "error": "admin token required"}), 403
@@ -777,10 +781,8 @@ def api_kv_status():
             "UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN",
             "QU_STAT_REDIS_URL", "QU_STAT_REDIS_TOKEN",
             "REDIS_URL", "REDIS_HOST"]
-    env_status: dict[str, object] = {}
-    for k in keys:
-        v = _os2.environ.get(k)
-        env_status[k] = (v[:10] + "…" if len(v) > 10 else "***") if v else None
+    # 只回是否配置（布尔），不回内容片段——前缀泄漏也是泄漏
+    env_status: dict[str, object] = {k: bool(_os2.environ.get(k)) for k in keys}
 
     status: dict[str, object] = {
         "available": kv_available(),
@@ -798,8 +800,13 @@ def api_kv_status():
 
 @app.route("/api/knowledge", methods=["GET", "POST", "DELETE"])
 def api_knowledge():
+    """查询公开；写操作（POST/DELETE）落库并同步 KV，必须过管理鉴权——
+    不然任何访客都能改写知识库内容，还会经公报的云端解读通道注入 prompt。"""
     init_db()
     if request.method == "POST":
+        denied = _admin_denied()
+        if denied is not None:
+            return denied
         d = request.get_json(force=True) or {}
         title = str(d.get("title", "")).strip()
         content = str(d.get("content", "")).strip()
@@ -811,6 +818,9 @@ def api_knowledge():
         )
         return jsonify({"ok": True, "id": kid})
     if request.method == "DELETE":
+        denied = _admin_denied()
+        if denied is not None:
+            return denied
         kid = request.args.get("id", type=int)
         if kid is None:
             return jsonify({"ok": False, "error": "缺少 id"}), 400
@@ -980,8 +990,11 @@ def api_ask():
             local["cached"] = True
         return jsonify(labels.localize_payload(local, lang))
     except AgentInfiniError as e:
-        local["注"] = (f"Cloud analysis failed: {e}" if lang == "en"
-                       else f"云端分析失败：{e}")
+        # 详情（含上游响应体片段）只进日志；回给终端用户的「注」用通用文案，
+        # 避免 provider 异常文本把内部端点/配置细节带给访客
+        logging.getLogger(__name__).warning("cloud analysis failed: %s", e)
+        local["注"] = ("Cloud analysis is unavailable right now, please retry later." if lang == "en"
+                       else "云端解读暂时不可用，请稍后重试。")
         return jsonify(labels.localize_payload(local, lang))
 
 
@@ -996,8 +1009,11 @@ def api_report():
         built = report.build_report(year, use_cloud=use_cloud,
                                     dimension=dimension, lang=lang)
         return jsonify(labels.localize_payload(built, lang))
-    return report.generate_report(year, use_cloud=use_cloud,
-                                  dimension=dimension, lang=lang)
+    # 纯文本报告必须显式声明 text/plain：知识库条目（外部可写内容）会拼进正文，
+    # Flask 默认 text/html 会把它变成存储型 XSS 的落点
+    txt = report.generate_report(year, use_cloud=use_cloud,
+                                 dimension=dimension, lang=lang)
+    return Response(txt, mimetype="text/plain; charset=utf-8")
 
 
 @app.route("/api/indicator_keys")
@@ -1062,12 +1078,16 @@ def api_infini_skill():
     db_ids = [x for x in (request.args.get("db") or "").split(",") if x.strip()]
     rag_ids = [x for x in (request.args.get("rag") or "").split(",") if x.strip()]
     creds = infini_skill.skill_credentials()
+    pre = infini_skill.preflight(db_ids, rag_ids)
+    # CLI 绝对路径与 task context 原始输出可能带本机细节，不回给公开访客
+    pre.pop("context", None)
+    pre["cli"] = bool(infini_skill.resolve_cli_path())
     return jsonify({
         "skill": infini_skill.SKILL_NAME,
         "config_found": bool(creds.get("server") or creds.get("api_key")),
-        "cli": infini_skill.resolve_cli_path(),
+        "cli": bool(infini_skill.resolve_cli_path()),
         "workflow": infini_skill.recommended_workflow(),
-        "preflight": infini_skill.preflight(db_ids, rag_ids),
+        "preflight": pre,
     })
 
 @app.route("/api/ai-cache")

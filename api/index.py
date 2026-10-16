@@ -21,16 +21,19 @@ try:
 
     # 冷启动时创建表：优先从 KV 恢复持久化数据，否则播种亚太示例数据
     _ensure_data()
-except Exception as _e:
-    # 初始化失败时记录详情但不阻断启动，以便看到错误信息
+except Exception:
+    # 详情（堆栈含绝对路径与环境信息）只进运行日志，不回给访客；
+    # Vercel 的函数日志面板里能看到完整原因
+    import logging
     import traceback
-    _tb = traceback.format_exc()
+    logging.getLogger(__name__).error("startup failed:\n%s", traceback.format_exc())
     from flask import Flask as _Flask
     app = _Flask(__name__)
+
     @app.route("/")
     @app.route("/<path:path>")
     def _startup_error(path: str = "") -> str:
-        return f"<pre>Startup Error:\n{_tb}\n\n{_e}</pre>", 500
+        return ("Service temporarily unavailable. / 服务暂时不可用，请稍后重试。"), 500
 
 # Vercel 需要的 WSGI 入口
 application = app

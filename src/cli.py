@@ -91,7 +91,8 @@ def main():
     sp_custom.add_argument("--engine", default=None, choices=["python", "sql"],
                            help="计算引擎（默认 python；可用 QU_STAT_CUSTOM_ENGINE 切换 sql）")
     sp_web = sub.add_parser("web", help="启动 Web 看板")
-    sp_web.add_argument("--host", default="0.0.0.0", help="绑定地址（默认 0.0.0.0 便于云端/容器外部访问）")
+    # 默认只绑本机：服务里有管理/写入口，对局域网开放需要显式 --host 0.0.0.0
+    sp_web.add_argument("--host", default="127.0.0.1", help="绑定地址（默认 127.0.0.1；容器/云端部署请显式传 0.0.0.0）")
     sp_web.add_argument("--port", type=int, default=5000, help="监听端口（默认 5000）")
 
     # 数据库管理
@@ -203,7 +204,15 @@ def main():
         # 本地启动同样保证有真实数据与知识库（幂等，不会覆盖已有数据）
         _ensure_data()
         # debug=False 避免 Werkzeug 调试工具栏（依赖 getBoundingClientRect）在
-        # 嵌入式 WebView / 云端预览环境中报 null 引用；host 默认 0.0.0.0 便于外部访问。
+        # 嵌入式 WebView / 云端预览环境中报 null 引用。
+        # 对非本机开放时：管理端点在未配置 token 的本地模式下是放行的（fail-open），
+        # 必须显式提醒，避免「共享给同事看」顺带把清库/抓数入口暴露给整个局域网。
+        import os as _os
+        if args.host not in ("127.0.0.1", "localhost", "::1") \
+                and not _os.environ.get("QU_STAT_ADMIN_TOKEN", "").strip():
+            print("[warn] 绑定非回环地址且未设置 QU_STAT_ADMIN_TOKEN："
+                  "管理端点（/api/db、/api/reseed、/api/collect 等）对本网段开放。"
+                  "建议设置 token 或改用 --host 127.0.0.1。", flush=True)
         app.run(host=args.host, port=args.port, debug=False)
     elif args.cmd == "collect":
         init_db()

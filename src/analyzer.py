@@ -38,10 +38,18 @@ CONFIG_PATH = Path(__file__).resolve().parent.parent / "config.yaml"
 
 # Vercel / Serverless 等长连接受限环境：缩短超时，避免函数挂死。
 # A1：拆成 (连接超时, 读取超时)，连接阶段快速失败，读取阶段给足时间。
-_DEFAULT_TIMEOUT = int(os.environ.get("INFINI_TIMEOUT", "120"))
-_CONNECT_TIMEOUT = int(os.environ.get("INFINI_CONNECT_TIMEOUT", "5"))
+def _env_int(name: str, default: int) -> int:
+    """环境变量转 int；填了非数字只回退默认值，不能让整个应用在 import 期起不来。"""
+    try:
+        return int(str(os.environ.get(name, default)).strip())
+    except (TypeError, ValueError):
+        return default
+
+
+_DEFAULT_TIMEOUT = _env_int("INFINI_TIMEOUT", 120)
+_CONNECT_TIMEOUT = _env_int("INFINI_CONNECT_TIMEOUT", 5)
 #: A1：SSE 等待上限，默认与 Serverless 函数超时对齐（可用 INFINI_MAX_WAIT 覆盖）。
-_DEFAULT_MAX_WAIT = int(os.environ.get("INFINI_MAX_WAIT", "45"))
+_DEFAULT_MAX_WAIT = _env_int("INFINI_MAX_WAIT", 45)
 
 
 class AgentInfiniError(Exception):

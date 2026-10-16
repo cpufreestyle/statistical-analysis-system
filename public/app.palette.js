@@ -127,6 +127,9 @@ function paletteRender(q) {
   if (PAL.idx >= PAL.view.length) PAL.idx = 0;
   if (!PAL.view.length) {
     list.innerHTML = '<div class="palette-empty">' + h(tr('没有匹配的命令')) + '</div>';
+    /* 空视图时选项元素已不存在，残留的 aria-activedescendant 会指向悬空 id */
+    var inp0 = document.getElementById('paletteInput');
+    if (inp0) inp0.removeAttribute('aria-activedescendant');
     return;
   }
   var html = '', group = null;
@@ -237,16 +240,26 @@ function renderHelp() {
   box.innerHTML = html;
 }
 
+var _shortcutsLastFocus = null;
+
 function openShortcuts() {
   var el = document.getElementById('shortcuts');
   if (!el) return;
+  _shortcutsLastFocus = document.activeElement;
   renderHelp();
   el.hidden = false;
+  /* 焦点直接落进浮层，Tab 才从浮层内开始 */
+  var closeBtn = el.querySelector('.overlay-close, button');
+  if (closeBtn && closeBtn.focus) closeBtn.focus();
 }
 
 function closeShortcuts() {
   var el = document.getElementById('shortcuts');
   if (el) el.hidden = true;
+  if (_shortcutsLastFocus && _shortcutsLastFocus.focus) {
+    try { _shortcutsLastFocus.focus(); } catch (e) { /* 忽略 */ }
+  }
+  _shortcutsLastFocus = null;
 }
 
 /* 输入类控件聚焦时让位给控件本身，避免快捷键抢按键 */
@@ -254,6 +267,19 @@ function isTypingTarget(t) {
   if (!t) return false;
   var tag = String(t.tagName || '').toLowerCase();
   return tag === 'input' || tag === 'textarea' || tag === 'select' || t.isContentEditable === true;
+}
+
+/* 焦点陷阱：浮层打开时背景被锁滚，Tab 一旦跑出去焦点就回不来了；
+   把循环限制在容器内的可聚焦元素上 */
+function trapTab(e, container) {
+  var focusables = container.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+  if (!focusables.length) return;
+  e.preventDefault();
+  var i = Array.prototype.indexOf.call(focusables, e.target);
+  var next;
+  if (e.shiftKey) next = i <= 0 ? focusables.length - 1 : i - 1;
+  else next = (i === focusables.length - 1 || i < 0) ? 0 : i + 1;
+  focusables[next].focus();
 }
 
 function initShortcuts() {
@@ -266,8 +292,17 @@ function initShortcuts() {
     }
     if (k === 'Escape') {
       if (PAL.open) { closePalette(); return; }
-      var sh = document.getElementById('shortcuts');
-      if (sh && !sh.hidden) { closeShortcuts(); return; }
+      var sh0 = document.getElementById('shortcuts');
+      if (sh0 && !sh0.hidden) { closeShortcuts(); return; }
+      return;
+    }
+    if (k === 'Tab') {
+      var sh1 = document.getElementById('shortcuts');
+      if (sh1 && !sh1.hidden) { trapTab(e, sh1); return; }
+      if (PAL.open) {
+        var pal = document.getElementById('palette');
+        if (pal) trapTab(e, pal);
+      }
       return;
     }
     if (e.ctrlKey || e.metaKey || e.altKey) return;

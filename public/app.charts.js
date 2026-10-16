@@ -107,26 +107,33 @@ function chartBlocksLoading(on) {
   });
 }
 
+/* 竞态令牌：快速切换指标时旧响应可能后到，过期响应丢弃，避免 CHART.rows
+   与 CHART.currentKey 错位（图与标题各说各话） */
+var _chartSeq = 0;
+
 async function loadChartSeries() {
   var sel = document.getElementById('chartIndicator');
   if (!sel || !sel.value) {
+    _chartSeq++;
     CHART.currentKey = null; CHART.rows = []; CHART.unit = '';
     var cu0 = document.getElementById('chartUnit'); if (cu0) cu0.textContent = '';
     renderCharts(); return;
   }
+  var seq = ++_chartSeq;
   CHART.currentKey = sel.value;
   updateShareUrl();
   chartBlocksLoading(true);
   try {
     var r = await fetch(API + '/api/indicators?indicator=' + enc(sel.value) + '&' + langQ());
     var rows = await r.json();
+    if (seq !== _chartSeq) return;
     CHART.rows = rows || [];
     var u = '';
     for (var i = 0; i < CHART.rows.length; i++) { if (CHART.rows[i].unit) { u = CHART.rows[i].unit; break; } }
     CHART.unit = u;
     var cu = document.getElementById('chartUnit');
     if (cu) cu.textContent = u ? (isZh() ? '单位：' : 'Unit: ') + u : '';
-  } catch (e) { CHART.rows = []; }
+  } catch (e) { if (seq === _chartSeq) CHART.rows = []; }
   renderCharts();
   chartBlocksLoading(false);
 }
@@ -236,10 +243,11 @@ function attachLineTip(box, ctx) {
     return got;
   }
   function announce(got) {
-    live.textContent = String(got.year) + (ctx.unit ? ' ' + ctx.unit : '') + '：'
+    var zh = isZh();
+    live.textContent = String(got.year) + (ctx.unit ? ' ' + ctx.unit : '') + (zh ? '：' : ': ')
       + got.series.map(function (d) {
           return dimLabel(d) + ' ' + fmtNum(ctx.byDim[d][got.year]);
-        }).join('，');
+        }).join(zh ? '，' : ', ');
   }
   /* 键盘 / 聚焦时没有指针坐标，按该年份最高点的位置摆放浮层 */
   function placeAtColumn(i, got) {

@@ -10,6 +10,9 @@
    syncYear / syncDimension / fillSelect 留在 core：侧栏顶部的全局筛选与命令面板
    都在用它们，而它们是首屏能力、不等本分块加载。 */
 /* ═══════ 指标总表 ═══════ */
+/* 竞态令牌：筛选条件连续变化时旧响应可能后到，过期响应丢弃，避免表格与筛选条件错位 */
+var _indSeq = 0;
+
 async function loadIndicators() {
   var cat = (document.getElementById('indCat') || {}).value || '';
   var q = (document.getElementById('indSearch') || {}).value || '';
@@ -20,6 +23,7 @@ async function loadIndicators() {
     + '&' + langQ();
   var tb = document.querySelector('#indTable tbody');
   if (!tb) return;
+  var seq = ++_indSeq;
   /* 二次查询也给加载态：骨架 + aria-busy，避免「点了没反应」 */
   var indTable = document.getElementById('indTable');
   if (indTable) indTable.setAttribute('aria-busy', 'true');
@@ -29,6 +33,7 @@ async function loadIndicators() {
   try {
     var r = await fetch(u);
     var rows = await r.json();
+    if (seq !== _indSeq) return;
     var cnt = document.getElementById('indCount');
     if (cnt) cnt.textContent = rows.length ? rows.length + (isZh() ? ' 条' : ' rows') : '';
     if (!rows.length) {
@@ -50,7 +55,8 @@ async function loadIndicators() {
       + '</tr>'; }).join('');
     if (indTable) indTable.removeAttribute('aria-busy');
   } catch (e) {
-    tb.innerHTML = '<tr><td colspan="7" style="color:var(--red-500)">' + tr('加载失败') + '</td></tr>';
+    if (seq !== _indSeq) return;
+    tb.innerHTML = '<tr><td colspan="7" style="color:var(--down-fg)">' + tr('加载失败') + '</td></tr>';
     if (indTable) indTable.removeAttribute('aria-busy');
   }
 }

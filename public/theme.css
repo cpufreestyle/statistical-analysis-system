@@ -103,6 +103,15 @@
   --ok-bg: #ECFDF5;
   --ok-bd: #BBF7D0;
 
+  /* 涨跌 / 危险语义色：作为正文文字（涨跌值、错误提示）与 Toast 底色使用，
+     WCAG AA 普通文本要求 4.5:1。浅色取 700/600 级（白底 5.02 / 4.83）；
+     600/500 级原色在白底只有 3.30 / 3.76，只许用于 ≥3:1 的非文本场景。 */
+  --up-fg:   #15803D;
+  --down-fg: #DC2626;
+  /* Toast 底色：两个主题共用（深底浮层上白字 5.02 / 4.83，均达标） */
+  --up-bg:   #15803D;
+  --down-bg: #DC2626;
+
   /* 横向滚动容器的边缘阴影色（宽表「这里还能滑」的提示，见 style.css 的
      .data-table-wrap；阴影只在真有溢出时出现，纯 CSS 无需 JS） */
   --scroll-shadow: rgba(15, 23, 42, 0.16);
@@ -161,6 +170,10 @@
   --ok-bg: #0E2A1F;
   --ok-bd: #14532D;
 
+  /* 涨跌 / 危险文字：深底换 400 级亮色（#131A27 上 10.0 / 6.3） */
+  --up-fg:   #4ADE80;
+  --down-fg: #F87171;
+
   --scroll-shadow: rgba(0, 0, 0, 0.55);
 }
 
@@ -185,6 +198,24 @@
 
 html { -webkit-text-size-adjust: 100%; }
 body { -webkit-tap-highlight-color: transparent; }
+
+/* 滚动条细身化（Chromium / Safari 走 -webkit- 前缀，Firefox 走 scrollbar-width）。
+   默认滚动条在 Windows 上是一条粗灰边，与全站的细边框（1px --gray-200）不搭；
+   收窄到 10px 并用灰阶上色，hover 时略深提示可拖拽。
+   放在令牌文件而不是组件文件：两处需要它的地方（.data-table-wrap 宽表横向、
+   .palette-list / .help-dialog 浮层纵向）分属不同页面，令牌是唯一共同入口。 */
+* { scrollbar-width: thin; scrollbar-color: var(--gray-300) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--gray-300);
+  border-radius: 6px;
+  /* 内缩一圈做出「浮在内容上」的间隙，而不是贴着容器边 */
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--gray-400); background-clip: content-box; }
+::-webkit-scrollbar-corner { background: transparent; }
 
 /* 无 JS（或内联脚本被隐私模式挡住）时仍跟随系统；已显式选浅色则不进场。 */
 @media (prefers-color-scheme: dark) {
@@ -241,6 +272,10 @@ body { -webkit-tap-highlight-color: transparent; }
   --ok-fg: #4ADE80;
   --ok-bg: #0E2A1F;
   --ok-bd: #14532D;
+
+  /* 涨跌 / 危险文字：深底换 400 级亮色（#131A27 上 10.0 / 6.3） */
+  --up-fg:   #4ADE80;
+  --down-fg: #F87171;
 
   --scroll-shadow: rgba(0, 0, 0, 0.55);
   }

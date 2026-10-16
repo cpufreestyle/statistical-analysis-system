@@ -189,20 +189,14 @@ def run_custom_sql(a: cust.CustomAnalysis,
 
 
 def run_all_custom_sql(year: int, lang: str = "zh") -> list[dict[str, object]]:
-    """一次性跑完所有自定义分析；共享同一批 SQL 绑定，往返次数最小化。"""
+    """一次性跑完所有自定义分析。
+
+    曾在这里做「合并全部变量、一条 SQL 预绑定」的批取数，但返回值无人消费，
+    run_custom_sql 又各自重新绑定，批取数纯属一次额外的全表聚合开销——已删。
+    """
     items = cust.load_custom()
     if not items:
         return []
-    # 合并所有分析的变量去重后，一条 SQL 绑定全部（含需要的年份）
-    merged_vars: dict[str, list[str]] = {}
-    need_years: set[int] = {year}
-    for a in items:
-        for var, spec in a.get("variables", {}).items():
-            merged_vars.setdefault(var, spec)
-        if a.get("compare"):
-            need_years.add(year - 1)
-    bind_variables(merged_vars, sorted(need_years))  # 预热/共享（占位，保证单批取数）
-    # 逐项复用 run_custom_sql（其内部会再次绑定；合并批主要服务缓存型后端）
     return [run_custom_sql(a, year, lang) for a in items]
 
 

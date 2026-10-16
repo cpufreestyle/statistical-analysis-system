@@ -8,7 +8,9 @@
   - expr        表达式，可用变量名及 min/max/abs/round/sum
   - compare     是否计算同比(true/false)
 
-引擎把变量绑定为对应指标值后，在受限命名空间内求值，避免任意代码执行。
+引擎把变量绑定为对应指标值后，用 AST 白名单求值器计算表达式：
+只放行算术运算与 min/max/abs/round/sum/float/int，属性访问、下标、
+lambda 等一律拒绝，无任意代码执行面。
 """
 from __future__ import annotations
 
@@ -44,8 +46,6 @@ _SAFE_BUILTINS: dict[str, object] = {
     "min": min, "max": max, "abs": abs,
     "round": round, "sum": sum, "float": float, "int": int,
 }
-
-
 class CustomAnalysis(TypedDict, total=False):
     name: str
     name_en: str
@@ -66,9 +66,15 @@ _ERRORS: dict[str, dict[str, str]] = {
     "name_expr_required": {"zh": "name 与 expr 必填", "en": "name and expr are required"},
     "vars_required": {"zh": "variables 必须是非空对象",
                       "en": "variables must be a non-empty object"},
+    "vars_invalid": {"zh": "每个变量必须是 [专业, 指标, 维度(可选)] 的非空字符串列表",
+                     "en": "Each variable must be a list of [category, indicator, dimension(optional)] non-empty strings"},
     "expr_invalid": {"zh": "表达式无效：{err}", "en": "Invalid expression: {err}"},
     "duplicate": {"zh": "已存在同名分析：{name}",
                   "en": "An analysis with this name already exists: {name}"},
+    "too_long": {"zh": "名称或表达式过长（上限 80 / 500 字符）",
+                 "en": "Name or expression too long (max 80 / 500 chars)"},
+    "too_many": {"zh": "自定义分析数量已达上限（200 条）",
+                 "en": "Too many custom analyses (max 200)"},
 }
 
 
@@ -166,8 +172,57 @@ def _var_value(spec: list[str], year: int) -> float | None:
 
 
 def _safe_eval(expr: str, namespace: Mapping[str, object]) -> float | None:
-    result = eval(expr, {"__builtins__": {}}, {**_SAFE_BUILTINS, **namespace})  # noqa: S307
-    return float(result) if result is not None else None
+    """AST 白名单求值：只允许算术运算、白名单函数调用与已知变量名。
+
+    不用 eval——「空 ``__builtins__`` 的受限 eval」可沿属性链逃逸
+    （``().__class__.__bases__[0].__subclasses__()`` 可达 os/subprocess），
+    属于公认的不可靠沙箱；AST 遍历只放行白名单节点，无逃逸面。
+    """
+    import ast
+    import operator
+
+    bin_ops: dict[type, object] = {
+        ast.Add: operator.add, ast.Sub: operator.sub,
+        ast.Mult: operator.mul, ast.Div: operator.truediv,
+        ast.FloorDiv: operator.floordiv, ast.Mod: operator.mod,
+        ast.Pow: operator.pow,
+    }
+    unary_ops: dict[type, object] = {ast.USub: operator.neg, ast.UAdd: operator.pos}
+
+    try:
+        tree = ast.parse(expr, mode="eval")
+    except (SyntaxError, ValueError) as e:
+        raise ValueError(str(e)) from e
+
+    env = {**namespace}
+
+    def ev(node: ast.AST) -> object:
+        if isinstance(node, ast.Expression):
+            return ev(node.body)
+        if isinstance(node, ast.Constant):
+            if isinstance(node.value, (int, float)) and not isinstance(node.value, bool):
+                return node.value
+            raise ValueError(f"unsupported constant: {node.value!r}")
+        if isinstance(node, ast.Name):
+            if node.id in env:
+                return env[node.id]
+            if node.id in _SAFE_BUILTINS:
+                return _SAFE_BUILTINS[node.id]
+            raise ValueError(f"unknown name: {node.id}")
+        if isinstance(node, ast.BinOp) and type(node.op) in bin_ops:
+            return bin_ops[type(node.op)](ev(node.left), ev(node.right))
+        if isinstance(node, ast.UnaryOp) and type(node.op) in unary_ops:
+            return unary_ops[type(node.op)](ev(node.operand))
+        if isinstance(node, ast.Call):
+            if not isinstance(node.func, ast.Name) or node.keywords:
+                raise ValueError("only plain calls to min/max/abs/round/sum/float/int are allowed")
+            fn = _SAFE_BUILTINS.get(node.func.id)
+            if not callable(fn):
+                raise ValueError(f"unknown function: {node.func.id}")
+            return fn(*(ev(arg) for arg in node.args))
+        raise ValueError(f"unsupported syntax: {type(node).__name__}")
+
+    return float(ev(tree))
 
 
 def run_custom(a: CustomAnalysis, year: int, lang: str = "zh") -> dict[str, object]:
@@ -214,9 +269,19 @@ def add_custom(data: dict[str, object], lang: str = "zh") -> tuple[bool, str]:
     expr = str(data.get("expr", "")).strip()
     if not name or not expr:
         return (False, _err("name_expr_required", lang))
+    # 保存分析面向匿名访客（看板的公开功能），用长度/条数上限挡灌库滥用
+    if len(name) > 80 or len(expr) > 500:
+        return (False, _err("too_long", lang))
     variables = data.get("variables", {})
     if not isinstance(variables, dict) or not variables:
         return (False, _err("vars_required", lang))
+    # 变量值必须是 [专业, 指标, 维度(可选)]：宽松校验会让脏条目落盘，
+    # 之后每次查询都在 _var_value 里 500 且无法自行恢复
+    for var, spec in variables.items():
+        if not (isinstance(var, str) and var.strip()
+                and isinstance(spec, list) and 2 <= len(spec) <= 3
+                and all(isinstance(p, str) and p.strip() for p in spec)):
+            return (False, _err("vars_invalid", lang))
 
     item: CustomAnalysis = {
         "name": name,
@@ -236,6 +301,8 @@ def add_custom(data: dict[str, object], lang: str = "zh") -> tuple[bool, str]:
         return (False, _err("expr_invalid", lang, err=e))
 
     items = load_custom()
+    if len(items) >= 200:
+        return (False, _err("too_many", lang))
     if any(x.get("name") == name for x in items):
         return (False, _err("duplicate", lang, name=name))
     items.append(item)

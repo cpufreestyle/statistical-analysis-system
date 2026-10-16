@@ -78,7 +78,7 @@ window.__CHUNK_URLS = { charts: '/app.charts.js?v=__APP_CHARTS_JS_VER__', palett
 <a class="skip-link" href="#main" data-i18n="跳到主内容">跳到主内容</a>
 
 <!-- ═══════ 顶部导航 ═══════ -->
-<header class="header" aria-label="主导航">
+<header class="header" aria-label="主导航 / Main navigation">
   <div class="header-brand">
     <div class="header-logo">AP</div>
     <div>
@@ -114,16 +114,16 @@ window.__CHUNK_URLS = { charts: '/app.charts.js?v=__APP_CHARTS_JS_VER__', palett
 
     <!-- ═══════ 查询工作台 ═══════ -->
     <div class="workbench">
-      <div class="wb-tabs" role="tablist" aria-label="分析视图">
-        <button class="wb-tab active" data-tab="nlq" role="tab" aria-selected="true" data-i18n="智能查询">智能查询</button>
-        <button class="wb-tab" data-tab="indicators" role="tab" aria-selected="false" data-i18n="指标总表">指标总表</button>
-        <button class="wb-tab" data-tab="custom" role="tab" aria-selected="false" data-i18n="自定义分析">自定义分析</button>
-        <button class="wb-tab" data-tab="bulletin" role="tab" aria-selected="false" data-i18n="统计公报">统计公报</button>
-        <button class="wb-tab" data-tab="charts" role="tab" aria-selected="false" data-i18n="图表">图表</button>
+      <div class="wb-tabs" role="tablist" aria-label="分析视图 / Analysis views">
+        <button class="wb-tab active" id="tab-nlq" data-tab="nlq" role="tab" aria-selected="true" aria-controls="panel-nlq" data-i18n="智能查询">智能查询</button>
+        <button class="wb-tab" id="tab-indicators" data-tab="indicators" role="tab" aria-selected="false" aria-controls="panel-indicators" data-i18n="指标总表">指标总表</button>
+        <button class="wb-tab" id="tab-custom" data-tab="custom" role="tab" aria-selected="false" aria-controls="panel-custom" data-i18n="自定义分析">自定义分析</button>
+        <button class="wb-tab" id="tab-bulletin" data-tab="bulletin" role="tab" aria-selected="false" aria-controls="panel-bulletin" data-i18n="统计公报">统计公报</button>
+        <button class="wb-tab" id="tab-charts" data-tab="charts" role="tab" aria-selected="false" aria-controls="panel-charts" data-i18n="图表">图表</button>
       </div>
       <div class="wb-body">
         <!-- 智能查询 -->
-        <div class="wb-panel active" id="panel-nlq">
+        <div class="wb-panel active" id="panel-nlq" role="tabpanel" aria-labelledby="tab-nlq">
           <p style="font-size:13px;color:var(--gray-500);margin-bottom:12px" data-i18n="输入你的分析问题，AI 将基于公开统计数据为你生成分析结果">输入你的分析问题，AI 将基于公开统计数据为你生成分析结果</p>
           <div class="query-row">
             <input type="text" class="query-input" id="nlqInput" data-i18n-ph="例如：2024年GDP是多少？" placeholder="例如：2024年GDP是多少？" />
@@ -139,10 +139,10 @@ window.__CHUNK_URLS = { charts: '/app.charts.js?v=__APP_CHARTS_JS_VER__', palett
           </label>
           <div class="query-hint" data-i18n="试试这些问题">试试这些问题</div>
           <div class="query-suggestions">
-            <span class="suggestion-chip" data-i18n="chip.gdp" data-q-en="2024 GDP" data-q-zh="2024年GDP" onclick="fillQueryI18n(this)">2024年GDP是多少？</span>
-            <span class="suggestion-chip" data-i18n="chip.retail" data-q-en="retail sales" data-q-zh="社会消费品零售总额" onclick="fillQueryI18n(this)">社会消费品零售总额</span>
-            <span class="suggestion-chip" data-i18n="chip.invest" data-q-en="fixed asset investment" data-q-zh="固定资产投资总额" onclick="fillQueryI18n(this)">固定资产投资总额</span>
-            <span class="suggestion-chip" data-i18n="chip.pop" data-q-en="total population of Japan" data-q-zh="日本人口" onclick="fillQueryI18n(this)">常住人口数据</span>
+            <span class="suggestion-chip" role="button" tabindex="0" data-i18n="chip.gdp" data-q-en="2024 GDP" data-q-zh="2024年GDP" onclick="fillQueryI18n(this)">2024年GDP是多少？</span>
+            <span class="suggestion-chip" role="button" tabindex="0" data-i18n="chip.retail" data-q-en="retail sales" data-q-zh="社会消费品零售总额" onclick="fillQueryI18n(this)">社会消费品零售总额</span>
+            <span class="suggestion-chip" role="button" tabindex="0" data-i18n="chip.invest" data-q-en="fixed asset investment" data-q-zh="固定资产投资总额" onclick="fillQueryI18n(this)">固定资产投资总额</span>
+            <span class="suggestion-chip" role="button" tabindex="0" data-i18n="chip.pop" data-q-en="total population of Japan" data-q-zh="日本人口" onclick="fillQueryI18n(this)">常住人口数据</span>
           </div>
           <!-- 最近提问：localStorage 记住本机问过的问题，点一下直接重跑；无记录时整块隐藏 -->
           <div class="query-recent" id="nlqRecent" hidden>
@@ -154,7 +154,7 @@ window.__CHUNK_URLS = { charts: '/app.charts.js?v=__APP_CHARTS_JS_VER__', palett
         </div>
 
         <!-- 指标总表 -->
-        <div class="wb-panel" id="panel-indicators">
+        <div class="wb-panel" id="panel-indicators" role="tabpanel" aria-labelledby="tab-indicators">
           <p style="font-size:.8rem;color:var(--gray-500);margin:0 0 .5rem" data-i18n="勾选指标后点「用所选建分析」可一键带入自定义分析；也可在上方自然语言框直接问具体指标名。">勾选指标后点「用所选建分析」可一键带入自定义分析；也可在上方自然语言框直接问具体指标名。</p>
           <div class="query-row" style="margin-bottom:10px">
             <select class="query-input" style="flex:none;max-width:180px" id="indCat" onchange="loadIndicators()">
@@ -180,14 +180,14 @@ window.__CHUNK_URLS = { charts: '/app.charts.js?v=__APP_CHARTS_JS_VER__', palett
                 </tr>
               </thead>
               <tbody>
-                <tr><td colspan="8"><div class="skeleton skeleton-line" style="width:70%"></div><div class="skeleton skeleton-line" style="width:50%"></div></td></tr>
+                <tr><td colspan="7"><div class="skeleton skeleton-line" style="width:70%"></div><div class="skeleton skeleton-line" style="width:50%"></div></td></tr>
               </tbody>
             </table>
           </div>
         </div>
 
         <!-- 自定义分析 -->
-        <div class="wb-panel" id="panel-custom">
+        <div class="wb-panel" id="panel-custom" role="tabpanel" aria-labelledby="tab-custom">
           <!-- 运行已有分析 -->
           <div class="query-row">
             <select class="query-input" style="flex:1" id="customSelect">
@@ -250,7 +250,7 @@ window.__CHUNK_URLS = { charts: '/app.charts.js?v=__APP_CHARTS_JS_VER__', palett
         </div>
 
         <!-- 统计公报 -->
-        <div class="wb-panel" id="panel-bulletin">
+        <div class="wb-panel" id="panel-bulletin" role="tabpanel" aria-labelledby="tab-bulletin">
           <p style="font-size:.8rem;color:var(--gray-500);margin:0 0 .6rem" data-i18n="点击「生成公报」按当前年份与维度输出真实数据公报">点击「生成公报」按当前年份与维度输出真实数据公报</p>
           <div class="query-row">
             <button class="btn btn-primary" id="btnBulletin" onclick="tabAction('bulletin', 'loadBulletin')">
@@ -266,7 +266,7 @@ window.__CHUNK_URLS = { charts: '/app.charts.js?v=__APP_CHARTS_JS_VER__', palett
         </div>
 
         <!-- 图表 -->
-        <div class="wb-panel" id="panel-charts">
+        <div class="wb-panel" id="panel-charts" role="tabpanel" aria-labelledby="tab-charts">
           <p style="font-size:.8rem;color:var(--gray-500);margin:0 0 .6rem" data-i18n="选择指标后可查看跨年趋势与分经济体排名（自绘 SVG，无图表库依赖）">选择指标后可查看跨年趋势与分经济体排名（自绘 SVG，无图表库依赖）</p>
           <div class="query-row" style="margin-bottom:10px">
             <select class="query-input" style="flex:none;max-width:260px" id="chartIndicator" onchange="tabAction('charts', 'loadChartSeries')">
@@ -324,19 +324,19 @@ window.__CHUNK_URLS = { charts: '/app.charts.js?v=__APP_CHARTS_JS_VER__', palett
       <div class="section-title" data-i18n="快速开始">快速开始</div>
     </div>
     <div class="quick-grid">
-      <div class="quick-card" data-q-en="2024 GDP" data-q-zh="2024年GDP" onclick="fillQueryI18n(this)">
+      <div class="quick-card" role="button" tabindex="0" data-q-en="2024 GDP" data-q-zh="2024年GDP" onclick="fillQueryI18n(this)">
         <div class="quick-title" data-i18n="GDP 构成分析">GDP 构成分析</div>
         <div class="quick-desc" data-i18n="查看三大产业增加值及占比">查看三大产业增加值及占比</div>
       </div>
-      <div class="quick-card" data-q-en="industrial value added" data-q-zh="工业增加值" onclick="fillQueryI18n(this)">
+      <div class="quick-card" role="button" tabindex="0" data-q-en="industrial value added" data-q-zh="工业增加值" onclick="fillQueryI18n(this)">
         <div class="quick-title" data-i18n="工业运行">工业运行</div>
         <div class="quick-desc" data-i18n="对比各经济体工业增加值">对比各经济体工业增加值</div>
       </div>
-      <div class="quick-card" data-q-en="exports of goods" data-q-zh="货物服务出口总额" onclick="fillQueryI18n(this)">
+      <div class="quick-card" role="button" tabindex="0" data-q-en="exports of goods" data-q-zh="货物服务出口总额" onclick="fillQueryI18n(this)">
         <div class="quick-title" data-i18n="贸易统计">贸易统计</div>
         <div class="quick-desc" data-i18n="进出口与消费数据">进出口与消费数据</div>
       </div>
-      <div class="quick-card" data-q-en="fixed asset investment" data-q-zh="固定资产投资总额" onclick="fillQueryI18n(this)">
+      <div class="quick-card" role="button" tabindex="0" data-q-en="fixed asset investment" data-q-zh="固定资产投资总额" onclick="fillQueryI18n(this)">
         <div class="quick-title" data-i18n="投资与人口">投资与人口</div>
         <div class="quick-desc" data-i18n="固定资产投资与人口指标">固定资产投资与人口指标</div>
       </div>
@@ -347,10 +347,9 @@ window.__CHUNK_URLS = { charts: '/app.charts.js?v=__APP_CHARTS_JS_VER__', palett
   <aside class="sidebar">
     <!-- 知识库与数据源 -->
     <div class="side-card">
-      <div class="side-card-header toggleable" onclick="toggleSidebarCard(this)">
+      <div class="side-card-header toggleable" role="button" tabindex="0" aria-expanded="true" onclick="toggleSidebarCard(this)">
         <div class="side-card-title"><span class="icon"><svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.4 4.6h4.8a3 3 0 0 1 3 3v11.8a2.4 2.4 0 0 0-2.4-2.4H4.4z"/><path d="M19.6 4.6h-4.8a3 3 0 0 0-3 3v11.8a2.4 2.4 0 0 1 2.4-2.4h5.4z"/></svg></span> <span data-i18n="知识库与数据源">知识库与数据源</span></div>
         <div style="display:flex;align-items:center;gap:8px">
-          <span class="side-card-more" data-i18n="管理" onclick="event.stopPropagation()" style="font-size:11px;color:var(--blue-600)">管理</span>
           <span class="side-card-arrow"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
         </div>
       </div>
@@ -367,7 +366,7 @@ window.__CHUNK_URLS = { charts: '/app.charts.js?v=__APP_CHARTS_JS_VER__', palett
 
     <!-- 数据收集 -->
     <div class="side-card">
-      <div class="side-card-header toggleable" onclick="toggleSidebarCard(this)">
+      <div class="side-card-header toggleable" role="button" tabindex="0" aria-expanded="true" onclick="toggleSidebarCard(this)">
         <div class="side-card-title"><span class="icon"><svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.6v11"/><path d="M7.6 10.4 12 14.8l4.4-4.4"/><path d="M4.6 20.4h14.8"/></svg></span> <span data-i18n="数据收集">数据收集</span></div>
         <span class="side-card-arrow"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
       </div>
@@ -383,7 +382,7 @@ window.__CHUNK_URLS = { charts: '/app.charts.js?v=__APP_CHARTS_JS_VER__', palett
 
     <!-- 数据来源与规模（真实统计，非演示文案） -->
     <div class="side-card">
-      <div class="side-card-header toggleable" onclick="toggleSidebarCard(this)">
+      <div class="side-card-header toggleable" role="button" tabindex="0" aria-expanded="true" onclick="toggleSidebarCard(this)">
         <div class="side-card-title"><span class="icon"><svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="6" rx="7.4" ry="2.9"/><path d="M4.6 6v6c0 1.6 3.3 2.9 7.4 2.9s7.4-1.3 7.4-2.9V6"/><path d="M4.6 12v6c0 1.6 3.3 2.9 7.4 2.9s7.4-1.3 7.4-2.9v-6"/></svg></span> <span data-i18n="数据来源与规模">数据来源与规模</span></div>
         <span class="side-card-arrow"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
       </div>
@@ -414,7 +413,7 @@ window.__CHUNK_URLS = { charts: '/app.charts.js?v=__APP_CHARTS_JS_VER__', palett
   <div class="palette" role="dialog" aria-modal="true" aria-label="命令面板 / Command palette">
     <input class="palette-input" id="paletteInput" type="text" role="combobox" aria-expanded="true"
            aria-controls="paletteList" aria-label="搜索命令、年份、经济体 / Search commands, years, economies"
-           placeholder="搜索命令、年份、经济体…" autocomplete="off" spellcheck="false" />
+           data-i18n-ph="搜索命令、年份、经济体…" placeholder="搜索命令、年份、经济体…" autocomplete="off" spellcheck="false" />
     <div class="palette-list" id="paletteList" role="listbox" aria-label="命令列表 / Command list"></div>
   </div>
 </div>

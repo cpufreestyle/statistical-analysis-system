@@ -349,13 +349,14 @@ const DRIVER = `
 
   var CJK = /[\\u4e00-\\u9fff]/;
 
-  /* 场景 1：旧分享链接指向无数据维度，STATE 里存的是本地化标签（跨语言不可靠的那一步） */
+  /* 场景 1：旧分享链接指向无数据维度。审核修复后 STATE 只存规范键（dimension_key）：
+     回写本地化标签曾让 EN 下拉框在下一次填充时匹配不到选中项而静默重置 */
   STATE.dimension = 'China';
   var en = await render({ cards: [], dimension: 'China', dimension_key: '中国' }, 'en');
   check('空看板给出英文兜底文案', en.indexOf('No data for this economy yet') >= 0, en.slice(0, 200));
   check('兜底带切回亚太的出口', en.indexOf("syncDimension('亚太')") >= 0 && en.indexOf('View Asia-Pacific') >= 0, en.slice(0, 300));
   check('可见文案不残留中文原词', en.indexOf('该维度暂无数据') < 0, en.slice(0, 200));
-  check('按 dimension_key 判重，STATE 仍是展示标签', STATE.dimension === 'China', STATE.dimension);
+  check('回写走 dimension_key，STATE 不再存展示标签', STATE.dimension === '中国', STATE.dimension);
 
   /* 场景 2：已经是亚太口径 -> 不能再给「切回亚太」的自我死循环 */
   var atHome = await render({ cards: [], dimension: 'Asia-Pacific', dimension_key: '亚太' }, 'en');

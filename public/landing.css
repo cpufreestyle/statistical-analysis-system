@@ -635,7 +635,7 @@ body {
 }
 
 /* ============ 可访问性（a11y） ============ */
-:focus-visible { outline: 2px solid var(--blue-600); outline-offset: 2px; border-radius: var(--radius-sm); }
+:focus-visible { outline: 2px solid var(--blue-600); outline-offset: 2px; border-radius: var(--radius-sm); box-shadow: 0 0 0 3px var(--blue-200); }
 .skip-link {
   position: absolute; left: 8px; top: -48px; z-index: 1000;
   background: var(--blue-600); color: #fff; padding: 8px 14px;
@@ -643,9 +643,24 @@ body {
   transition: top .15s ease;
 }
 .skip-link:focus { top: 8px; }
+/* 尊重系统「减少动态效果」偏好。
+
+   落地页的 html 有 scroll-behavior: smooth（导航锚点平滑滑行），且
+   hero 徽标是 2s infinite 的 pulse 呼吸；只压 duration 时前者照旧平滑滚动、
+   后者照旧无限呼吸。故除 duration 外补 scroll-behavior 与
+   iteration-count，与看板 style.css 的同名块保持一致口径。 */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: .001ms !important;
   }
+  html, body { scroll-behavior: auto !important; }
+  /* 徽标呼吸点是纯装饰，静止不影响任何信息 */
+  .hero-badge::before { animation: none !important; }
+  /* 卡片与 CTA 的 hover 位移（translateY -1px/-2px/-4px）改为静止 */
+  .feature-card:hover,
+  .arch-card:hover,
+  .btn-primary:hover,
+  .nav-cta:hover { transform: none !important; }
 }
